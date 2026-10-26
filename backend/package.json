@@ -1,0 +1,39 @@
+{
+  "name": "hookforge-backend",
+  "version": "1.0.0",
+  "description": "HookForge Backend - Reliable Webhook Delivery Platform",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "node scripts/verify-e2e.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "express-validator": "^7.0.0",
+    "pg": "^8.23.1",
+    "pino": "^9.7.0",
+    "pino-pretty": "^11.0.0",
+    "uuid": "^9.0.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0",
+    "globals": "^16.4.0",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.6.2",
+    "supertest": "^7.1.4",
+    "vitest": "^3.2.4"
+  }
+}

@@ -7,6 +7,7 @@ import app from './app.js';
 import config from './config/index.js';
 import logger from './utils/logger.js';
 import { testConnection, closePool } from './config/database.js';
+import { start as startDispatcher, stop as stopDispatcher } from './services/delivery/dispatcher.js';
 
 let server;
 
@@ -23,6 +24,10 @@ async function startServer() {
         env: config.nodeEnv,
       });
     });
+
+    // Start delivery dispatcher
+    logger.info('Starting delivery dispatcher...');
+    startDispatcher();
 
     // Handle graceful shutdown
     process.on('SIGTERM', gracefulShutdown);
@@ -47,6 +52,10 @@ async function startServer() {
 
 async function gracefulShutdown(signal) {
   logger.info(`Received ${signal}, shutting down gracefully...`);
+
+  // Stop dispatcher
+  logger.info('Stopping delivery dispatcher...');
+  stopDispatcher();
 
   // Stop accepting new connections
   if (server) {

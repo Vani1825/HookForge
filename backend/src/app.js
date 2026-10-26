@@ -4,10 +4,13 @@
  */
 
 import express from 'express';
-import config from './config/index.js';
 import logger from './utils/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { apiKeyAuth } from './middleware/auth.js';
 import healthRouter from './routes/health.js';
+import endpointsRouter from './routes/endpoints.js';
+import eventsRouter from './routes/events.js';
+import deliveriesRouter from './routes/deliveries.js';
 
 const app = express();
 
@@ -30,10 +33,10 @@ app.use(express.json());
 // Health check route (no authentication required)
 app.use('/health', healthRouter);
 
-// API routes will be added here in later phases
-// app.use('/endpoints', endpointsRouter);
-// app.use('/events', eventsRouter);
-// app.use('/deliveries', deliveriesRouter);
+// API routes with authentication
+app.use('/endpoints', apiKeyAuth, endpointsRouter);
+app.use('/events', apiKeyAuth, eventsRouter);
+app.use('/deliveries', apiKeyAuth, deliveriesRouter);
 
 // 404 handler
 app.use(notFoundHandler);

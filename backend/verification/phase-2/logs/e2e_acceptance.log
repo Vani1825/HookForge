@@ -1,0 +1,1493 @@
+=== HOOKFORGE ACCEPTANCE TESTS INITIALIZING ===
+
+Mock receiver running on http://127.0.0.1:9095/webhook
+Seeded Tenant A: d6175278-99f8-4485-be12-e7ad30f1ed5a
+Seeded Tenant B: 6dfafd44-ca2f-48a1-b721-11876720c78b
+
+--- Running Scenario 1: Successful Signed Delivery ---
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:07 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+
+>>> [PASS] Test 1: Successful signed delivery - Delivery 82f94d72-b417-4569-bf74-50b9a6311de8 marked SUCCEEDED with valid HMAC signature and stable X-Webhook-Id
+
+--- Running Scenario 2: Idempotency ---
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+
+>>> [PASS] Test 2: Idempotency - Duplicate key returned 200 with deliveriesEnqueued: 0; DB contains exactly 1 event
+
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDuplicate idempotency key[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+--- Running Scenario 3: Per-Endpoint Ordering ---
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:08 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:08 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+
+>>> [PASS] Test 3: Ordering - 10 events delivered in strict monotonic sequence (1..10) with no head-of-line violations
+
+--- Running Scenario 4: Retry with Backoff ---
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+
+>>> [PASS] Test 4: Retry - Delivery failed twice (500), retried according to policy, succeeded on attempt 3
+
+--- Running Scenario 5: Dead-Letter Queue & Replay ---
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [33mWARN[39m: [36mDelivery marked DEAD (retry limit exceeded)[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery replayed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+Scenario 5 checks: {
+  deadState: 'DEAD',
+  attemptCount: 8,
+  inDlqList: true,
+  replayCrossStatus: 404,
+  replayValidStatus: 200,
+  replayedState: 'SUCCEEDED',
+  replayInvalidStatus: 400
+}
+
+>>> [PASS] Test 5: Dead-letter replay - Delivery transitioned to DEAD after 8 attempts, returned in DLQ query, Tenant B 404, replayed & succeeded, invalid replay rejected (400)
+
+--- Running Scenario 6: Lease Recovery ---
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [32mINFO[39m: [36mRecovered expired lease[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:09 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+
+>>> [PASS] Test 6: Lease recovery - Expired IN_FLIGHT delivery recovered by lease reaper to RETRYING, claimed and delivered without loss
+
+--- Running Scenario 7: Circuit Breaker ---
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery scheduled for retry[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mEvent ingested[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mCircuit breaker blocked delivery[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mWebhook sent[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery attempt completed[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+Scenario 7 checks: {
+  openState: 'OPEN',
+  openFailures: 5,
+  blockedCalls: 0,
+  closedState: 'CLOSED',
+  closedFailures: 0
+}
+
+>>> [PASS] Test 7: Circuit breaker - Tripped to OPEN after 5 failures, blocked requests while OPEN, HALF_OPEN probe succeeded and reset circuit to CLOSED
+
+--- Running Scenario 8: Tenant Isolation ---
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mDelivery succeeded[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mEndpoint created[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mEndpoint created via API[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [33mWARN[39m: [36mEndpoint not found or access denied[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mAuthentication successful[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+
+>>> [PASS] Test 8: Tenant isolation - Tenant B cannot view/patch Tenant A resources; cross-tenant accesses return 404/empty; missing/bad keys return 401
+
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [33mWARN[39m: [36mMissing Authorization header[39m
+    env: "development"
+[13:40:10 UTC] [32mINFO[39m: [36mIncoming request[39m
+    env: "development"
+[13:40:10 UTC] [34mDEBUG[39m: [36mExecuted query[39m
+    env: "development"
+[13:40:10 UTC] [33mWARN[39m: [36mInvalid API key - tenant not found[39m
+    env: "development"
+=== ACCEPTANCE TEST SUMMARY ===
+- Test 1: Successful signed delivery: PASS
+- Test 2: Idempotency: PASS
+- Test 3: Ordering: PASS
+- Test 4: Retry: PASS
+- Test 5: Dead-letter replay: PASS
+- Test 6: Lease recovery: PASS
+- Test 7: Circuit breaker: PASS
+- Test 8: Tenant isolation: PASS
+Total: 8, Passed: 8, Failed: 0
+
+>>> ALL 8 ACCEPTANCE SCENARIOS PASSED SUCCESSFULLY! <<<
+
+[13:40:10 UTC] [32mINFO[39m: [36mDatabase pool closed[39m
+    env: "development"

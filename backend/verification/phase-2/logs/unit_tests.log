@@ -1,0 +1,54 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.7 [39m[90mE:/Projects/HookForge[39m
+
+ [32m✓[39m test/services/endpointService.test.js [2m([22m[2m7 tests[22m[2m)[22m[32m 250[2mms[22m[39m
+ [32m✓[39m test/middleware/auth.test.js [2m([22m[2m11 tests[22m[2m)[22m[32m 33[2mms[22m[39m
+{"level":30,"time":1793021987941,"env":"test","msg":"Event ingested"}
+{"level":50,"time":1793021987950,"env":"test","msg":"Failed to insert endpoint"}
+{"level":50,"time":1793021987951,"env":"test","msg":"Failed to find tenant by API key hash"}
+ [32m✓[39m test/repositories/tenantRepository.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 23[2mms[22m[39m
+ [32m✓[39m test/services/ingest/eventIngestService.test.js [2m([22m[2m3 tests[22m[2m)[22m[33m 338[2mms[22m[39m
+   [33m[2m✓[22m[39m EventIngestService[2m > [22mingest[2m > [22mshould create event and enqueue deliveries [33m 328[2mms[22m[39m
+{"level":30,"time":1793021987955,"env":"test","msg":"Duplicate idempotency key"}
+{"level":50,"time":1793021987978,"env":"test","msg":"Failed to allocate sequence number"}
+ [32m✓[39m test/repositories/endpointRepository.test.js [2m([22m[2m15 tests[22m[2m)[22m[33m 446[2mms[22m[39m
+   [33m[2m✓[22m[39m EndpointRepository[2m > [22minsert[2m > [22mshould insert endpoint and return created object [33m 410[2mms[22m[39m
+{"level":30,"time":1793021988014,"env":"test","msg":"Delivery attempt completed"}
+ [32m✓[39m test/services/delivery/attemptExecutor.test.js [2m([22m[2m1 test[22m[2m)[22m[33m 465[2mms[22m[39m
+   [33m[2m✓[22m[39m AttemptExecutor[2m > [22mshould execute delivery attempt with signature [33m 461[2mms[22m[39m
+{"level":30,"time":1793021988259,"env":"test","msg":"Delivery replayed"}
+ [32m✓[39m test/services/delivery/deliveryService.test.js [2m([22m[2m7 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+{"level":30,"time":1793021988997,"env":"test","msg":"Endpoint created via API"}
+ [32m✓[39m test/routes/deliveries.test.js [2m([22m[2m9 tests[22m[2m)[22m[32m 207[2mms[22m[39m
+{"level":30,"time":1793021989167,"env":"test","msg":"Endpoint updated via API"}
+{"level":30,"time":1793021989201,"env":"test","msg":"Incoming request"}
+ [32m✓[39m test/routes/endpoints.test.js [2m([22m[2m7 tests[22m[2m)[22m[33m 493[2mms[22m[39m
+ [32m✓[39m test/services/resilience/exponentialJitterRetryPolicy.test.js [2m([22m[2m12 tests[22m[2m)[22m[32m 13[2mms[22m[39m
+ [32m✓[39m test/services/resilience/tokenBucketRateLimiter.test.js [2m([22m[2m6 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+{"level":30,"time":1793021989420,"env":"test","msg":"Incoming request"}
+ [32m✓[39m test/services/resilience/thresholdCircuitBreaker.test.js [2m([22m[2m11 tests[22m[2m)[22m[32m 14[2mms[22m[39m
+{"level":50,"time":1793021989433,"env":"test","msg":"Request error"}
+ [32m✓[39m test/health.test.js [2m([22m[2m2 tests[22m[2m)[22m[32m 287[2mms[22m[39m
+ [32m✓[39m test/routes/events.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 272[2mms[22m[39m
+ [32m✓[39m test/repositories/deliveryRepository.test.js [2m([22m[2m8 tests[22m[2m)[22m[32m 36[2mms[22m[39m
+{"level":30,"time":1793021989546,"env":"test","msg":"Recovered expired lease"}
+{"level":30,"time":1793021989571,"env":"test","msg":"Recovered expired lease"}
+{"level":30,"time":1793021989576,"env":"test","msg":"Recovered expired lease"}
+{"level":30,"time":1793021989577,"env":"test","msg":"Recovered expired lease"}
+ [32m✓[39m test/services/resilience/leaseReaper.test.js [2m([22m[2m4 tests[22m[2m)[22m[32m 42[2mms[22m[39m
+{"level":30,"time":1793021989562,"env":"test","msg":"Delivery succeeded"}
+{"level":30,"time":1793021989599,"env":"test","msg":"Delivery succeeded"}
+{"level":40,"time":1793021989601,"env":"test","msg":"Delivery marked DEAD (endpoint gone)"}
+{"level":30,"time":1793021989602,"env":"test","msg":"Delivery scheduled for retry"}
+{"level":40,"time":1793021989603,"env":"test","msg":"Delivery marked DEAD (retry limit exceeded)"}
+{"level":30,"time":1793021989604,"env":"test","msg":"Delivery scheduled for retry"}
+{"level":40,"time":1793021989606,"env":"test","msg":"Delivery marked DEAD (retry limit exceeded)"}
+ [32m✓[39m test/services/delivery/outcomeHandler.test.js [2m([22m[2m7 tests[22m[2m)[22m[32m 50[2mms[22m[39m
+ [32m✓[39m test/config.test.js [2m([22m[2m7 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m test/errorHandler.test.js [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m19 passed[39m[22m[90m (19)[39m
+[2m      Tests [22m [1m[32m131 passed[39m[22m[90m (131)[39m
+[2m   Start at [22m 19:09:46
+[2m   Duration [22m 3.87s[2m (transform 1.49s, setup 0ms, collect 10.19s, tests 3.03s, environment 9ms, prepare 8.51s)[22m
+
