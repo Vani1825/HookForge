@@ -27,6 +27,25 @@ app.use((req, res, next) => {
   next();
 });
 
+// CORS middleware
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader(
+    'Access-Control-Allow-Methods',
+    'GET, POST, PATCH, PUT, DELETE, OPTIONS'
+  );
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, Idempotency-Key, X-Api-Key'
+  );
+
+  // Return immediately for OPTIONS preflights before auth checks
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+  next();
+});
+
 // Parse JSON bodies
 app.use(express.json());
 

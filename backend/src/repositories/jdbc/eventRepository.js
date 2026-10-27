@@ -87,6 +87,27 @@ export async function findById(id) {
   }
 }
 
+/**
+ * Find all events by tenant (tenant-scoped).
+ */
+export async function findAllByTenant(tenantId, limit = 100) {
+  const sql = `
+    SELECT id, tenant_id, payload, idempotency_key, created_at
+    FROM events
+    WHERE tenant_id = $1
+    ORDER BY created_at DESC
+    LIMIT $2
+  `;
+
+  try {
+    const result = await query(sql, [tenantId, limit]);
+    return result.rows.map(mapRowToEvent);
+  } catch (error) {
+    logger.error('Failed to list events by tenant', { error: error.message, tenantId });
+    throw error;
+  }
+}
+
 // ============ DeliveryEnqueuer Implementation ============
 
 /**
@@ -236,6 +257,7 @@ export default {
   insert,
   findByTenantAndIdempotencyKey,
   findById,
+  findAllByTenant,
   // DeliveryEnqueuer
   enqueue,
 };

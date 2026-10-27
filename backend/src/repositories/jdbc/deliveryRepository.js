@@ -283,6 +283,67 @@ export async function findByState(state, tenantId, limit = 100) {
 }
 
 /**
+ * Find all deliveries for a tenant across all states.
+ */
+export async function findAllByTenant(tenantId, limit = 100) {
+  const sql = `
+    SELECT d.*
+    FROM deliveries d
+    JOIN endpoints e ON d.endpoint_id = e.id
+    WHERE e.tenant_id = $1
+    ORDER BY d.created_at DESC
+    LIMIT $2
+  `;
+
+  try {
+    const result = await query(sql, [tenantId, limit]);
+    return result.rows.map(mapRowToDelivery);
+  } catch (error) {
+    logger.error('Failed to find all deliveries for tenant', {
+      error: error.message,
+      tenantId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Find all attempts for a given delivery.
+ */
+export async function findAttemptsByDeliveryId(deliveryId) {
+  const sql = `
+    SELECT id, delivery_id, attempt_no, started_at, status_code, latency_ms, error
+    FROM delivery_attempts
+    WHERE delivery_id = $1
+    ORDER BY attempt_no ASC
+  `;
+
+  try {
+    const result = await query(sql, [deliveryId]);
+    return result.rows.map((row) => ({
+      id: row.id,
+      deliveryId: row.delivery_id,
+      delivery_id: row.delivery_id,
+      attemptNo: row.attempt_no,
+      attempt_no: row.attempt_no,
+      startedAt: row.started_at ? row.started_at.toISOString() : null,
+      started_at: row.started_at ? row.started_at.toISOString() : null,
+      statusCode: row.status_code,
+      status_code: row.status_code,
+      latencyMs: Number(row.latency_ms),
+      latency_ms: Number(row.latency_ms),
+      error: row.error,
+    }));
+  } catch (error) {
+    logger.error('Failed to find attempts by delivery ID', {
+      error: error.message,
+      deliveryId,
+    });
+    throw error;
+  }
+}
+
+/**
  * Find expired IN_FLIGHT deliveries for lease reaper.
  */
 export async function findExpiredLeases(now) {
@@ -365,6 +426,8 @@ export default {
   // DeliveryQueries
   findByEvent,
   findByState,
+  findAllByTenant,
+  findAttemptsByDeliveryId,
   findExpiredLeases,
   // DeliveryOutcomeRecorder
   recordAttempt,

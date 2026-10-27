@@ -28,13 +28,21 @@ export function createEndpoint(data = {}) {
  * Convert endpoint to response DTO (excludes secret)
  */
 export function toResponseDTO(endpoint) {
+  const circuit = endpoint.circuitState.toString();
   return {
     id: endpoint.id,
     url: endpoint.url,
     active: endpoint.active,
     rateLimitRps: endpoint.rateLimitRps,
-    circuitState: endpoint.circuitState.toString(),
+    rate_limit_rps: endpoint.rateLimitRps,
+    circuitState: circuit,
+    circuit_state: circuit,
+    consecutiveFailures: endpoint.consecutiveFailures,
+    consecutive_failures: endpoint.consecutiveFailures,
+    nextSeq: endpoint.nextSeq,
+    next_seq: endpoint.nextSeq,
     createdAt: endpoint.createdAt,
+    created_at: endpoint.createdAt,
   };
 }
 

@@ -70,8 +70,37 @@ export async function replayDelivery(deliveryId, tenantId) {
   return updated;
 }
 
+/**
+ * Get all deliveries for a tenant across states.
+ * @param {string} tenantId - Tenant UUID for access control
+ * @param {number} limit - Max results
+ * @returns {Promise<Array>} Array of delivery objects
+ */
+export async function getAllDeliveries(tenantId, limit = 100) {
+  return await deliveryRepository.findAllByTenant(tenantId, limit);
+}
+
+/**
+ * Get delivery by ID with attempts (tenant-scoped).
+ * @param {string} deliveryId - Delivery UUID
+ * @param {string} tenantId - Tenant UUID for access control
+ * @returns {Promise<Object|null>} Delivery object with attempts
+ */
+export async function getDeliveryById(deliveryId, tenantId) {
+  const delivery = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+  if (!delivery) return null;
+
+  const attempts = await deliveryRepository.findAttemptsByDeliveryId(deliveryId);
+  return {
+    ...delivery,
+    attempts,
+  };
+}
+
 export default {
   getDeliveriesByEvent,
   getDeliveriesByState,
+  getAllDeliveries,
+  getDeliveryById,
   replayDelivery,
 };

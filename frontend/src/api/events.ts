@@ -7,12 +7,28 @@ export interface IngestEventInput {
   event_type?: string
 }
 
+function normalizeEvent(e: any): WebhookEvent {
+  if (!e || typeof e !== 'object') return e
+  return {
+    ...e,
+    tenant_id: e.tenant_id || e.tenantId,
+    idempotency_key: e.idempotency_key || e.idempotencyKey,
+    created_at: e.created_at || e.createdAt,
+    payload: e.payload,
+  }
+}
+
 export async function fetchEvents(): Promise<WebhookEvent[]> {
-  return apiClient.get<WebhookEvent[]>('/events')
+  const res = await apiClient.get<WebhookEvent[]>('/events')
+  if (Array.isArray(res)) {
+    return res.map(normalizeEvent)
+  }
+  return []
 }
 
 export async function fetchEventById(id: string): Promise<WebhookEvent> {
-  return apiClient.get<WebhookEvent>(`/events/${id}`)
+  const res = await apiClient.get<WebhookEvent>(`/events/${id}`)
+  return normalizeEvent(res)
 }
 
 export async function ingestEvent(input: IngestEventInput): Promise<IngestResult> {

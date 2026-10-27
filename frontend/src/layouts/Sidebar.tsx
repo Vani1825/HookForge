@@ -52,8 +52,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       >
         {/* Top: Brand & Logo */}
         <div>
-          <div className="h-16 px-6 flex items-center justify-between border-b border-slate-100">
-            <NavLink to="/" className="flex items-center gap-2.5 group">
+          <div className="px-5 py-[18px] flex items-center justify-between border-b border-slate-100">
+            <NavLink to="/" className="flex items-center gap-3 group">
               <div className="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center shadow-xs group-hover:bg-slate-800 transition-colors">
                 <Flame className="w-5 h-5 text-amber-400" />
               </div>
@@ -61,7 +61,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 <span className="font-bold text-slate-900 tracking-tight text-base leading-none">
                   HookForge
                 </span>
-                <span className="text-2xs text-slate-500 font-medium tracking-wide uppercase mt-0.5">
+                <span className="text-2xs text-slate-500 font-medium tracking-wide uppercase mt-1 whitespace-nowrap">
                   Webhook Reliability
                 </span>
               </div>
@@ -77,7 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           </div>
 
           {/* Navigation Links */}
-          <nav className="p-3 space-y-1">
+          <nav className="px-4 py-4 space-y-2">
             {navItems.map((item) => {
               const Icon = item.icon
               return (
@@ -87,7 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   onClick={() => onClose()}
                   className={({ isActive }) =>
                     cn(
-                      'flex items-center justify-between px-3.5 py-2 rounded-lg text-xs font-medium transition-all group cursor-pointer',
+                      'flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-medium transition-all group cursor-pointer',
                       isActive
                         ? 'bg-slate-900 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/80'
@@ -96,19 +96,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 >
                   {({ isActive }) => (
                     <>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <Icon
                           className={cn(
-                            'w-4 h-4 transition-colors',
+                            'w-4 h-4 shrink-0 transition-colors',
                             isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-700'
                           )}
                         />
-                        <span>{item.label}</span>
+                        <span className="truncate">{item.label}</span>
                       </div>
                       {item.badge && (
                         <span
                           className={cn(
-                            'px-1.5 py-0.5 text-2xs rounded-full font-bold',
+                            'px-1.5 py-0.5 text-2xs rounded-full font-bold shrink-0 ml-2',
                             isActive
                               ? 'bg-rose-500 text-white'
                               : 'bg-rose-100 text-rose-700 group-hover:bg-rose-200'

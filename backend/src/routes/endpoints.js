@@ -28,6 +28,10 @@ router.post(
       .optional()
       .isInt({ min: 1 })
       .withMessage('rateLimitRps must be a positive integer'),
+    body('rate_limit_rps')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('rate_limit_rps must be a positive integer'),
   ],
   async (req, res, next) => {
     try {
@@ -40,7 +44,11 @@ router.post(
       }
 
       const tenantId = req[TENANT_ID_ATTRIBUTE];
-      const { url, rateLimitRps } = req.body;
+      const { url } = req.body;
+      const rateLimitRps =
+        req.body.rateLimitRps !== undefined
+          ? req.body.rateLimitRps
+          : req.body.rate_limit_rps;
 
       const endpoint = await endpointService.create(tenantId, {
         url,
@@ -52,14 +60,20 @@ router.post(
         tenantId,
       });
 
+      const circuit = endpoint.circuitState.toString();
       res.status(201).json({
         id: endpoint.id,
         url: endpoint.url,
         secret: endpoint.secret, // Secret shown only on create
         active: endpoint.active,
         rateLimitRps: endpoint.rateLimitRps,
-        circuitState: endpoint.circuitState.toString(),
+        rate_limit_rps: endpoint.rateLimitRps,
+        circuitState: circuit,
+        circuit_state: circuit,
+        consecutiveFailures: endpoint.consecutiveFailures,
+        consecutive_failures: endpoint.consecutiveFailures,
         createdAt: endpoint.createdAt,
+        created_at: endpoint.createdAt,
       });
     } catch (error) {
       next(error);
@@ -104,6 +118,10 @@ router.patch(
       .optional()
       .isInt({ min: 1 })
       .withMessage('rateLimitRps must be a positive integer'),
+    body('rate_limit_rps')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('rate_limit_rps must be a positive integer'),
   ],
   async (req, res, next) => {
     try {
@@ -117,7 +135,11 @@ router.patch(
 
       const tenantId = req[TENANT_ID_ATTRIBUTE];
       const { id } = req.params;
-      const { url, active, rateLimitRps } = req.body;
+      const { url, active } = req.body;
+      const rateLimitRps =
+        req.body.rateLimitRps !== undefined
+          ? req.body.rateLimitRps
+          : req.body.rate_limit_rps;
 
       const updated = await endpointService.update(tenantId, id, {
         url,
