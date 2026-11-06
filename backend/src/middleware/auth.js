@@ -42,21 +42,70 @@ function hashApiKey(apiKey) {
  * Express middleware for API key authentication
  */
 export async function apiKeyAuth(req, res, next) {
+  // If already authenticated by parent middleware, proceed
+  if (req[TENANT_ID_ATTRIBUTE]) {
+    return next();
+  }
+
   // Skip authentication for bypass paths
+  const currentPath = req.path || '';
+  const originalPath = req.originalUrl || '';
+
   // Exact match for /health
-  if (BYPASS_PATHS.includes(req.path)) {
+  if (
+    BYPASS_PATHS.includes(currentPath) ||
+    BYPASS_PATHS.some((p) => originalPath === p || originalPath.startsWith(`${p}/`) || originalPath.startsWith(`${p}?`))
+  ) {
     return next();
   }
 
   // Prefix match for /actuator (allows /actuator/prometheus, /actuator/health, etc.)
-  if (BYPASS_PREFIXES.some((prefix) => req.path.startsWith(prefix))) {
+  if (
+    BYPASS_PREFIXES.some((prefix) => currentPath.startsWith(prefix) || originalPath.startsWith(prefix))
+  ) {
     return next();
   }
 
   const authHeader = req.headers.authorization;
+  let apiKey = null;
 
-  // Check for Authorization header
-  if (!authHeader) {
+  if (authHeader) {
+    // Check for Bearer scheme and extract API key
+    if (!authHeader.startsWith('Bearer ')) {
+      logger.warn('Invalid Authorization scheme', {
+        path: req.path,
+        method: req.method,
+      });
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Authorization header must use Bearer scheme',
+      });
+    }
+    apiKey = authHeader.substring(7); // Remove "Bearer " prefix
+
+    if (!apiKey || apiKey.trim() === '') {
+      logger.warn('Empty API key in Authorization header', {
+        path: req.path,
+        method: req.method,
+      });
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Empty API key',
+      });
+    }
+  } else if (req.headers['x-api-key']) {
+    apiKey = String(req.headers['x-api-key']);
+    if (!apiKey || apiKey.trim() === '') {
+      logger.warn('Empty API key in Authorization header', {
+        path: req.path,
+        method: req.method,
+      });
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Empty API key',
+      });
+    }
+  } else {
     logger.warn('Missing Authorization header', {
       path: req.path,
       method: req.method,
@@ -64,32 +113,6 @@ export async function apiKeyAuth(req, res, next) {
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Missing Authorization header',
-    });
-  }
-
-  // Check for Bearer scheme and extract API key
-  if (!authHeader.startsWith('Bearer ')) {
-    logger.warn('Invalid Authorization scheme', {
-      path: req.path,
-      method: req.method,
-    });
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Authorization header must use Bearer scheme',
-    });
-  }
-
-  // Extract API key (do not log the actual key)
-  const apiKey = authHeader.substring(7); // Remove "Bearer " prefix
-
-  if (!apiKey || apiKey.trim() === '') {
-    logger.warn('Empty API key in Authorization header', {
-      path: req.path,
-      method: req.method,
-    });
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Empty API key',
     });
   }
 
@@ -112,6 +135,7 @@ export async function apiKeyAuth(req, res, next) {
 
     // Set tenant ID on request for downstream handlers
     req[TENANT_ID_ATTRIBUTE] = tenant.id;
+    req.tenantId = tenant.id;
     logger.debug('Authentication successful', {
       tenantId: tenant.id,
       path: req.path,
