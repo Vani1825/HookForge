@@ -15,7 +15,7 @@ const poolConfig = process.env.DATABASE_URL
       connectionString: process.env.DATABASE_URL,
       max: config.database.poolMax,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000,
     }
   : {
       host: config.database.host,
@@ -25,7 +25,7 @@ const poolConfig = process.env.DATABASE_URL
       password: config.database.password,
       max: config.database.poolMax,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000,
     };
 
 const pool = new Pool(poolConfig);

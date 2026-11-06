@@ -4,6 +4,7 @@ import { mockStore } from '../mocks/mockStore'
 import * as endpointsApi from '../api/endpoints'
 import * as eventsApi from '../api/events'
 import * as deliveriesApi from '../api/deliveries'
+import * as metricsApi from '../api/metrics'
 import type {
   Endpoint,
   WebhookEvent,
@@ -53,9 +54,9 @@ interface AppContextValue {
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
-    getOverviewMetrics: () => Promise<OverviewMetrics>
-    getTimeSeriesMetrics: () => Promise<TimeSeriesDataPoint[]>
-    getStatusDistribution: () => Promise<StatusDistribution[]>
+    getOverviewMetrics: (range?: string) => Promise<OverviewMetrics>
+    getTimeSeriesMetrics: (range?: string) => Promise<TimeSeriesDataPoint[]>
+    getStatusDistribution: (range?: string) => Promise<StatusDistribution[]>
   }
 }
 
@@ -240,67 +241,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return deliveriesApi.replayDelivery(id)
     },
 
-    getOverviewMetrics: async (): Promise<OverviewMetrics> => {
+    getOverviewMetrics: async (range?: string): Promise<OverviewMetrics> => {
       if (mode === 'demo') {
         return mockStore.getOverviewMetrics()
       }
-      // In live mode, calculate from active deliveries and endpoints or fetch from /metrics
-      const [deliveries, endpoints, events] = await Promise.all([
-        deliveriesApi.fetchDeliveries().catch(() => []),
-        endpointsApi.fetchEndpoints().catch(() => []),
-        eventsApi.fetchEvents().catch(() => []),
-      ])
-
-      const total = deliveries.length
-      const succeeded = deliveries.filter((d) => d.state === 'SUCCEEDED').length
-      const failed = deliveries.filter((d) => d.state === 'DEAD').length
-      const pending = deliveries.filter(
-        (d) => d.state === 'PENDING' || d.state === 'IN_FLIGHT' || d.state === 'RETRYING'
-      ).length
-      const successRate = total > 0 ? (succeeded / total) * 100 : 100
-
-      return {
-        totalEvents: events.length,
-        totalDeliveries: total,
-        succeededDeliveries: succeeded,
-        failedDeliveries: failed,
-        pendingDeliveries: pending,
-        successRate: Math.round(successRate * 10) / 10,
-        averageLatencyMs: 74,
-        activeEndpoints: endpoints.filter((e) => e.active).length,
-        totalEndpoints: endpoints.length,
-        openCircuits: endpoints.filter((e) => e.circuit_state === 'OPEN').length,
-      }
+      return metricsApi.fetchOverviewMetrics(range ? { range } : undefined)
     },
 
-    getTimeSeriesMetrics: async (): Promise<TimeSeriesDataPoint[]> => {
+    getTimeSeriesMetrics: async (range?: string): Promise<TimeSeriesDataPoint[]> => {
       if (mode === 'demo') {
         return mockStore.getTimeSeriesMetrics()
       }
-      // In live mode, return computed distribution if available or fallback cleanly
-      return mockStore.getTimeSeriesMetrics()
+      return metricsApi.fetchTimeSeriesMetrics(range ? { range } : undefined)
     },
 
-    getStatusDistribution: async (): Promise<StatusDistribution[]> => {
+    getStatusDistribution: async (range?: string): Promise<StatusDistribution[]> => {
       if (mode === 'demo') {
         return mockStore.getStatusDistribution()
       }
-      const deliveries = await deliveriesApi.fetchDeliveries().catch(() => [])
-      const counts = {
-        SUCCEEDED: deliveries.filter((d) => d.state === 'SUCCEEDED').length,
-        RETRYING: deliveries.filter((d) => d.state === 'RETRYING').length,
-        DEAD: deliveries.filter((d) => d.state === 'DEAD').length,
-        IN_FLIGHT: deliveries.filter((d) => d.state === 'IN_FLIGHT').length,
-        PENDING: deliveries.filter((d) => d.state === 'PENDING').length,
-      }
-
-      return [
-        { name: 'Succeeded', value: counts.SUCCEEDED, color: '#10b981' },
-        { name: 'Retrying', value: counts.RETRYING, color: '#f59e0b' },
-        { name: 'Dead Letter', value: counts.DEAD, color: '#ef4444' },
-        { name: 'In Flight', value: counts.IN_FLIGHT, color: '#6366f1' },
-        { name: 'Pending', value: counts.PENDING, color: '#3b82f6' },
-      ]
+      return metricsApi.fetchStatusDistribution(range ? { range } : undefined)
     },
   }
 

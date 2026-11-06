@@ -44,8 +44,8 @@ export const AnalyticsPage: React.FC = () => {
     setError(null)
     try {
       const [m, ts, eps, dels] = await Promise.all([
-        service.getOverviewMetrics(),
-        service.getTimeSeriesMetrics(),
+        service.getOverviewMetrics(dateRange),
+        service.getTimeSeriesMetrics(dateRange),
         service.getEndpoints(),
         service.getDeliveries(),
       ])
@@ -59,11 +59,11 @@ export const AnalyticsPage: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [service])
+  }, [service, dateRange])
 
   useEffect(() => {
     loadData()
-  }, [loadData, mode])
+  }, [loadData, mode, dateRange])
 
   const failureRate =
     metrics && metrics.totalDeliveries > 0
