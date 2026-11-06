@@ -5,8 +5,19 @@
  */
 
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables with fallback search paths:
+// 1. Current working directory .env
 dotenv.config();
+// 2. backend/.env (if executed from project root)
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// 3. Root .env (if executed from backend directory)
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 /**
  * Parse duration string (ISO-8601 format like "PT5S", "PT1H") to milliseconds.
@@ -48,11 +59,13 @@ const config = {
 
   // Database
   database: {
-    url: process.env.DATABASE_URL || 'postgresql://localhost:5432/webhooks',
+    url:
+      process.env.DATABASE_URL ||
+      `postgresql://${process.env.DATABASE_USER || 'webhooks'}:${process.env.DATABASE_PASSWORD || 'webhooks'}@${process.env.DATABASE_HOST || 'localhost'}:${process.env.DATABASE_PORT || '5434'}/${process.env.DATABASE_NAME || 'webhooks'}`,
     user: process.env.DATABASE_USER || 'webhooks',
     password: process.env.DATABASE_PASSWORD || 'webhooks',
     host: process.env.DATABASE_HOST || 'localhost',
-    port: parseInt(process.env.DATABASE_PORT || '5432', 10),
+    port: parseInt(process.env.DATABASE_PORT || '5434', 10),
     database: process.env.DATABASE_NAME || 'webhooks',
     poolMax: parseInt(process.env.DATABASE_POOL_MAX || '20', 10),
   },
