@@ -43,7 +43,7 @@ function hashApiKey(apiKey) {
  */
 export async function apiKeyAuth(req, res, next) {
   // If already authenticated by parent middleware, proceed
-  if (req[TENANT_ID_ATTRIBUTE]) {
+  if (req[TENANT_ID_ATTRIBUTE] || req.tenantId) {
     return next();
   }
 
@@ -54,7 +54,7 @@ export async function apiKeyAuth(req, res, next) {
   // Exact match for /health
   if (
     BYPASS_PATHS.includes(currentPath) ||
-    BYPASS_PATHS.some((p) => originalPath === p || originalPath.startsWith(`${p}/`) || originalPath.startsWith(`${p}?`))
+    BYPASS_PATHS.some((p) => originalPath === p || originalPath.startsWith(`${p}?`))
   ) {
     return next();
   }
@@ -66,54 +66,68 @@ export async function apiKeyAuth(req, res, next) {
     return next();
   }
 
-  const authHeader = req.headers.authorization;
+  const rawAuthHeader = Array.isArray(req.headers.authorization)
+    ? req.headers.authorization[0]
+    : req.headers.authorization;
+  const rawXApiKey = Array.isArray(req.headers['x-api-key'])
+    ? req.headers['x-api-key'][0]
+    : req.headers['x-api-key'];
+
   let apiKey = null;
 
-  if (authHeader) {
-    // Check for Bearer scheme and extract API key
-    if (!authHeader.startsWith('Bearer ')) {
+  const setAuthHeaderAndRespond401 = (message) => {
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('WWW-Authenticate', 'Bearer realm="HookForge"');
+    }
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message,
+    });
+  };
+
+  if (rawAuthHeader) {
+    const trimmedHeader = rawAuthHeader.trim();
+    if (trimmedHeader.toLowerCase() === 'bearer') {
+      logger.warn('Empty API key in Authorization header', {
+        path: req.path,
+        method: req.method,
+      });
+      return setAuthHeaderAndRespond401('Empty API key');
+    }
+
+    // Check for Bearer scheme (case-insensitive) and extract API key
+    if (!rawAuthHeader.toLowerCase().startsWith('bearer ')) {
       logger.warn('Invalid Authorization scheme', {
         path: req.path,
         method: req.method,
       });
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Authorization header must use Bearer scheme',
-      });
+      return setAuthHeaderAndRespond401('Authorization header must use Bearer scheme');
     }
-    apiKey = authHeader.substring(7); // Remove "Bearer " prefix
 
-    if (!apiKey || apiKey.trim() === '') {
+    apiKey = rawAuthHeader.substring(7).trim(); // Remove "Bearer " prefix and trim
+
+    if (!apiKey) {
       logger.warn('Empty API key in Authorization header', {
         path: req.path,
         method: req.method,
       });
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Empty API key',
-      });
+      return setAuthHeaderAndRespond401('Empty API key');
     }
-  } else if (req.headers['x-api-key']) {
-    apiKey = String(req.headers['x-api-key']);
-    if (!apiKey || apiKey.trim() === '') {
-      logger.warn('Empty API key in Authorization header', {
+  } else if (rawXApiKey) {
+    apiKey = String(rawXApiKey).trim();
+    if (!apiKey) {
+      logger.warn('Empty API key in X-Api-Key header', {
         path: req.path,
         method: req.method,
       });
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Empty API key',
-      });
+      return setAuthHeaderAndRespond401('Empty API key');
     }
   } else {
     logger.warn('Missing Authorization header', {
       path: req.path,
       method: req.method,
     });
-    return res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Missing Authorization header',
-    });
+    return setAuthHeaderAndRespond401('Missing Authorization header');
   }
 
   // Compute hash and look up tenant
@@ -127,10 +141,7 @@ export async function apiKeyAuth(req, res, next) {
         path: req.path,
         method: req.method,
       });
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Invalid API key',
-      });
+      return setAuthHeaderAndRespond401('Invalid API key');
     }
 
     // Set tenant ID on request for downstream handlers

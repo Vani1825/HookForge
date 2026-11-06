@@ -4,9 +4,11 @@
  */
 
 import express from 'express';
+import config from './config/index.js';
 import logger from './utils/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiKeyAuth } from './middleware/auth.js';
+import { corsMiddleware } from './middleware/cors.js';
 import healthRouter from './routes/health.js';
 import endpointsRouter from './routes/endpoints.js';
 import eventsRouter from './routes/events.js';
@@ -28,26 +30,10 @@ app.use((req, res, next) => {
 });
 
 // CORS middleware
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Methods',
-    'GET, POST, PATCH, PUT, DELETE, OPTIONS'
-  );
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'Content-Type, Authorization, Idempotency-Key, X-Api-Key'
-  );
-
-  // Return immediately for OPTIONS preflights before auth checks
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
-  }
-  next();
-});
+app.use(corsMiddleware);
 
 // Parse JSON bodies
-app.use(express.json());
+app.use(express.json({ limit: config.ingest.maxPayloadBytes }));
 
 // Health check route (no authentication required)
 app.use('/health', healthRouter);

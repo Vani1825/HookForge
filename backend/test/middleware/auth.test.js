@@ -109,8 +109,47 @@ describe('ApiKeyAuthFilter', () => {
   });
 
   describe('empty API key', () => {
-    it('should return 401 when API key is empty', async () => {
+    it('should return 401 when API key is empty with trailing space', async () => {
       req.headers.authorization = 'Bearer ';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'Unauthorized',
+        message: 'Empty API key',
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 401 when Authorization header is literally "Bearer"', async () => {
+      req.headers.authorization = 'Bearer';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'Unauthorized',
+        message: 'Empty API key',
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 401 when Authorization header has only whitespace after Bearer', async () => {
+      req.headers.authorization = 'Bearer    ';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        error: 'Unauthorized',
+        message: 'Empty API key',
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 401 when X-Api-Key is empty', async () => {
+      req.headers['x-api-key'] = '   ';
 
       await apiKeyAuth(req, res, next);
 
@@ -140,8 +179,80 @@ describe('ApiKeyAuthFilter', () => {
 
       expect(tenantRepository.default.findByApiKeyHash).toHaveBeenCalled();
       expect(req[TENANT_ID_ATTRIBUTE]).toBe(mockTenant.id);
+      expect(req.tenantId).toBe(mockTenant.id);
       expect(next).toHaveBeenCalled();
       expect(res.status).not.toHaveBeenCalled();
+    });
+
+    it('should authenticate with case-insensitive scheme "bearer"', async () => {
+      const tenantRepository = await import(
+        '../../src/repositories/jdbc/tenantRepository.js'
+      );
+      const mockTenant = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'Test Tenant',
+      };
+
+      tenantRepository.default.findByApiKeyHash.mockResolvedValue(mockTenant);
+      req.headers.authorization = 'bearer case-insensitive-key';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(tenantRepository.default.findByApiKeyHash).toHaveBeenCalled();
+      expect(req[TENANT_ID_ATTRIBUTE]).toBe(mockTenant.id);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('should authenticate with X-Api-Key header', async () => {
+      const tenantRepository = await import(
+        '../../src/repositories/jdbc/tenantRepository.js'
+      );
+      const mockTenant = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'Test Tenant',
+      };
+
+      tenantRepository.default.findByApiKeyHash.mockResolvedValue(mockTenant);
+      req.headers['x-api-key'] = 'x-key-12345';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(tenantRepository.default.findByApiKeyHash).toHaveBeenCalled();
+      expect(req[TENANT_ID_ATTRIBUTE]).toBe(mockTenant.id);
+      expect(req.tenantId).toBe(mockTenant.id);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('should handle array authorization headers cleanly', async () => {
+      const tenantRepository = await import(
+        '../../src/repositories/jdbc/tenantRepository.js'
+      );
+      const mockTenant = {
+        id: '123e4567-e89b-12d3-a456-426614174000',
+        name: 'Test Tenant',
+      };
+
+      tenantRepository.default.findByApiKeyHash.mockResolvedValue(mockTenant);
+      req.headers.authorization = ['Bearer array-key'];
+
+      await apiKeyAuth(req, res, next);
+
+      expect(tenantRepository.default.findByApiKeyHash).toHaveBeenCalled();
+      expect(req[TENANT_ID_ATTRIBUTE]).toBe(mockTenant.id);
+      expect(next).toHaveBeenCalled();
+    });
+
+    it('should bypass repository lookup if request is already authenticated', async () => {
+      const tenantRepository = await import(
+        '../../src/repositories/jdbc/tenantRepository.js'
+      );
+
+      req.tenantId = 'pre-existing-tenant';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(tenantRepository.default.findByApiKeyHash).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalled();
     });
   });
 

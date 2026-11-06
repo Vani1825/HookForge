@@ -2,7 +2,7 @@
  * Tests for configuration loader
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import config from '../src/config/index.js';
 
 describe('Configuration', () => {
@@ -47,5 +47,10 @@ describe('Configuration', () => {
 
   it('should have valid ingest configuration', () => {
     expect(config.ingest.maxPayloadBytes).toBeGreaterThan(0);
+  });
+
+  it('should have valid CORS configuration', () => {
+    expect(config.cors).toBeDefined();
+    expect(Array.isArray(config.cors.allowedOrigins)).toBe(true);
   });
 });

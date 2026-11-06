@@ -166,4 +166,81 @@ router.patch(
   }
 );
 
+/**
+ * GET /endpoints/:id
+ * Retrieve a single endpoint for the authenticated tenant.
+ */
+router.get(
+  '/:id',
+  apiKeyAuth,
+  param('id').isUUID().withMessage('Invalid endpoint ID'),
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+        });
+      }
+
+      const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+      const { id } = req.params;
+
+      const endpoint = await endpointService.get(tenantId, id);
+      if (!endpoint) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'Endpoint not found',
+        });
+      }
+
+      res.status(200).json(endpoint);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+/**
+ * DELETE /endpoints/:id
+ * Delete or deactivate an endpoint for the authenticated tenant.
+ */
+router.delete(
+  '/:id',
+  apiKeyAuth,
+  param('id').isUUID().withMessage('Invalid endpoint ID'),
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+        });
+      }
+
+      const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+      const { id } = req.params;
+
+      const result = await endpointService.remove(tenantId, id);
+      if (!result) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: 'Endpoint not found',
+        });
+      }
+
+      logger.info('Endpoint deleted/deactivated via API', {
+        endpointId: id,
+        tenantId,
+      });
+
+      res.status(200).json({ success: true, id, message: 'Endpoint removed' });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 export default router;

@@ -89,7 +89,40 @@ const config = {
   ingest: {
     maxPayloadBytes: parseInt(process.env.INGEST_MAX_PAYLOAD_BYTES || '262144', 10), // 256KB
   },
+
+  // CORS configuration
+  cors: {
+    allowedOrigins: parseAllowedOrigins(
+      process.env.ALLOWED_ORIGINS || process.env.CORS_ALLOWED_ORIGINS,
+      process.env.NODE_ENV || 'development'
+    ),
+  },
 };
+
+/**
+ * Parse allowed origins for CORS.
+ * In production, unrestricted '*' is strictly disallowed.
+ */
+function parseAllowedOrigins(originsStr, nodeEnv) {
+  if (originsStr) {
+    const list = originsStr.split(',').map((s) => s.trim()).filter(Boolean);
+    if (nodeEnv === 'production') {
+      return list.filter((origin) => origin !== '*');
+    }
+    return list;
+  }
+  if (nodeEnv === 'production') {
+    return [];
+  }
+  return [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+}
 
 // Validate critical configuration
 if (config.retry.maxAttempts < 1) {

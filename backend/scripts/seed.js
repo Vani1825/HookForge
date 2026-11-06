@@ -17,32 +17,34 @@ const pool = new Pool({
   password: config.database.password,
 });
 
+async function seedTenant(client, name, apiKey) {
+  const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+  const existing = await client.query(
+    'SELECT id, name FROM tenants WHERE api_key_hash = $1',
+    [hash]
+  );
+  if (existing.rows.length > 0) {
+    console.log(`Development tenant already exists: ${existing.rows[0].name} (ID: ${existing.rows[0].id})`);
+    return existing.rows[0].id;
+  }
+  const res = await client.query(
+    'INSERT INTO tenants (name, api_key_hash) VALUES ($1, $2) RETURNING id, name',
+    [name, hash]
+  );
+  console.log(`Created development tenant: ${res.rows[0].name} (ID: ${res.rows[0].id})`);
+  return res.rows[0].id;
+}
+
 async function seed() {
   const client = await pool.connect();
   try {
-    console.log('Seeding development tenant...');
+    console.log('Seeding development tenants...');
 
     const devApiKey = process.env.DEV_API_KEY || 'wh_dev_test_key_001';
-    const hash = crypto.createHash('sha256').update(devApiKey).digest('hex');
+    await seedTenant(client, 'Default Dev Tenant', devApiKey);
 
-    // Check if tenant already exists with this hash
-    const existing = await client.query(
-      'SELECT id, name FROM tenants WHERE api_key_hash = $1',
-      [hash]
-    );
-
-    let tenantId;
-    if (existing.rows.length > 0) {
-      tenantId = existing.rows[0].id;
-      console.log(`Development tenant already exists: ${existing.rows[0].name} (ID: ${tenantId})`);
-    } else {
-      const res = await client.query(
-        'INSERT INTO tenants (name, api_key_hash) VALUES ($1, $2) RETURNING id, name',
-        ['Default Dev Tenant', hash]
-      );
-      tenantId = res.rows[0].id;
-      console.log(`Created development tenant: ${res.rows[0].name} (ID: ${tenantId})`);
-    }
+    const devApiKeyBeta = process.env.DEV_API_KEY_BETA || 'wh_dev_test_key_beta_002';
+    await seedTenant(client, 'Beta Dev Tenant', devApiKeyBeta);
 
     console.log('Seed completed successfully.');
   } catch (error) {

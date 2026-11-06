@@ -22,6 +22,8 @@ vi.mock('../../src/services/endpoint/endpointService.js', () => ({
     create: vi.fn(),
     list: vi.fn(),
     update: vi.fn(),
+    get: vi.fn(),
+    remove: vi.fn(),
   },
 }));
 
@@ -166,6 +168,66 @@ describe('Endpoint Routes', () => {
         .patch('/endpoints/not-a-uuid')
         .send({ url: 'https://example.com/new-url' })
         .expect(400);
+    });
+  });
+
+  describe('GET /endpoints/:id', () => {
+    it('should return endpoint details when found', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      const mockEndpoint = {
+        id: mockEndpointId,
+        url: 'https://example.com/webhook',
+        active: true,
+        rateLimitRps: 10,
+        circuitState: 'CLOSED',
+        createdAt: new Date().toISOString(),
+      };
+      endpointService.get.mockResolvedValue(mockEndpoint);
+
+      const response = await request(app)
+        .get(`/endpoints/${mockEndpointId}`)
+        .expect(200);
+
+      expect(response.body.id).toBe(mockEndpointId);
+      expect(response.body.url).toBe('https://example.com/webhook');
+    });
+
+    it('should return 404 when endpoint not found', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      endpointService.get.mockResolvedValue(null);
+
+      await request(app)
+        .get(`/endpoints/${mockEndpointId}`)
+        .expect(404);
+    });
+
+    it('should return 400 for invalid endpoint ID format', async () => {
+      await request(app)
+        .get('/endpoints/invalid-uuid')
+        .expect(400);
+    });
+  });
+
+  describe('DELETE /endpoints/:id', () => {
+    it('should remove/deactivate endpoint and return 200', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      endpointService.remove.mockResolvedValue({ success: true, id: mockEndpointId });
+
+      const response = await request(app)
+        .delete(`/endpoints/${mockEndpointId}`)
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.id).toBe(mockEndpointId);
+    });
+
+    it('should return 404 when endpoint not found for delete', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      endpointService.remove.mockResolvedValue(null);
+
+      await request(app)
+        .delete(`/endpoints/${mockEndpointId}`)
+        .expect(404);
     });
   });
 });
