@@ -5,7 +5,6 @@
 
 import { query, getClient } from '../../config/database.js';
 import { createDelivery } from '../../domain/models/delivery.js';
-import { deliveryState } from '../../domain/deliveryState.js';
 import logger from '../../utils/logger.js';
 
 // Row mapper for Delivery domain model
@@ -14,6 +13,8 @@ function mapRowToDelivery(row) {
     id: row.id,
     eventId: row.event_id,
     endpointId: row.endpoint_id,
+    endpointUrl: row.endpoint_url || null,
+    lastStatusCode: row.last_status_code !== undefined ? row.last_status_code : null,
     seq: row.seq,
     state: row.state,
     attemptCount: row.attempt_count,
@@ -30,15 +31,17 @@ function mapRowToDelivery(row) {
 /**
  * Insert a new delivery.
  */
-export async function insert(eventId, endpointId, seq) {
+export async function insert(eventId, endpointId, seq, client = null) {
   const sql = `
     INSERT INTO deliveries (event_id, endpoint_id, seq, state, attempt_count, next_attempt_at)
     VALUES ($1, $2, $3, 'PENDING', 0, now())
     RETURNING *
   `;
 
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
   try {
-    const result = await query(sql, [eventId, endpointId, seq]);
+    const result = await queryFn(sql, [eventId, endpointId, seq]);
     return mapRowToDelivery(result.rows[0]);
   } catch (error) {
     logger.error('Failed to insert delivery', { error: error.message });
@@ -182,9 +185,19 @@ export async function markTerminal(deliveryId, terminalState) {
  */
 export async function findById(deliveryId) {
   const sql = `
-    SELECT *
-    FROM deliveries
-    WHERE id = $1
+    SELECT
+      d.*,
+      e.url AS endpoint_url,
+      (
+        SELECT a.status_code
+        FROM delivery_attempts a
+        WHERE a.delivery_id = d.id
+        ORDER BY a.attempt_no DESC
+        LIMIT 1
+      ) AS last_status_code
+    FROM deliveries d
+    LEFT JOIN endpoints e ON d.endpoint_id = e.id
+    WHERE d.id = $1
   `;
 
   try {
@@ -207,7 +220,16 @@ export async function findById(deliveryId) {
  */
 export async function findByIdAndTenant(deliveryId, tenantId) {
   const sql = `
-    SELECT d.*
+    SELECT
+      d.*,
+      e.url AS endpoint_url,
+      (
+        SELECT a.status_code
+        FROM delivery_attempts a
+        WHERE a.delivery_id = d.id
+        ORDER BY a.attempt_no DESC
+        LIMIT 1
+      ) AS last_status_code
     FROM deliveries d
     JOIN endpoints e ON d.endpoint_id = e.id
     WHERE d.id = $1 AND e.tenant_id = $2
@@ -236,7 +258,16 @@ export async function findByIdAndTenant(deliveryId, tenantId) {
  */
 export async function findByEvent(eventId, tenantId) {
   const sql = `
-    SELECT d.*
+    SELECT
+      d.*,
+      e.url AS endpoint_url,
+      (
+        SELECT a.status_code
+        FROM delivery_attempts a
+        WHERE a.delivery_id = d.id
+        ORDER BY a.attempt_no DESC
+        LIMIT 1
+      ) AS last_status_code
     FROM deliveries d
     JOIN endpoints e ON d.endpoint_id = e.id
     WHERE d.event_id = $1 AND e.tenant_id = $2
@@ -261,7 +292,16 @@ export async function findByEvent(eventId, tenantId) {
  */
 export async function findByState(state, tenantId, limit = 100) {
   const sql = `
-    SELECT d.*
+    SELECT
+      d.*,
+      e.url AS endpoint_url,
+      (
+        SELECT a.status_code
+        FROM delivery_attempts a
+        WHERE a.delivery_id = d.id
+        ORDER BY a.attempt_no DESC
+        LIMIT 1
+      ) AS last_status_code
     FROM deliveries d
     JOIN endpoints e ON d.endpoint_id = e.id
     WHERE d.state = $1 AND e.tenant_id = $2
@@ -287,7 +327,16 @@ export async function findByState(state, tenantId, limit = 100) {
  */
 export async function findAllByTenant(tenantId, limit = 100) {
   const sql = `
-    SELECT d.*
+    SELECT
+      d.*,
+      e.url AS endpoint_url,
+      (
+        SELECT a.status_code
+        FROM delivery_attempts a
+        WHERE a.delivery_id = d.id
+        ORDER BY a.attempt_no DESC
+        LIMIT 1
+      ) AS last_status_code
     FROM deliveries d
     JOIN endpoints e ON d.endpoint_id = e.id
     WHERE e.tenant_id = $1

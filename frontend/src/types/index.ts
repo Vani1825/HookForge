@@ -70,10 +70,20 @@ export interface Delivery {
   updated_at: string
   // Enriched relationships
   endpoint_url?: string
+  endpointUrl?: string
   endpoint?: Endpoint
   event?: WebhookEvent
   attempts?: DeliveryAttempt[]
   last_status_code?: number | null
+  lastStatusCode?: number | null
+  // CamelCase aliases
+  eventId?: string
+  endpointId?: string
+  attemptCount?: number
+  nextAttemptAt?: string
+  lastError?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface IngestRequest {

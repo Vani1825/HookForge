@@ -76,6 +76,12 @@ router.post(
         created_at: endpoint.createdAt,
       });
     } catch (error) {
+      if (error.name === 'ValidationError' || error.type === 'validation_error' || error.statusCode === 400) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: error.message,
+        });
+      }
       next(error);
     }
   }
@@ -161,6 +167,12 @@ router.patch(
 
       res.status(200).json(updated);
     } catch (error) {
+      if (error.name === 'ValidationError' || error.type === 'validation_error' || error.statusCode === 400) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: error.message,
+        });
+      }
       next(error);
     }
   }

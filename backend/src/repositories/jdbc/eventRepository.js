@@ -3,10 +3,9 @@
  * Implements event and delivery data access with transaction support.
  */
 
-import { query, transaction } from '../../config/database.js';
+import { query } from '../../config/database.js';
 import { createEvent } from '../../domain/models/event.js';
 import { createDelivery } from '../../domain/models/delivery.js';
-import { deliveryState } from '../../domain/deliveryState.js';
 import logger from '../../utils/logger.js';
 
 // Row mapper for Event domain model
@@ -24,16 +23,24 @@ function mapRowToEvent(row) {
 
 /**
  * Insert a new event with idempotency constraint.
+ * Uses ON CONFLICT (tenant_id, idempotency_key) DO NOTHING for concurrency safety.
+ * Returns null if a conflict occurred (duplicate idempotency key).
  */
-export async function insert(tenantId, payloadJson, idempotencyKey) {
+export async function insert(tenantId, payloadJson, idempotencyKey, client = null) {
   const sql = `
     INSERT INTO events (tenant_id, payload, idempotency_key)
     VALUES ($1, $2::jsonb, $3)
+    ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
     RETURNING *
   `;
 
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
   try {
-    const result = await query(sql, [tenantId, payloadJson, idempotencyKey]);
+    const result = await queryFn(sql, [tenantId, payloadJson, idempotencyKey]);
+    if (result.rows.length === 0) {
+      return null;
+    }
     return mapRowToEvent(result.rows[0]);
   } catch (error) {
     logger.error('Failed to insert event', { error: error.message });
@@ -44,15 +51,17 @@ export async function insert(tenantId, payloadJson, idempotencyKey) {
 /**
  * Find event by tenant and idempotency key.
  */
-export async function findByTenantAndIdempotencyKey(tenantId, idempotencyKey) {
+export async function findByTenantAndIdempotencyKey(tenantId, idempotencyKey, client = null) {
   const sql = `
     SELECT *
     FROM events
     WHERE tenant_id = $1 AND idempotency_key = $2
   `;
 
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
   try {
-    const result = await query(sql, [tenantId, idempotencyKey]);
+    const result = await queryFn(sql, [tenantId, idempotencyKey]);
     if (result.rows.length === 0) {
       return null;
     }
@@ -113,15 +122,17 @@ export async function findAllByTenant(tenantId, limit = 100) {
 /**
  * Enqueue a delivery for an event to an endpoint.
  */
-export async function enqueue(eventId, endpointId, seq) {
+export async function enqueue(eventId, endpointId, seq, client = null) {
   const sql = `
     INSERT INTO deliveries (event_id, endpoint_id, seq, state, attempt_count, next_attempt_at)
     VALUES ($1, $2, $3, 'PENDING', 0, now())
     RETURNING *
   `;
 
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
   try {
-    const result = await query(sql, [eventId, endpointId, seq]);
+    const result = await queryFn(sql, [eventId, endpointId, seq]);
     return createDelivery({
       id: result.rows[0].id,
       eventId: result.rows[0].event_id,

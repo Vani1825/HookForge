@@ -77,13 +77,13 @@ const config = {
     maxDelayMs: parseDuration(process.env.RETRY_MAX_DELAY || '1h'),
   },
 
-  // Dispatcher (from reference: pollInterval=0.5s, batchSize=50, workerConcurrency=50, leaseMargin=30s, reaperInterval=15s)
+  // Dispatcher (from reference: pollInterval=1s, batchSize=50, workerConcurrency=50, leaseMargin=30s, reaperInterval=60s)
   dispatcher: {
-    pollIntervalMs: parseDuration(process.env.DISPATCHER_POLL_INTERVAL || '0.5s'),
+    pollIntervalMs: parseDuration(process.env.DISPATCHER_POLL_INTERVAL || '1s'),
     batchSize: parseInt(process.env.DISPATCHER_BATCH_SIZE || '50', 10),
     workerConcurrency: parseInt(process.env.DISPATCHER_WORKER_CONCURRENCY || '50', 10),
     leaseMarginMs: parseDuration(process.env.DISPATCHER_LEASE_MARGIN || '30s'),
-    reaperIntervalMs: parseDuration(process.env.DISPATCHER_REAPER_INTERVAL || '15s'),
+    reaperIntervalMs: parseDuration(process.env.DISPATCHER_REAPER_INTERVAL || '60s'),
   },
 
   // Circuit breaker (from reference: failureThreshold=5, openDuration=1m)
@@ -101,6 +101,14 @@ const config = {
   // Ingest
   ingest: {
     maxPayloadBytes: parseInt(process.env.INGEST_MAX_PAYLOAD_BYTES || '262144', 10), // 256KB
+  },
+
+  // SSRF protection configuration
+  ssrf: {
+    allowLocal:
+      (process.env.NODE_ENV || 'development') !== 'production' &&
+      (process.env.SSRF_ALLOW_LOCAL === 'true' || process.env.ALLOW_LOCAL_WEBHOOKS === 'true'),
+    enforceDns: process.env.SSRF_ENFORCE_DNS !== 'false',
   },
 
   // CORS configuration

@@ -214,6 +214,8 @@ describe('JdbcDeliveryRepository', () => {
           state: 'DEAD',
           event_id: 'event-1',
           endpoint_id: 'endpoint-1',
+          endpoint_url: 'https://example.com/target',
+          last_status_code: 502,
           seq: 1,
           attempt_count: 3,
           next_attempt_at: new Date(),
@@ -232,6 +234,8 @@ describe('JdbcDeliveryRepository', () => {
         expect.stringContaining('WHERE d.state = $1 AND e.tenant_id = $2'),
         ['DEAD', 'tenant-1', 100]
       );
+      expect(deliveries[0].endpointUrl).toBe('https://example.com/target');
+      expect(deliveries[0].lastStatusCode).toBe(502);
     });
   });
 

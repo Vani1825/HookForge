@@ -98,6 +98,24 @@ describe('Endpoint Routes', () => {
         })
         .expect(400);
     });
+
+    it('should return 400 when endpointService rejects SSRF URL', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      const { ValidationError } = await import('../../src/middleware/errorHandler.js');
+      endpointService.create.mockRejectedValueOnce(
+        new ValidationError("Destination IP '169.254.169.254' is blocked (cloud metadata address)")
+      );
+
+      const response = await request(app)
+        .post('/endpoints')
+        .send({
+          url: 'http://169.254.169.254/latest/meta-data/',
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe('Validation Error');
+      expect(response.body.message).toContain('cloud metadata');
+    });
   });
 
   describe('GET /endpoints', () => {

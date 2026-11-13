@@ -27,10 +27,11 @@ export async function ingest(tenantId, idempotencyKey, payloadJson) {
 
   // Single transaction for event + deliveries
   return await transaction(async (client) => {
-    // Try insert event with ON CONFLICT behavior handled by checking first
+    // 1. Initial check for existing idempotency key
     const existing = await eventRepository.findByTenantAndIdempotencyKey(
       tenantId,
-      idempotencyKey
+      idempotencyKey,
+      client
     );
 
     if (existing) {
@@ -46,17 +47,36 @@ export async function ingest(tenantId, idempotencyKey, payloadJson) {
       };
     }
 
-    // Insert new event
-    const event = await eventRepository.insert(tenantId, payloadJson, idempotencyKey);
+    // 2. Atomic insert with ON CONFLICT DO NOTHING (handles concurrent duplicate race conditions)
+    const event = await eventRepository.insert(tenantId, payloadJson, idempotencyKey, client);
 
-    // Find all active endpoints for tenant (ORDER BY id for stable lock order)
-    const activeEndpoints = await endpointRepository.findActiveByTenant(tenantId);
+    // If event is null, another concurrent request committed an event with the same idempotency key
+    if (!event) {
+      const concurrentExisting = await eventRepository.findByTenantAndIdempotencyKey(
+        tenantId,
+        idempotencyKey,
+        client
+      );
+      logger.info('Concurrent duplicate idempotency key resolved', {
+        eventId: concurrentExisting?.id,
+        tenantId,
+        idempotencyKey,
+      });
+      return {
+        duplicate: true,
+        event: concurrentExisting,
+        deliveriesEnqueued: 0,
+      };
+    }
 
-    // For each endpoint (stable order), allocate sequence and enqueue delivery
+    // 3. Find all active endpoints for tenant (ORDER BY id for stable lock order) within the transaction
+    const activeEndpoints = await endpointRepository.findActiveByTenant(tenantId, client);
+
+    // 4. For each endpoint (stable order), allocate sequence and enqueue delivery using transaction client
     let deliveriesEnqueued = 0;
     for (const endpoint of activeEndpoints) {
-      const seq = await endpointRepository.allocate(endpoint.id);
-      await deliveryEnqueuer.enqueue(event.id, endpoint.id, seq);
+      const seq = await endpointRepository.allocate(endpoint.id, client);
+      await deliveryEnqueuer.enqueue(event.id, endpoint.id, seq, client);
       deliveriesEnqueued++;
     }
 

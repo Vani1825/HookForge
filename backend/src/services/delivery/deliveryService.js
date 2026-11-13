@@ -67,7 +67,15 @@ export async function replayDelivery(deliveryId, tenantId) {
     endpointId: delivery.endpointId,
   });
 
-  return updated;
+  const replayed = { ...updated };
+  if (delivery.endpointUrl !== undefined || updated?.endpointUrl !== undefined) {
+    replayed.endpointUrl = updated?.endpointUrl || delivery.endpointUrl || null;
+  }
+  if (delivery.lastStatusCode !== undefined || updated?.lastStatusCode !== undefined) {
+    replayed.lastStatusCode = updated?.lastStatusCode !== undefined ? updated.lastStatusCode : (delivery.lastStatusCode ?? null);
+  }
+
+  return replayed;
 }
 
 /**

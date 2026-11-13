@@ -95,7 +95,7 @@ export async function findAllByTenant(tenantId) {
 /**
  * Find active endpoints for a tenant (ORDER BY id for stable lock order).
  */
-export async function findActiveByTenant(tenantId) {
+export async function findActiveByTenant(tenantId, client = null) {
   const sql = `
     SELECT *
     FROM endpoints
@@ -103,8 +103,10 @@ export async function findActiveByTenant(tenantId) {
     ORDER BY id
   `;
 
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
   try {
-    const result = await query(sql, [tenantId]);
+    const result = await queryFn(sql, [tenantId]);
     return result.rows.map(mapRowToEndpoint);
   } catch (error) {
     logger.error('Failed to find active endpoints for tenant', {
@@ -157,7 +159,7 @@ export async function update(endpoint) {
  * Allocate the next sequence number for an endpoint.
  * Atomically increments and returns the value BEFORE increment.
  */
-export async function allocate(endpointId) {
+export async function allocate(endpointId, client = null) {
   const sql = `
     UPDATE endpoints
     SET next_seq = next_seq + 1
@@ -165,8 +167,10 @@ export async function allocate(endpointId) {
     RETURNING next_seq - 1 AS allocated_seq
   `;
 
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
   try {
-    const result = await query(sql, [endpointId]);
+    const result = await queryFn(sql, [endpointId]);
     if (result.rows.length === 0) {
       throw new Error(`Endpoint not found: ${endpointId}`);
     }

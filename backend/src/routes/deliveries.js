@@ -5,11 +5,10 @@
  */
 
 import express from 'express';
-import { body, query, param, validationResult } from 'express-validator';
+import { query, param, validationResult } from 'express-validator';
 import deliveryService from '../services/delivery/deliveryService.js';
 import { deliveryState } from '../domain/deliveryState.js';
 import { IllegalStateTransitionError } from '../domain/errors/illegalStateTransitionError.js';
-import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -52,6 +51,8 @@ router.get(
           event_id: d.eventId,
           endpointId: d.endpointId,
           endpoint_id: d.endpointId,
+          endpointUrl: d.endpointUrl || null,
+          endpoint_url: d.endpointUrl || null,
           seq: d.seq,
           state: d.state.toString(),
           attemptCount: d.attemptCount,
@@ -60,6 +61,8 @@ router.get(
           next_attempt_at: d.nextAttemptAt,
           lastError: d.lastError,
           last_error: d.lastError,
+          lastStatusCode: d.lastStatusCode ?? null,
+          last_status_code: d.lastStatusCode ?? null,
           createdAt: d.createdAt,
           created_at: d.createdAt,
           updatedAt: d.updatedAt,
@@ -104,6 +107,8 @@ router.get(
         event_id: delivery.eventId,
         endpointId: delivery.endpointId,
         endpoint_id: delivery.endpointId,
+        endpointUrl: delivery.endpointUrl || null,
+        endpoint_url: delivery.endpointUrl || null,
         seq: delivery.seq,
         state: delivery.state.toString(),
         attemptCount: delivery.attemptCount,
@@ -112,6 +117,8 @@ router.get(
         next_attempt_at: delivery.nextAttemptAt,
         lastError: delivery.lastError,
         last_error: delivery.lastError,
+        lastStatusCode: delivery.lastStatusCode ?? null,
+        last_status_code: delivery.lastStatusCode ?? null,
         createdAt: delivery.createdAt,
         created_at: delivery.createdAt,
         updatedAt: delivery.updatedAt,
@@ -143,17 +150,35 @@ router.post(
 
       const delivery = await deliveryService.replayDelivery(deliveryId, tenantId);
 
-      res.json({
+      const deliveryPayload = {
         id: delivery.id,
         eventId: delivery.eventId,
+        event_id: delivery.eventId,
         endpointId: delivery.endpointId,
+        endpoint_id: delivery.endpointId,
+        endpointUrl: delivery.endpointUrl || null,
+        endpoint_url: delivery.endpointUrl || null,
         seq: delivery.seq,
         state: delivery.state.toString(),
         attemptCount: delivery.attemptCount,
+        attempt_count: delivery.attemptCount,
         nextAttemptAt: delivery.nextAttemptAt,
+        next_attempt_at: delivery.nextAttemptAt,
         lastError: delivery.lastError,
+        last_error: delivery.lastError,
+        lastStatusCode: delivery.lastStatusCode ?? null,
+        last_status_code: delivery.lastStatusCode ?? null,
         createdAt: delivery.createdAt,
+        created_at: delivery.createdAt,
         updatedAt: delivery.updatedAt,
+        updated_at: delivery.updatedAt,
+      };
+
+      res.json({
+        success: true,
+        message: 'Delivery replayed successfully',
+        delivery: deliveryPayload,
+        ...deliveryPayload,
       });
     } catch (error) {
       if (error instanceof IllegalStateTransitionError || error.name === 'IllegalStateTransitionError') {

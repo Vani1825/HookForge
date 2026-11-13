@@ -98,6 +98,22 @@ describe('EndpointService', () => {
         10
       );
     });
+
+    it('should reject SSRF destination URL on create', async () => {
+      await expect(
+        endpointService.create(mockTenantId, {
+          url: 'http://169.254.169.254/latest/meta-data/',
+        })
+      ).rejects.toThrow('cloud metadata');
+    });
+
+    it('should reject private IP destination URL on create', async () => {
+      await expect(
+        endpointService.create(mockTenantId, {
+          url: 'http://10.0.0.1/webhook',
+        })
+      ).rejects.toThrow('private or reserved');
+    });
   });
 
   describe('list', () => {
@@ -212,6 +228,22 @@ describe('EndpointService', () => {
           rateLimitRps: 10, // unchanged
         })
       );
+    });
+
+    it('should reject SSRF destination URL on update', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      endpointRepository.findByIdAndTenant.mockResolvedValue({
+        id: mockEndpointId,
+        tenantId: mockTenantId,
+        url: 'https://example.com/webhook',
+        active: true,
+      });
+
+      await expect(
+        endpointService.update(mockTenantId, mockEndpointId, {
+          url: 'http://169.254.169.254/webhook',
+        })
+      ).rejects.toThrow('cloud metadata');
     });
   });
 

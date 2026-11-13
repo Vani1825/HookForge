@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import endpointRepository from '../../repositories/jdbc/endpointRepository.js';
 import { toResponseDTO } from '../../domain/models/endpoint.js';
+import { validateUrl } from '../../utils/ssrf.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -35,8 +36,8 @@ function generateSecret() {
 export async function create(tenantId, request) {
   const { url, rateLimitRps = 10 } = request;
 
-  // SSRF validation - skip for MVP per reference (documented gap)
-  // In production, validate URL against private IP ranges
+  // SSRF protection: validate protocol, port, host literals, and resolved DNS
+  await validateUrl(url);
 
   const secret = generateSecret();
 
@@ -94,6 +95,11 @@ export async function update(tenantId, endpointId, request) {
       tenantId,
     });
     return null;
+  }
+
+  // SSRF protection on URL update
+  if (request.url !== undefined) {
+    await validateUrl(request.url);
   }
 
   // Patch fields (only update provided fields)

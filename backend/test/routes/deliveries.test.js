@@ -54,6 +54,8 @@ describe('Delivery Routes', () => {
           id: 'delivery-1',
           eventId: 'event-1',
           endpointId: 'endpoint-1',
+          endpointUrl: 'https://example.com/webhook',
+          lastStatusCode: 504,
           seq: 1,
           state: deliveryState.DEAD,
           attemptCount: 3,
@@ -71,6 +73,10 @@ describe('Delivery Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.state).toBe('DEAD');
       expect(response.body.deliveries).toHaveLength(1);
+      expect(response.body.deliveries[0].endpoint_url).toBe('https://example.com/webhook');
+      expect(response.body.deliveries[0].endpointUrl).toBe('https://example.com/webhook');
+      expect(response.body.deliveries[0].last_status_code).toBe(504);
+      expect(response.body.deliveries[0].lastStatusCode).toBe(504);
       expect(deliveryService.getDeliveriesByState).toHaveBeenCalledWith('DEAD', 'tenant-1', 100);
     });
 
@@ -107,6 +113,8 @@ describe('Delivery Routes', () => {
         id: 'delivery-1',
         eventId: 'event-1',
         endpointId: 'endpoint-1',
+        endpointUrl: 'https://example.com/webhook',
+        lastStatusCode: 500,
         seq: 1,
         state: deliveryState.PENDING,
         attemptCount: 0,
@@ -121,6 +129,11 @@ describe('Delivery Routes', () => {
       const response = await request(app).post('/deliveries/delivery-1/replay');
 
       expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('Delivery replayed successfully');
+      expect(response.body.delivery).toBeDefined();
+      expect(response.body.delivery.id).toBe('delivery-1');
+      expect(response.body.delivery.endpoint_url).toBe('https://example.com/webhook');
       expect(response.body.id).toBe('delivery-1');
       expect(response.body.state).toBe('PENDING');
       expect(deliveryService.replayDelivery).toHaveBeenCalledWith('delivery-1', 'tenant-1');

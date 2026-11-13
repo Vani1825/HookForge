@@ -17,6 +17,10 @@ function normalizeDelivery(d: any): Delivery {
     eventId: d.eventId || d.event_id,
     endpoint_id: d.endpoint_id || d.endpointId,
     endpointId: d.endpointId || d.endpoint_id,
+    endpoint_url: d.endpoint_url || d.endpointUrl,
+    endpointUrl: d.endpointUrl || d.endpoint_url,
+    last_status_code: d.last_status_code !== undefined ? d.last_status_code : d.lastStatusCode ?? null,
+    lastStatusCode: d.lastStatusCode !== undefined ? d.lastStatusCode : d.last_status_code ?? null,
     attempt_count: d.attempt_count !== undefined ? d.attempt_count : d.attemptCount ?? 0,
     attemptCount: d.attemptCount !== undefined ? d.attemptCount : d.attempt_count ?? 0,
     next_attempt_at: d.next_attempt_at || d.nextAttemptAt,
@@ -79,5 +83,17 @@ export async function fetchDeadLetterDeliveries(): Promise<Delivery[]> {
 }
 
 export async function replayDelivery(id: string): Promise<{ success: boolean; message: string; delivery?: Delivery }> {
-  return apiClient.post<{ success: boolean; message: string; delivery?: Delivery }>(`/deliveries/${id}/replay`)
+  const res = await apiClient.post<any>(`/deliveries/${id}/replay`)
+  if (res && typeof res === 'object') {
+    const rawDelivery = res.delivery || res
+    return {
+      success: res.success !== undefined ? Boolean(res.success) : true,
+      message: res.message || 'Delivery replayed successfully',
+      delivery: normalizeDelivery(rawDelivery),
+    }
+  }
+  return {
+    success: true,
+    message: 'Delivery replayed successfully',
+  }
 }

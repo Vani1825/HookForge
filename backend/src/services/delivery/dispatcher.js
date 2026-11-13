@@ -12,12 +12,14 @@ import { shouldAttempt } from '../resilience/thresholdCircuitBreaker.js';
 import { tryAcquire } from '../resilience/tokenBucketRateLimiter.js';
 import { recoverExpiredLeases } from '../resilience/leaseReaper.js';
 import { deliveryState } from '../../domain/deliveryState.js';
+import config from '../../config/index.js';
 import clock from '../../utils/clock.js';
 import logger from '../../utils/logger.js';
 
-const LEASE_DURATION_MS = 30000; // 30 seconds
-const POLL_INTERVAL_MS = 1000; // 1 second
-const LEASE_REAPER_INTERVAL_MS = 60000; // 1 minute
+const LEASE_DURATION_MS = config?.dispatcher?.leaseMarginMs ?? 30000;
+const POLL_INTERVAL_MS = config?.dispatcher?.pollIntervalMs ?? 1000;
+const LEASE_REAPER_INTERVAL_MS = config?.dispatcher?.reaperIntervalMs ?? 60000;
+const WORKER_CONCURRENCY = config?.dispatcher?.workerConcurrency ?? 50;
 
 let isRunning = false;
 let pollTimer = null;
@@ -119,7 +121,15 @@ export async function poll() {
               });
             })
           );
+
+          if (promises.length >= WORKER_CONCURRENCY) {
+            break;
+          }
         }
+      }
+
+      if (promises.length >= WORKER_CONCURRENCY) {
+        break;
       }
     }
     await Promise.all(promises);
