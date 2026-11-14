@@ -6,22 +6,47 @@
 import { query } from '../../config/database.js';
 import { createEndpoint } from '../../domain/models/endpoint.js';
 import { circuitState } from '../../domain/circuitState.js';
+import { encryptSecret, decryptSecret } from '../../utils/secretEncryption.js';
 import logger from '../../utils/logger.js';
 
 // Row mapper for Endpoint domain model
 function mapRowToEndpoint(row) {
+  let secret = null;
+
+  if (row.secret_ciphertext) {
+    // Decrypt encrypted secret; fails closed if ciphertext is malformed or tampered
+    secret = decryptSecret(row);
+  } else if (row.secret) {
+    // Backward-compatible fallback for unmigrated legacy plaintext records
+    secret = row.secret;
+  } else {
+    throw new Error(`Endpoint ${row.id} has no secret configured`);
+  }
+
   return createEndpoint({
     id: row.id,
     tenantId: row.tenant_id,
     url: row.url,
-    secret: row.secret,
+    secret,
+    secretCiphertext: row.secret_ciphertext,
+    secretIv: row.secret_iv,
+    secretTag: row.secret_tag,
+    secretVersion: row.secret_version,
     active: row.active,
     rateLimitRps: row.rate_limit_rps,
     nextSeq: row.next_seq,
     circuitState: circuitState.fromString(row.circuit_state),
-    circuitUntil: row.circuit_until ? row.circuit_until.toISOString() : null,
+    circuitUntil: row.circuit_until
+      ? row.circuit_until instanceof Date
+        ? row.circuit_until.toISOString()
+        : row.circuit_until
+      : null,
     consecutiveFailures: row.consecutive_failures,
-    createdAt: row.created_at.toISOString(),
+    createdAt: row.created_at
+      ? row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : row.created_at
+      : new Date().toISOString(),
   });
 }
 
@@ -29,19 +54,86 @@ function mapRowToEndpoint(row) {
 
 /**
  * Insert a new endpoint.
+ * Encrypts the signing secret at rest using AES-256-GCM before database insertion.
  */
 export async function insert(tenantId, url, secret, rateLimitRps) {
+  let encrypted;
+  let plaintextSecret = null;
+
+  if (typeof secret === 'string') {
+    plaintextSecret = secret;
+    encrypted = encryptSecret(secret);
+  } else if (typeof secret === 'object' && secret !== null && secret.ciphertext) {
+    encrypted = secret;
+    plaintextSecret = secret.plaintext || null;
+  } else {
+    throw new Error('Secret must be provided as a string or encrypted secret object');
+  }
+
   const sql = `
-    INSERT INTO endpoints (tenant_id, url, secret, rate_limit_rps)
-    VALUES ($1, $2, $3, $4)
+    INSERT INTO endpoints (
+      tenant_id,
+      url,
+      secret,
+      rate_limit_rps,
+      secret_ciphertext,
+      secret_iv,
+      secret_tag,
+      secret_version
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *
   `;
 
   try {
-    const result = await query(sql, [tenantId, url, secret, rateLimitRps]);
-    return mapRowToEndpoint(result.rows[0]);
+    const result = await query(sql, [
+      tenantId,
+      url,
+      null, // legacy secret column stored as NULL for newly encrypted secrets
+      rateLimitRps,
+      encrypted.ciphertext,
+      encrypted.iv,
+      encrypted.tag,
+      encrypted.version,
+    ]);
+
+    const created = mapRowToEndpoint(result.rows[0]);
+    if (plaintextSecret && !created.secret) {
+      return createEndpoint({ ...created, secret: plaintextSecret });
+    }
+    return created;
   } catch (error) {
     logger.error('Failed to insert endpoint', { error: error.message });
+    throw error;
+  }
+}
+
+/**
+ * Find endpoint by ID (without tenant scoping).
+ * @param {string} id - Endpoint UUID
+ * @param {Object} [client=null] - Optional database client
+ * @returns {Promise<Object|null>} Endpoint domain model or null
+ */
+export async function findById(id, client = null) {
+  const sql = `
+    SELECT *
+    FROM endpoints
+    WHERE id = $1
+  `;
+
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
+  try {
+    const result = await queryFn(sql, [id]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return mapRowToEndpoint(result.rows[0]);
+  } catch (error) {
+    logger.error('Failed to find endpoint by ID', {
+      error: error.message,
+      endpointId: id,
+    });
     throw error;
   }
 }
@@ -112,6 +204,47 @@ export async function findActiveByTenant(tenantId, client = null) {
     logger.error('Failed to find active endpoints for tenant', {
       error: error.message,
     });
+    throw error;
+  }
+}
+
+/**
+ * Find active endpoints with deliveries due for dispatch, ordered by earliest due delivery.
+ * Uses queue-driven discovery to avoid blind polling of all tenants and endpoints.
+ * Preserves strict FIFO ordering by only discovering endpoints whose head-of-line delivery is due.
+ *
+ * @param {number} limit - Maximum number of candidate endpoints to return
+ * @param {Object} [client=null] - Optional database client
+ * @returns {Promise<Array<Object>>} List of candidate Endpoint domain models
+ */
+export async function findDueEndpoints(limit = 50, client = null) {
+  const sql = `
+    SELECT
+      e.*,
+      MIN(d.next_attempt_at) AS earliest_due
+    FROM deliveries d
+    JOIN endpoints e ON d.endpoint_id = e.id
+    WHERE d.state IN ('PENDING', 'RETRYING')
+      AND d.next_attempt_at <= now()
+      AND e.active = true
+      AND d.seq = (
+        SELECT MIN(d2.seq)
+        FROM deliveries d2
+        WHERE d2.endpoint_id = d.endpoint_id
+          AND d2.state IN ('PENDING', 'RETRYING', 'IN_FLIGHT')
+      )
+    GROUP BY e.id
+    ORDER BY earliest_due ASC
+    LIMIT $1
+  `;
+
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
+  try {
+    const result = await queryFn(sql, [limit]);
+    return result.rows.map(mapRowToEndpoint);
+  } catch (error) {
+    logger.error('Failed to find due endpoints', { error: error.message });
     throw error;
   }
 }
@@ -240,9 +373,11 @@ export async function deactivate(endpointId) {
 export default {
   // EndpointRepository
   insert,
+  findById,
   findByIdAndTenant,
   findAllByTenant,
   findActiveByTenant,
+  findDueEndpoints,
   update,
   // SequenceAllocator
   allocate,

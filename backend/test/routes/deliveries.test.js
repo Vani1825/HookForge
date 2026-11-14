@@ -96,6 +96,39 @@ describe('Delivery Routes', () => {
       expect(deliveryService.getDeliveriesByState).toHaveBeenCalledWith('DEAD', 'tenant-1', 50);
     });
 
+    it('should pass pagination and filtering options to deliveryService', async () => {
+      deliveryService.getDeliveriesByState.mockResolvedValue([]);
+
+      await request(app).get('/deliveries?state=RETRYING&limit=25&offset=50&endpoint_id=11111111-1111-1111-1111-111111111111&search=timeout');
+
+      expect(deliveryService.getDeliveriesByState).toHaveBeenCalledWith(
+        'RETRYING',
+        'tenant-1',
+        25,
+        {
+          offset: 50,
+          endpointId: '11111111-1111-1111-1111-111111111111',
+          search: 'timeout',
+        }
+      );
+    });
+
+    it('should pass options to getAllDeliveries when state is ALL', async () => {
+      deliveryService.getAllDeliveries.mockResolvedValue([]);
+
+      await request(app).get('/deliveries?state=ALL&limit=50&offset=10');
+
+      expect(deliveryService.getAllDeliveries).toHaveBeenCalledWith(
+        'tenant-1',
+        50,
+        {
+          offset: 10,
+          endpointId: null,
+          search: null,
+        }
+      );
+    });
+
     it('should return 400 for invalid state', async () => {
       // Skip - validation is mocked to pass in unit tests
       expect(true).toBe(true);

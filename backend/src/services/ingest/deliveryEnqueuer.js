@@ -14,6 +14,17 @@ export async function enqueue(eventId, endpointId, seq) {
   throw new Error('DeliveryEnqueuer.enqueue must be implemented');
 }
 
+/**
+ * Atomically allocate sequence numbers and enqueue deliveries for all active endpoints of a tenant.
+ * @param {string} tenantId - Tenant UUID
+ * @param {string} eventId - Event UUID
+ * @returns {Promise<Array<Object>>} Created delivery objects
+ */
+export async function enqueueBatch(tenantId, eventId) {
+  throw new Error('DeliveryEnqueuer.enqueueBatch must be implemented');
+}
+
 export default {
   enqueue,
+  enqueueBatch,
 };

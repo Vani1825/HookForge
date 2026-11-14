@@ -318,21 +318,41 @@ export async function getStatusDistribution(tenantId, options = {}) {
 export async function getEndpointBreakdown(tenantId) {
   try {
     const sql = `
+      WITH delivery_stats AS (
+        SELECT
+          d.endpoint_id,
+          COUNT(*)::bigint AS total_deliveries,
+          COUNT(*) FILTER (WHERE d.state = 'SUCCEEDED')::bigint AS succeeded_deliveries,
+          COUNT(*) FILTER (WHERE d.state = 'DEAD')::bigint AS failed_deliveries
+        FROM deliveries d
+        JOIN endpoints ep ON d.endpoint_id = ep.id
+        WHERE ep.tenant_id = $1
+        GROUP BY d.endpoint_id
+      ),
+      attempt_stats AS (
+        SELECT
+          d.endpoint_id,
+          COALESCE(ROUND(AVG(a.latency_ms)), 0)::bigint AS average_latency_ms
+        FROM delivery_attempts a
+        JOIN deliveries d ON a.delivery_id = d.id
+        JOIN endpoints ep ON d.endpoint_id = ep.id
+        WHERE ep.tenant_id = $1
+        GROUP BY d.endpoint_id
+      )
       SELECT
         ep.id,
         ep.url,
         ep.circuit_state,
         ep.consecutive_failures,
         ep.rate_limit_rps,
-        COUNT(d.id)::bigint AS total_deliveries,
-        COUNT(d.id) FILTER (WHERE d.state = 'SUCCEEDED')::bigint AS succeeded_deliveries,
-        COUNT(d.id) FILTER (WHERE d.state = 'DEAD')::bigint AS failed_deliveries,
-        COALESCE(ROUND(AVG(a.latency_ms)), 0)::bigint AS average_latency_ms
+        COALESCE(ds.total_deliveries, 0)::bigint AS total_deliveries,
+        COALESCE(ds.succeeded_deliveries, 0)::bigint AS succeeded_deliveries,
+        COALESCE(ds.failed_deliveries, 0)::bigint AS failed_deliveries,
+        COALESCE(ast.average_latency_ms, 0)::bigint AS average_latency_ms
       FROM endpoints ep
-      LEFT JOIN deliveries d ON d.endpoint_id = ep.id
-      LEFT JOIN delivery_attempts a ON a.delivery_id = d.id
+      LEFT JOIN delivery_stats ds ON ds.endpoint_id = ep.id
+      LEFT JOIN attempt_stats ast ON ast.endpoint_id = ep.id
       WHERE ep.tenant_id = $1
-      GROUP BY ep.id
       ORDER BY ep.created_at DESC
     `;
 

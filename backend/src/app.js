@@ -9,6 +9,11 @@ import logger from './utils/logger.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { apiKeyAuth } from './middleware/auth.js';
 import { corsMiddleware } from './middleware/cors.js';
+import {
+  authRateLimiter,
+  tenantRateLimiter,
+  healthRateLimiter,
+} from './middleware/rateLimiter.js';
 import healthRouter from './routes/health.js';
 import endpointsRouter from './routes/endpoints.js';
 import eventsRouter from './routes/events.js';
@@ -17,8 +22,8 @@ import metricsRouter from './routes/metrics.js';
 
 const app = express();
 
-// Trust proxy (for proper X-Forwarded-* headers behind reverse proxy)
-app.set('trust proxy', true);
+// Trust proxy (safe proxy resolution; default is false unless TRUST_PROXY is configured)
+app.set('trust proxy', config.trustProxy);
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -33,17 +38,25 @@ app.use((req, res, next) => {
 // CORS middleware
 app.use(corsMiddleware);
 
-// Parse JSON bodies
-app.use(express.json({ limit: config.ingest.maxPayloadBytes }));
+// Health check route (no authentication required; rate-limited per IP before database access)
+app.use('/health', healthRateLimiter(), healthRouter);
 
-// Health check route (no authentication required)
-app.use('/health', healthRouter);
+// JSON body parser with configured maximum payload size limit
+const jsonParser = express.json({ limit: config.ingest.maxPayloadBytes });
 
-// API routes with authentication
-app.use('/endpoints', apiKeyAuth, endpointsRouter);
-app.use('/events', apiKeyAuth, eventsRouter);
-app.use('/deliveries', apiKeyAuth, deliveriesRouter);
-app.use('/metrics', apiKeyAuth, metricsRouter);
+// API routes with rate limiting, JSON body parsing, and authentication:
+// Execution order:
+// 1. authRateLimiter: IP-based pre-auth protection (rejects abusive IPs BEFORE parsing JSON bodies)
+// 2. jsonParser: Express JSON body parsing and payload size validation (HTTP 413)
+// 3. apiKeyAuth: API key authentication and failed attempt tracking
+// 4. tenantRateLimiter: Per-tenant rate limiting on authenticated tenantId (HTTP 429)
+// 5. Route handlers: Business logic
+const apiChain = [authRateLimiter(), jsonParser, apiKeyAuth, tenantRateLimiter()];
+
+app.use('/endpoints', apiChain, endpointsRouter);
+app.use('/events', apiChain, eventsRouter);
+app.use('/deliveries', apiChain, deliveriesRouter);
+app.use('/metrics', apiChain, metricsRouter);
 
 // 404 handler
 app.use(notFoundHandler);

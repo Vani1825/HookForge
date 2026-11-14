@@ -9,10 +9,8 @@ import { classify } from './defaultResponseClassifier.js';
 import { createDeliveryAttempt } from '../../domain/models/deliveryAttempt.js';
 import { deliveryOutcome } from '../../domain/deliveryOutcome.js';
 import { findById } from '../../repositories/jdbc/eventRepository.js';
+import config from '../../config/index.js';
 import logger from '../../utils/logger.js';
-
-const CONNECT_TIMEOUT_MS = 5000;
-const READ_TIMEOUT_MS = 10000;
 
 /**
  * Execute a single delivery attempt.
@@ -38,8 +36,13 @@ export async function execute(delivery, endpoint) {
     // Generate signature
     const signature = sign(endpoint.secret, payloadJson, timestamp);
 
-    // Send webhook
-    const timeoutMs = CONNECT_TIMEOUT_MS + READ_TIMEOUT_MS;
+    // Configurable timeouts and response limits
+    const connectTimeoutMs = config?.http?.connectTimeoutMs ?? 3000;
+    const readTimeoutMs = config?.http?.readTimeoutMs ?? 10000;
+    const maxResponseBytes = config?.http?.maxResponseBytes ?? 1048576;
+    const timeoutMs = connectTimeoutMs + readTimeoutMs;
+
+    // Send webhook with configured timeouts and response size limits
     const result = await httpWebhookSender.send(
       endpoint.url,
       payloadJson,
@@ -48,7 +51,12 @@ export async function execute(delivery, endpoint) {
         'X-Webhook-Signature': signature,
         'X-Webhook-Timestamp': timestamp.toString(),
       },
-      timeoutMs
+      timeoutMs,
+      {
+        connectTimeoutMs,
+        readTimeoutMs,
+        maxResponseBytes,
+      }
     );
 
     // Classify outcome

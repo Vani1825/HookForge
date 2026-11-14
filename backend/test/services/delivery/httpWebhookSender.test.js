@@ -800,6 +800,355 @@ describe('HttpWebhookSender SSRF & Connection Pinning', () => {
     });
   });
 
+  describe('Response Size Limits & Configurable Timeouts', () => {
+    it('aborts immediately when Content-Length header exceeds maxResponseBytes', async () => {
+      const { port } = await startServer((_req, res) => {
+        res.writeHead(200, {
+          'Content-Length': '2097152', // 2MB > default 1MB
+          'Content-Type': 'application/json',
+        });
+        res.write('{"data":"');
+        res.end();
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://oversized-cl.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 1048576,
+        }
+      );
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toBe('Response size exceeded maximum allowed limit of 1048576 bytes');
+    });
+
+    it('incrementally counts streamed response bytes and aborts when limit is exceeded without Content-Length', async () => {
+      let clientDisconnected = false;
+      const { port } = await startServer((_req, res) => {
+        res.socket.on('close', () => {
+          clientDisconnected = true;
+        });
+        res.writeHead(200, {
+          'Transfer-Encoding': 'chunked',
+          'Content-Type': 'application/octet-stream',
+        });
+
+        // Write 3 chunks of 500 bytes = 1500 bytes (limit: 1000 bytes)
+        res.write(Buffer.alloc(500, 'a'));
+        res.write(Buffer.alloc(500, 'b'));
+        res.write(Buffer.alloc(500, 'c'));
+        res.end();
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://chunked-oversized.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 1000,
+        }
+      );
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toBe('Response size exceeded maximum allowed limit of 1000 bytes');
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(clientDisconnected).toBe(true);
+    });
+
+    it('successfully processes response within maxResponseBytes limit', async () => {
+      const { port } = await startServer((_req, res) => {
+        const body = JSON.stringify({ ok: true });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body).toString(),
+        });
+        res.end(body);
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://valid-size.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 1024,
+        }
+      );
+
+      expect(result.statusCode).toBe(200);
+      expect(result.error).toBeNull();
+    });
+
+    it('successfully receives response when Content-Length is absent and size is within limit', async () => {
+      const { port } = await startServer((_req, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.write('hello');
+        res.write(' world');
+        res.end();
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://no-cl.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 1024,
+        }
+      );
+
+      expect(result.statusCode).toBe(200);
+      expect(result.error).toBeNull();
+    });
+
+    it('handles misleading Content-Length header safely without throwing unhandled exceptions', async () => {
+      const { port } = await startServer((_req, res) => {
+        res.setHeader('Content-Length', '10');
+        res.writeHead(200);
+        res.write(Buffer.alloc(600, 'x'));
+        res.write(Buffer.alloc(600, 'y')); // 1200 bytes total > 1000 limit
+        res.end();
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://misleading-cl.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 1000,
+        }
+      );
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toMatch(/Parse Error|Response size exceeded/);
+    });
+
+    it('handles invalid Content-Length header safely by falling back to streaming byte counter', async () => {
+      const { port } = await startServer((_req, res) => {
+        res.setHeader('Content-Length', 'not-a-number');
+        res.writeHead(200);
+        res.write(Buffer.alloc(800, 'a'));
+        res.write(Buffer.alloc(800, 'b')); // 1600 bytes total > 1000 limit
+        res.end();
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://invalid-cl.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 1000,
+        }
+      );
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toMatch(/Parse Error|Response size exceeded/);
+    });
+
+    it('honors custom maxResponseBytes passed via options', async () => {
+      const { port } = await startServer((_req, res) => {
+        res.writeHead(200, { 'Content-Length': '600' });
+        res.end(Buffer.alloc(600, 'z'));
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://custom-limit.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 500,
+        }
+      );
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toBe('Response size exceeded maximum allowed limit of 500 bytes');
+    });
+
+    it('triggers connect timeout when TCP handshake cannot be established within connectTimeoutMs', async () => {
+      let socketDestroyed = false;
+      const httpSpy = vi.spyOn(http, 'request').mockImplementation((_reqOpts, _cb) => {
+        const req = new EventEmitter();
+        req.write = vi.fn();
+        req.end = vi.fn();
+        req.destroy = vi.fn();
+
+        const mockSocket = new EventEmitter();
+        mockSocket.connecting = true;
+        mockSocket.destroy = vi.fn(() => {
+          socketDestroyed = true;
+        });
+
+        process.nextTick(() => {
+          req.emit('socket', mockSocket);
+        });
+
+        return req;
+      });
+
+      const mockDnsLookup = async () => [{ address: '93.184.216.34', family: 4 }];
+
+      const result = await send(
+        'http://connect-timeout.example/webhook',
+        '{}',
+        {},
+        5000,
+        {
+          dnsLookup: mockDnsLookup,
+          connectTimeoutMs: 50,
+          readTimeoutMs: 2000,
+        }
+      );
+
+      httpSpy.mockRestore();
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toBe('Timeout');
+      expect(socketDestroyed).toBe(true);
+    });
+
+    it('triggers read timeout when connected but server delays response beyond readTimeoutMs', async () => {
+      const { port } = await startServer((_req, _res) => {
+        // TCP connected immediately, but server does not write response
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const startTime = Date.now();
+      const result = await send(
+        `http://read-timeout.example:${port}/webhook`,
+        '{}',
+        {},
+        5000, // Total timeout is long (5000ms)
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          connectTimeoutMs: 2000, // Connect timeout is long (2000ms)
+          readTimeoutMs: 60, // Read timeout is short (60ms)
+        }
+      );
+      const elapsed = Date.now() - startTime;
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toBe('Timeout');
+      // Proves readTimeout fired independently of total or connect timeout
+      expect(elapsed).toBeLessThan(1000);
+      expect(elapsed).toBeGreaterThanOrEqual(50);
+    });
+
+    it('destroys response stream and socket upon exceeding response size limit', async () => {
+      let serverSocketClosed = false;
+      const { port } = await startServer((_req, res) => {
+        res.socket.on('close', () => {
+          serverSocketClosed = true;
+        });
+        res.writeHead(200, {
+          'Transfer-Encoding': 'chunked',
+        });
+        res.write(Buffer.alloc(2000, 'x'));
+      });
+
+      const mockDnsLookup = async () => [{ address: '127.0.0.1', family: 4 }];
+
+      const result = await send(
+        `http://cleanup-test.example:${port}/webhook`,
+        '{}',
+        {},
+        5000,
+        {
+          allowLocal: true,
+          dnsLookup: mockDnsLookup,
+          maxResponseBytes: 500,
+        }
+      );
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toMatch(/Response size exceeded/);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(serverSocketClosed).toBe(true);
+    });
+
+    it('destroys socket when response emits an error', async () => {
+      let socketDestroyed = false;
+      const httpSpy = vi.spyOn(http, 'request').mockImplementation((_reqOpts, cb) => {
+        const req = new EventEmitter();
+        req.write = vi.fn();
+        req.end = vi.fn();
+        req.destroy = vi.fn();
+
+        const mockSocket = new EventEmitter();
+        mockSocket.connecting = false;
+        mockSocket.destroy = vi.fn(() => {
+          socketDestroyed = true;
+        });
+
+        const mockRes = new EventEmitter();
+        mockRes.statusCode = 200;
+        mockRes.headers = {};
+
+        process.nextTick(() => {
+          req.emit('socket', mockSocket);
+          cb(mockRes);
+          process.nextTick(() => {
+            mockRes.emit('error', new Error('Simulated stream error'));
+          });
+        });
+
+        return req;
+      });
+
+      const mockDnsLookup = async () => [{ address: '93.184.216.34', family: 4 }];
+
+      const result = await send(
+        'http://res-error.example/webhook',
+        '{}',
+        {},
+        5000,
+        { dnsLookup: mockDnsLookup }
+      );
+
+      httpSpy.mockRestore();
+
+      expect(result.statusCode).toBeNull();
+      expect(result.error).toBe('Simulated stream error');
+      expect(socketDestroyed).toBe(true);
+    });
+  });
+
   describe('URL Sanitization for Logging', () => {
     it('strips credentials and redacts query parameters', () => {
       const sanitized = sanitizeUrlForLogging(

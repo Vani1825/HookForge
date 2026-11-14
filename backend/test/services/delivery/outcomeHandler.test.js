@@ -11,7 +11,6 @@ import { deliveryState } from '../../../src/domain/deliveryState.js';
 import { circuitState } from '../../../src/domain/circuitState.js';
 import exponentialJitterRetryPolicy from '../../../src/services/resilience/exponentialJitterRetryPolicy.js';
 import thresholdCircuitBreaker from '../../../src/services/resilience/thresholdCircuitBreaker.js';
-import clock from '../../../src/utils/clock.js';
 
 // Mock dependencies
 vi.mock('../../../src/repositories/jdbc/deliveryRepository.js');
@@ -45,10 +44,18 @@ describe('OutcomeHandler', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    deliveryRepository.markTerminal.mockResolvedValue({
+      id: 'delivery-1',
+      state: deliveryState.SUCCEEDED,
+    });
+    deliveryRepository.releaseLease.mockResolvedValue({
+      id: 'delivery-1',
+      state: deliveryState.RETRYING,
+    });
   });
 
   describe('handleOutcome with SUCCESS', () => {
-    it('should mark delivery as SUCCEEDED', async () => {
+    it('should mark delivery as SUCCEEDED with combined attempt increment', async () => {
       exponentialJitterRetryPolicy.nextDelay.mockResolvedValue(null);
       thresholdCircuitBreaker.recordResult.mockResolvedValue({
         circuitState: circuitState.CLOSED,
@@ -66,8 +73,22 @@ describe('OutcomeHandler', () => {
         latencyMs: mockAttempt.latencyMs,
         error: mockAttempt.error,
       });
-      expect(deliveryRepository.incrementAttemptCount).toHaveBeenCalledWith('delivery-1');
-      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith('delivery-1', deliveryState.SUCCEEDED);
+      expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
+      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith(
+        'delivery-1',
+        deliveryState.SUCCEEDED,
+        { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 0 }
+      );
+    });
+
+    it('should reject stale worker and return null if markTerminal fails', async () => {
+      deliveryRepository.markTerminal.mockResolvedValue(null);
+
+      const result = await handleOutcome(mockDelivery, deliveryOutcome.SUCCESS, mockAttempt, mockEndpoint);
+
+      expect(result).toBeNull();
+      expect(thresholdCircuitBreaker.recordResult).not.toHaveBeenCalled();
+      expect(saveCircuit).not.toHaveBeenCalled();
     });
 
     it('should update circuit breaker on success', async () => {
@@ -95,29 +116,55 @@ describe('OutcomeHandler', () => {
   });
 
   describe('handleOutcome with ENDPOINT_GONE', () => {
-    it('should mark delivery as DEAD', async () => {
+    it('should mark delivery as DEAD with combined attempt increment', async () => {
       exponentialJitterRetryPolicy.nextDelay.mockResolvedValue(null);
       thresholdCircuitBreaker.recordResult.mockResolvedValue(null);
 
       await handleOutcome(mockDelivery, deliveryOutcome.ENDPOINT_GONE, mockAttempt, mockEndpoint);
 
-      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith('delivery-1', deliveryState.DEAD);
+      expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
+      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith(
+        'delivery-1',
+        deliveryState.DEAD,
+        { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 0 }
+      );
+    });
+
+    it('should reject stale worker and return null on ENDPOINT_GONE if markTerminal returns null', async () => {
+      deliveryRepository.markTerminal.mockResolvedValue(null);
+
+      const result = await handleOutcome(mockDelivery, deliveryOutcome.ENDPOINT_GONE, mockAttempt, mockEndpoint);
+
+      expect(result).toBeNull();
+      expect(thresholdCircuitBreaker.recordResult).not.toHaveBeenCalled();
     });
   });
 
   describe('handleOutcome with retryable failure', () => {
-    it('should schedule retry when delay available', async () => {
+    it('should schedule retry when delay available with combined attempt increment', async () => {
       exponentialJitterRetryPolicy.nextDelay.mockResolvedValue(5000);
       thresholdCircuitBreaker.recordResult.mockResolvedValue(null);
 
       await handleOutcome(mockDelivery, deliveryOutcome.RETRY, mockAttempt, mockEndpoint);
 
+      expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
       expect(deliveryRepository.releaseLease).toHaveBeenCalledWith(
         'delivery-1',
         deliveryState.RETRYING,
         expect.any(String),
-        'Retryable failure'
+        'Retryable failure',
+        { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 0 }
       );
+    });
+
+    it('should reject stale worker and return null if releaseLease returns null', async () => {
+      exponentialJitterRetryPolicy.nextDelay.mockResolvedValue(5000);
+      deliveryRepository.releaseLease.mockResolvedValue(null);
+
+      const result = await handleOutcome(mockDelivery, deliveryOutcome.RETRY, mockAttempt, mockEndpoint);
+
+      expect(result).toBeNull();
+      expect(thresholdCircuitBreaker.recordResult).not.toHaveBeenCalled();
     });
 
     it('should mark as DEAD when retry limit exceeded', async () => {
@@ -126,22 +173,29 @@ describe('OutcomeHandler', () => {
 
       await handleOutcome(mockDelivery, deliveryOutcome.RETRY, mockAttempt, mockEndpoint);
 
-      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith('delivery-1', deliveryState.DEAD);
+      expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
+      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith(
+        'delivery-1',
+        deliveryState.DEAD,
+        { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 0 }
+      );
     });
   });
 
   describe('handleOutcome with RATE_LIMITED', () => {
-    it('should schedule retry with delay', async () => {
+    it('should schedule retry with delay and combined attempt increment', async () => {
       exponentialJitterRetryPolicy.nextDelay.mockResolvedValue(1000);
       thresholdCircuitBreaker.recordResult.mockResolvedValue(null);
 
       await handleOutcome(mockDelivery, deliveryOutcome.RATE_LIMITED, mockAttempt, mockEndpoint);
 
+      expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
       expect(deliveryRepository.releaseLease).toHaveBeenCalledWith(
         'delivery-1',
         deliveryState.RETRYING,
         expect.any(String),
-        'Retryable failure'
+        'Retryable failure',
+        { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 0 }
       );
     });
   });
@@ -155,7 +209,12 @@ describe('OutcomeHandler', () => {
 
       await handleOutcome(deliveryWithAttempts, deliveryOutcome.RETRY_LIMITED, mockAttempt, mockEndpoint);
 
-      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith('delivery-1', deliveryState.DEAD);
+      expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
+      expect(deliveryRepository.markTerminal).toHaveBeenCalledWith(
+        'delivery-1',
+        deliveryState.DEAD,
+        { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 2 }
+      );
     });
   });
 });

@@ -7,6 +7,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { URL } from 'node:url';
+import config from '../../config/index.js';
 import logger from '../../utils/logger.js';
 import {
   validateAndResolveUrl,
@@ -14,7 +15,9 @@ import {
   isSameOrigin,
 } from '../../utils/ssrf.js';
 
-const DEFAULT_TIMEOUT_MS = 15000;
+const DEFAULT_CONNECT_TIMEOUT_MS = config?.http?.connectTimeoutMs ?? 3000;
+const DEFAULT_READ_TIMEOUT_MS = config?.http?.readTimeoutMs ?? 10000;
+const DEFAULT_MAX_RESPONSE_BYTES = config?.http?.maxResponseBytes ?? 1048576; // 1 MB
 const MAX_REDIRECTS = 3;
 
 /**
@@ -42,10 +45,23 @@ const CROSS_ORIGIN_STRIPPED_HEADERS = new Set([
  * @param {number} timeoutMs - Timeout in milliseconds for this hop
  * @returns {Promise<{ statusCode: number|null, headers: Object|null, error: string|null }>}
  */
-function executeHop(resolution, method, body, headers, timeoutMs) {
+function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions = {}) {
   return new Promise((resolve) => {
     const isHttps = resolution.protocol === 'https:';
     const client = isHttps ? https : http;
+
+    const connectTimeoutMs =
+      hopOptions.connectTimeoutMs ??
+      config?.http?.connectTimeoutMs ??
+      DEFAULT_CONNECT_TIMEOUT_MS;
+    const readTimeoutMs =
+      hopOptions.readTimeoutMs ??
+      config?.http?.readTimeoutMs ??
+      DEFAULT_READ_TIMEOUT_MS;
+    const maxResponseBytes =
+      hopOptions.maxResponseBytes ??
+      config?.http?.maxResponseBytes ??
+      DEFAULT_MAX_RESPONSE_BYTES;
 
     const isGetOrHead = method === 'GET' || method === 'HEAD';
     let bodyBuffer = Buffer.alloc(0);
@@ -101,18 +117,147 @@ function executeHop(resolution, method, body, headers, timeoutMs) {
     }
 
     let isDone = false;
-    let timer = null;
+    let connectTimer = null;
+    let readTimer = null;
+    let overallTimer = null;
+    let socketRef = null;
 
     const cleanup = () => {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
+      if (connectTimer) {
+        clearTimeout(connectTimer);
+        connectTimer = null;
+      }
+      if (readTimer) {
+        clearTimeout(readTimer);
+        readTimer = null;
+      }
+      if (overallTimer) {
+        clearTimeout(overallTimer);
+        overallTimer = null;
       }
     };
 
+    const hopStartTime = Date.now();
+
+    // 1. Overall hop timer ensuring the hop never exceeds the remaining deadline
+    overallTimer = setTimeout(() => {
+      if (isDone) return;
+      isDone = true;
+      cleanup();
+      const timeoutErr = new Error('Timeout');
+      timeoutErr.name = 'TimeoutError';
+      timeoutErr.code = 'ETIMEDOUT';
+      req.destroy(timeoutErr);
+      if (socketRef && !socketRef.destroyed) socketRef.destroy();
+      resolve({
+        statusCode: null,
+        headers: null,
+        error: 'Timeout',
+      });
+    }, hopTimeoutMs);
+
+    // 2. Connection phase timer: covers establishing TCP connection (+ TLS handshake)
+    const effectiveConnectTimeout = Math.min(connectTimeoutMs, hopTimeoutMs);
+    connectTimer = setTimeout(() => {
+      if (isDone) return;
+      isDone = true;
+      cleanup();
+      const timeoutErr = new Error('ConnectTimeout');
+      timeoutErr.name = 'TimeoutError';
+      timeoutErr.code = 'ETIMEDOUT';
+      req.destroy(timeoutErr);
+      if (socketRef && !socketRef.destroyed) socketRef.destroy();
+      resolve({
+        statusCode: null,
+        headers: null,
+        error: 'Timeout',
+      });
+    }, effectiveConnectTimeout);
+
+    function onConnected() {
+      // Clear connect timer as soon as connection is established
+      if (connectTimer) {
+        clearTimeout(connectTimer);
+        connectTimer = null;
+      }
+      startReadTimeout();
+    }
+
+    function startReadTimeout() {
+      if (isDone || readTimer) return;
+      const elapsed = Date.now() - hopStartTime;
+      const remainingHop = Math.max(1, hopTimeoutMs - elapsed);
+      const effectiveReadTimeout = Math.min(readTimeoutMs, remainingHop);
+
+      readTimer = setTimeout(() => {
+        if (isDone) return;
+        isDone = true;
+        cleanup();
+        const timeoutErr = new Error('ReadTimeout');
+        timeoutErr.name = 'TimeoutError';
+        timeoutErr.code = 'ETIMEDOUT';
+        req.destroy(timeoutErr);
+        if (socketRef && !socketRef.destroyed) socketRef.destroy();
+        resolve({
+          statusCode: null,
+          headers: null,
+          error: 'Timeout',
+        });
+      }, effectiveReadTimeout);
+    }
+
     const req = client.request(reqOptions, (res) => {
-      // Drain response stream to release socket
-      res.resume();
+      onConnected();
+
+      // Check Content-Length header immediately
+      const rawContentLength = res.headers['content-length'];
+      if (rawContentLength !== undefined && rawContentLength !== null && rawContentLength !== '') {
+        const contentLength = parseInt(rawContentLength, 10);
+        if (Number.isInteger(contentLength) && contentLength > maxResponseBytes) {
+          if (isDone) return;
+          isDone = true;
+          cleanup();
+          const sizeErr = new Error(
+            `Response size exceeded maximum allowed limit of ${maxResponseBytes} bytes`
+          );
+          sizeErr.name = 'ResponseTooLargeError';
+          const activeSocket = res.socket || socketRef;
+          res.destroy();
+          req.destroy(sizeErr);
+          if (activeSocket && !activeSocket.destroyed) activeSocket.destroy();
+          return resolve({
+            statusCode: null,
+            headers: null,
+            error: `Response size exceeded maximum allowed limit of ${maxResponseBytes} bytes`,
+          });
+        }
+      }
+
+      // Incrementally count streamed response bytes
+      let receivedBytes = 0;
+
+      res.on('data', (chunk) => {
+        receivedBytes += chunk.length;
+        if (receivedBytes > maxResponseBytes) {
+          if (isDone) return;
+          isDone = true;
+          cleanup();
+          const sizeErr = new Error(
+            `Response size exceeded maximum allowed limit of ${maxResponseBytes} bytes`
+          );
+          sizeErr.name = 'ResponseTooLargeError';
+          const activeSocket = res.socket || socketRef;
+          res.destroy();
+          req.destroy(sizeErr);
+          if (activeSocket && !activeSocket.destroyed) activeSocket.destroy();
+          resolve({
+            statusCode: null,
+            headers: null,
+            error: `Response size exceeded maximum allowed limit of ${maxResponseBytes} bytes`,
+          });
+        }
+      });
+
       res.on('end', () => {
         if (isDone) return;
         isDone = true;
@@ -123,31 +268,59 @@ function executeHop(resolution, method, body, headers, timeoutMs) {
           error: null,
         });
       });
+
+      res.on('error', (err) => {
+        if (isDone) return;
+        isDone = true;
+        cleanup();
+        if (socketRef && !socketRef.destroyed) socketRef.destroy();
+        resolve({
+          statusCode: null,
+          headers: null,
+          error: err.message,
+        });
+      });
+    });
+
+    req.on('socket', (socket) => {
+      socketRef = socket;
+      if (socket.connecting) {
+        const connectEvent = isHttps ? 'secureConnect' : 'connect';
+        socket.once(connectEvent, onConnected);
+      } else {
+        onConnected();
+      }
     });
 
     req.on('error', (err) => {
       if (isDone) return;
       isDone = true;
       cleanup();
+      if (socketRef && !socketRef.destroyed) socketRef.destroy();
       const isTimeout =
         err.name === 'TimeoutError' ||
         err.message === 'Timeout' ||
+        err.message === 'ConnectTimeout' ||
+        err.message === 'ReadTimeout' ||
         err.code === 'ETIMEDOUT' ||
         err.code === 'ESOCKETTIMEDOUT';
+      const isTooLarge =
+        err.name === 'ResponseTooLargeError' ||
+        err.message?.includes('Response size exceeded');
+
+      let errorMsg = err.message;
+      if (isTimeout) {
+        errorMsg = 'Timeout';
+      } else if (isTooLarge) {
+        errorMsg = err.message;
+      }
+
       resolve({
         statusCode: null,
         headers: null,
-        error: isTimeout ? 'Timeout' : err.message,
+        error: errorMsg,
       });
     });
-
-    // Enforce request timeout
-    timer = setTimeout(() => {
-      if (isDone) return;
-      const timeoutErr = new Error('Timeout');
-      timeoutErr.name = 'TimeoutError';
-      req.destroy(timeoutErr);
-    }, timeoutMs);
 
     if (!isGetOrHead && bodyBuffer.length > 0) {
       req.write(bodyBuffer);
@@ -162,13 +335,27 @@ function executeHop(resolution, method, body, headers, timeoutMs) {
  * @param {string} url - Destination webhook URL
  * @param {string} body - Payload body string
  * @param {Object} [headers] - Optional headers map
- * @param {number} [timeoutMs] - Request timeout in milliseconds (defaults to 15000)
- * @param {Object} [options] - Optional overrides (e.g. dnsLookup, allowLocal, followRedirects, maxRedirects)
+ * @param {number} [timeoutMs] - Request timeout in milliseconds (defaults to connectTimeout + readTimeout)
+ * @param {Object} [options] - Optional overrides (e.g. dnsLookup, allowLocal, followRedirects, maxRedirects, connectTimeoutMs, readTimeoutMs, maxResponseBytes)
  * @returns {Promise<{ statusCode: number|null, latencyMs: number, error: string|null }>}
  */
-export async function send(url, body, headers = {}, timeoutMs = DEFAULT_TIMEOUT_MS, options = {}) {
+export async function send(url, body, headers = {}, timeoutMs, options = {}) {
   const startTime = Date.now();
   const maxRedirects = options.maxRedirects ?? MAX_REDIRECTS;
+  const connectTimeoutMs =
+    options.connectTimeoutMs ??
+    config?.http?.connectTimeoutMs ??
+    DEFAULT_CONNECT_TIMEOUT_MS;
+  const readTimeoutMs =
+    options.readTimeoutMs ??
+    config?.http?.readTimeoutMs ??
+    DEFAULT_READ_TIMEOUT_MS;
+  const maxResponseBytes =
+    options.maxResponseBytes ??
+    config?.http?.maxResponseBytes ??
+    DEFAULT_MAX_RESPONSE_BYTES;
+  const effectiveTimeoutMs =
+    timeoutMs ?? (connectTimeoutMs + readTimeoutMs);
   let currentUrl = url;
   let currentMethod = 'POST';
   let currentBody = body;
@@ -177,7 +364,7 @@ export async function send(url, body, headers = {}, timeoutMs = DEFAULT_TIMEOUT_
 
   while (true) {
     const elapsedMs = Date.now() - startTime;
-    if (elapsedMs >= timeoutMs) {
+    if (elapsedMs >= effectiveTimeoutMs) {
       logger.error('Webhook delivery timed out before dispatch', {
         url: sanitizeUrlForLogging(currentUrl),
         latencyMs: elapsedMs,
@@ -188,7 +375,7 @@ export async function send(url, body, headers = {}, timeoutMs = DEFAULT_TIMEOUT_
         error: 'Timeout',
       };
     }
-    const remainingTimeout = timeoutMs - elapsedMs;
+    const remainingTimeout = effectiveTimeoutMs - elapsedMs;
 
     // 1. SSRF validation & connection IP resolution
     let resolution;
@@ -242,7 +429,7 @@ export async function send(url, body, headers = {}, timeoutMs = DEFAULT_TIMEOUT_
 
     // Ensure expired requests cannot proceed to an outbound connection after DNS resolution completes
     const postDnsElapsedMs = Date.now() - startTime;
-    if (postDnsElapsedMs >= timeoutMs) {
+    if (postDnsElapsedMs >= effectiveTimeoutMs) {
       logger.error('Webhook delivery timed out after DNS resolution', {
         url: sanitizeUrlForLogging(currentUrl),
         latencyMs: postDnsElapsedMs,
@@ -253,7 +440,7 @@ export async function send(url, body, headers = {}, timeoutMs = DEFAULT_TIMEOUT_
         error: 'Timeout',
       };
     }
-    const hopRemainingTimeout = timeoutMs - postDnsElapsedMs;
+    const hopRemainingTimeout = effectiveTimeoutMs - postDnsElapsedMs;
 
     // 2. Execute single hop with pinned IP
     const hopResult = await executeHop(
@@ -261,7 +448,13 @@ export async function send(url, body, headers = {}, timeoutMs = DEFAULT_TIMEOUT_
       currentMethod,
       currentBody,
       currentHeaders,
-      hopRemainingTimeout
+      hopRemainingTimeout,
+      {
+        ...options,
+        connectTimeoutMs,
+        readTimeoutMs,
+        maxResponseBytes,
+      }
     );
 
     // 3. Handle Hop Failure

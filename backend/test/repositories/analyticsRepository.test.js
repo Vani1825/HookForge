@@ -229,6 +229,68 @@ describe('JdbcAnalyticsRepository', () => {
       expect(result[0].successRate).toBe(96.0); // (48 / 50) * 100
       expect(result[0].averageLatencyMs).toBe(64);
     });
+
+    it('should prevent join fan-out using separate pre-aggregated delivery_stats and attempt_stats CTEs', async () => {
+      query.mockResolvedValueOnce({ rows: [] });
+
+      await analyticsRepository.getEndpointBreakdown(mockTenantId);
+
+      const executedSql = query.mock.calls[0][0];
+
+      // Verifies separate CTEs exist
+      expect(executedSql).toContain('WITH delivery_stats AS');
+      expect(executedSql).toContain('attempt_stats AS');
+
+      // Verifies delivery_stats groups by d.endpoint_id without joining delivery_attempts
+      const deliveryStatsCte = executedSql.substring(
+        executedSql.indexOf('WITH delivery_stats AS'),
+        executedSql.indexOf('attempt_stats AS')
+      );
+      expect(deliveryStatsCte).not.toContain('delivery_attempts');
+      expect(deliveryStatsCte).toContain('COUNT(*)::bigint AS total_deliveries');
+      expect(deliveryStatsCte).toContain('WHERE ep.tenant_id = $1');
+
+      // Verifies attempt_stats calculates AVG(a.latency_ms) separately
+      const attemptStatsCte = executedSql.substring(
+        executedSql.indexOf('attempt_stats AS'),
+        executedSql.indexOf('SELECT\n        ep.id')
+      );
+      expect(attemptStatsCte).toContain('delivery_attempts a');
+      expect(attemptStatsCte).toContain('COALESCE(ROUND(AVG(a.latency_ms)), 0)::bigint AS average_latency_ms');
+
+      // Verifies outer query joins pre-aggregated CTEs using LEFT JOIN and COALESCE
+      expect(executedSql).toContain('LEFT JOIN delivery_stats ds ON ds.endpoint_id = ep.id');
+      expect(executedSql).toContain('LEFT JOIN attempt_stats ast ON ast.endpoint_id = ep.id');
+      expect(executedSql).toContain('COALESCE(ds.total_deliveries, 0)::bigint AS total_deliveries');
+      expect(query.mock.calls[0][1]).toEqual([mockTenantId]);
+    });
+
+    it('should handle zero-delivery and zero-attempt endpoints with clean baseline values', async () => {
+      query.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'ep-empty',
+            url: 'https://api.test.com/idle',
+            circuit_state: 'CLOSED',
+            consecutive_failures: 0,
+            rate_limit_rps: 10,
+            total_deliveries: '0',
+            succeeded_deliveries: '0',
+            failed_deliveries: '0',
+            average_latency_ms: '0',
+          },
+        ],
+      });
+
+      const result = await analyticsRepository.getEndpointBreakdown(mockTenantId);
+
+      expect(result).toHaveLength(1);
+      expect(result[0].totalDeliveries).toBe(0);
+      expect(result[0].succeededDeliveries).toBe(0);
+      expect(result[0].failedDeliveries).toBe(0);
+      expect(result[0].averageLatencyMs).toBe(0);
+      expect(result[0].successRate).toBe(100.0); // Baseline, not NaN or 0
+    });
   });
 });
 

@@ -23,6 +23,10 @@ router.get(
     .isIn([...deliveryState.values(), 'ALL'])
     .withMessage('Invalid state'),
   query('limit').optional().isInt({ min: 1, max: 1000 }).withMessage('Limit must be between 1 and 1000'),
+  query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be a non-negative integer'),
+  query('endpoint_id').optional().isUUID().withMessage('Invalid endpoint ID'),
+  query('endpointId').optional().isUUID().withMessage('Invalid endpoint ID'),
+  query('search').optional().isString().trim(),
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
@@ -31,16 +35,28 @@ router.get(
       }
 
       const limit = parseInt(req.query.limit || '100', 10);
+      const offset = req.query.offset !== undefined ? parseInt(req.query.offset, 10) : 0;
+      const endpointId = req.query.endpoint_id || req.query.endpointId || null;
+      const search = req.query.search || null;
       const tenantId = req.tenantId;
       const stateQuery = req.query.state;
 
       let state = stateQuery || 'DEAD';
       let deliveries;
 
-      if (stateQuery === 'ALL') {
-        deliveries = await deliveryService.getAllDeliveries(tenantId, limit);
+      if (offset > 0 || endpointId || search) {
+        const options = { offset, endpointId, search };
+        if (stateQuery === 'ALL') {
+          deliveries = await deliveryService.getAllDeliveries(tenantId, limit, options);
+        } else {
+          deliveries = await deliveryService.getDeliveriesByState(state, tenantId, limit, options);
+        }
       } else {
-        deliveries = await deliveryService.getDeliveriesByState(state, tenantId, limit);
+        if (stateQuery === 'ALL') {
+          deliveries = await deliveryService.getAllDeliveries(tenantId, limit);
+        } else {
+          deliveries = await deliveryService.getDeliveriesByState(state, tenantId, limit);
+        }
       }
 
       res.json({

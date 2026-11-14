@@ -9,6 +9,8 @@ import {
   UnauthorizedError,
   ConflictError,
   ValidationError,
+  PayloadTooLargeError,
+  errorHandler,
 } from '../src/middleware/errorHandler.js';
 
 describe('Error Classes', () => {
@@ -58,5 +60,49 @@ describe('Error Classes', () => {
     expect(error.name).toBe('ValidationError');
     expect(error.type).toBe('validation_error');
     expect(error.statusCode).toBe(400);
+  });
+
+  it('should create PayloadTooLargeError with 413 status', () => {
+    const error = new PayloadTooLargeError('Payload exceeds maximum allowed bytes');
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error.name).toBe('PayloadTooLargeError');
+    expect(error.type).toBe('payload_too_large');
+    expect(error.statusCode).toBe(413);
+    expect(error.message).toBe('Payload exceeds maximum allowed bytes');
+  });
+
+  it('should create PayloadTooLargeError with default message', () => {
+    const error = new PayloadTooLargeError();
+    expect(error.message).toBe('Payload too large');
+    expect(error.statusCode).toBe(413);
+  });
+
+  it('should format 413 response in errorHandler without leaking stack trace', () => {
+    const error = new PayloadTooLargeError('Payload too large (300000 bytes)');
+    const req = { path: '/events', method: 'POST' };
+    let capturedStatus = null;
+    let capturedBody = null;
+    const res = {
+      status(code) {
+        capturedStatus = code;
+        return this;
+      },
+      json(body) {
+        capturedBody = body;
+        return this;
+      },
+    };
+    const next = () => {};
+
+    errorHandler(error, req, res, next);
+
+    expect(capturedStatus).toBe(413);
+    expect(capturedBody).toEqual({
+      error: {
+        type: 'payload_too_large',
+        message: 'Payload too large (300000 bytes)',
+      },
+    });
+    expect(capturedBody.stack).toBeUndefined();
   });
 });

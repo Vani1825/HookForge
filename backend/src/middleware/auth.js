@@ -14,6 +14,9 @@
 import crypto from 'crypto';
 import tenantRepository from '../repositories/jdbc/tenantRepository.js';
 import logger from '../utils/logger.js';
+import config from '../config/index.js';
+import { getClientIp, recordAuthFailure } from './rateLimiter.js';
+import { defaultRateLimitStore } from '../services/rateLimit/rateLimitStore.js';
 
 /**
  * Request attribute key for tenant ID (matches reference's TenantAttributes.TENANT_ID)
@@ -66,6 +69,31 @@ export async function apiKeyAuth(req, res, next) {
     return next();
   }
 
+  const clientIp = getClientIp(req);
+
+  // Pre-auth IP rate limiter: protect against brute-force and DB connection exhaustion
+  const authLimitStatus = await defaultRateLimitStore.get(
+    'auth_fail',
+    clientIp,
+    config.rateLimit.authFail.limit,
+    config.rateLimit.authFail.windowMs
+  );
+  if (!authLimitStatus.allowed) {
+    logger.warn('Rate limit exceeded: too many failed authentication attempts', {
+      ip: clientIp,
+      path: req.path,
+    });
+    if (typeof res.setHeader === 'function') {
+      res.setHeader('Retry-After', String(authLimitStatus.retryAfterSeconds));
+    }
+    return res.status(429).json({
+      error: {
+        type: 'rate_limit_exceeded',
+        message: 'Too many failed authentication attempts. Please try again later.',
+      },
+    });
+  }
+
   const rawAuthHeader = Array.isArray(req.headers.authorization)
     ? req.headers.authorization[0]
     : req.headers.authorization;
@@ -75,7 +103,8 @@ export async function apiKeyAuth(req, res, next) {
 
   let apiKey = null;
 
-  const setAuthHeaderAndRespond401 = (message) => {
+  const setAuthHeaderAndRespond401 = async (message) => {
+    await recordAuthFailure(clientIp);
     if (typeof res.setHeader === 'function') {
       res.setHeader('WWW-Authenticate', 'Bearer realm="HookForge"');
     }
@@ -92,7 +121,7 @@ export async function apiKeyAuth(req, res, next) {
         path: req.path,
         method: req.method,
       });
-      return setAuthHeaderAndRespond401('Empty API key');
+      return await setAuthHeaderAndRespond401('Empty API key');
     }
 
     // Check for Bearer scheme (case-insensitive) and extract API key
@@ -101,7 +130,7 @@ export async function apiKeyAuth(req, res, next) {
         path: req.path,
         method: req.method,
       });
-      return setAuthHeaderAndRespond401('Authorization header must use Bearer scheme');
+      return await setAuthHeaderAndRespond401('Authorization header must use Bearer scheme');
     }
 
     apiKey = rawAuthHeader.substring(7).trim(); // Remove "Bearer " prefix and trim
@@ -111,7 +140,7 @@ export async function apiKeyAuth(req, res, next) {
         path: req.path,
         method: req.method,
       });
-      return setAuthHeaderAndRespond401('Empty API key');
+      return await setAuthHeaderAndRespond401('Empty API key');
     }
   } else if (rawXApiKey) {
     apiKey = String(rawXApiKey).trim();
@@ -120,14 +149,14 @@ export async function apiKeyAuth(req, res, next) {
         path: req.path,
         method: req.method,
       });
-      return setAuthHeaderAndRespond401('Empty API key');
+      return await setAuthHeaderAndRespond401('Empty API key');
     }
   } else {
     logger.warn('Missing Authorization header', {
       path: req.path,
       method: req.method,
     });
-    return setAuthHeaderAndRespond401('Missing Authorization header');
+    return await setAuthHeaderAndRespond401('Missing Authorization header');
   }
 
   // Compute hash and look up tenant
@@ -141,7 +170,7 @@ export async function apiKeyAuth(req, res, next) {
         path: req.path,
         method: req.method,
       });
-      return setAuthHeaderAndRespond401('Invalid API key');
+      return await setAuthHeaderAndRespond401('Invalid API key');
     }
 
     // Set tenant ID on request for downstream handlers

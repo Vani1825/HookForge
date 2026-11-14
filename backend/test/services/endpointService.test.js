@@ -143,6 +143,10 @@ describe('EndpointService', () => {
       expect(result[0]).toHaveProperty('id');
       expect(result[0]).toHaveProperty('url');
       expect(result[0]).not.toHaveProperty('secret');
+      expect(result[0]).not.toHaveProperty('secretCiphertext');
+      expect(result[0]).not.toHaveProperty('secretIv');
+      expect(result[0]).not.toHaveProperty('secretTag');
+      expect(result[0]).not.toHaveProperty('secretVersion');
     });
   });
 

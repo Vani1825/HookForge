@@ -5,10 +5,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import express from 'express';
+import config from '../../src/config/index.js';
 import eventsRouter from '../../src/routes/events.js';
 import eventIngestService from '../../src/services/ingest/eventIngestService.js';
 import deliveryService from '../../src/services/delivery/deliveryService.js';
 import { deliveryState } from '../../src/domain/deliveryState.js';
+import { errorHandler, PayloadTooLargeError } from '../../src/middleware/errorHandler.js';
 
 // Mock services
 vi.mock('../../src/services/ingest/eventIngestService.js');
@@ -28,7 +30,7 @@ vi.mock('express-validator', async (importOriginal) => {
 
 function createApp() {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: config.ingest.maxPayloadBytes }));
   
   // Mock auth middleware to set tenantId
   app.use((req, res, next) => {
@@ -37,6 +39,7 @@ function createApp() {
   });
   
   app.use('/events', eventsRouter);
+  app.use(errorHandler);
   
   return app;
 }
@@ -131,6 +134,153 @@ describe('Event Routes', () => {
       expect(res202.body.deliveriesEnqueued).toBe(1);
       expect(res200.body.deliveriesEnqueued).toBe(0);
       expect(res200.body.id).toBe(res202.body.id);
+    });
+
+    it('should return 400 when body is missing', async () => {
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-missing-body');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'Validation Error',
+        message: 'Request body must be a non-empty JSON object',
+      });
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when body is an empty object', async () => {
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-empty-obj')
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'Validation Error',
+        message: 'Request body must be a non-empty JSON object',
+      });
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when body is an array', async () => {
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-array')
+        .send([1, 2, 3]);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'Validation Error',
+        message: 'Request body must be a non-empty JSON object',
+      });
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when body is a primitive string', async () => {
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-string')
+        .set('Content-Type', 'application/json')
+        .send('"just a string"');
+
+      expect(response.status).toBe(400);
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when body is a primitive number', async () => {
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-number')
+        .set('Content-Type', 'application/json')
+        .send('12345');
+
+      expect(response.status).toBe(400);
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 when body is null', async () => {
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-null')
+        .set('Content-Type', 'application/json')
+        .send('null');
+
+      expect(response.status).toBe(400);
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 validation error if body reaches handler as primitive or null', async () => {
+      const customApp = express();
+      customApp.use(express.json({ strict: false }));
+      customApp.use((req, res, next) => {
+        req.tenantId = 'tenant-1';
+        next();
+      });
+      customApp.use('/events', eventsRouter);
+      customApp.use(errorHandler);
+
+      const resString = await request(customApp)
+        .post('/events')
+        .set('Idempotency-Key', 'key-str')
+        .set('Content-Type', 'application/json')
+        .send('"just a string"');
+
+      expect(resString.status).toBe(400);
+      expect(resString.body).toEqual({
+        error: 'Validation Error',
+        message: 'Request body must be a non-empty JSON object',
+      });
+
+      const resNull = await request(customApp)
+        .post('/events')
+        .set('Idempotency-Key', 'key-null')
+        .set('Content-Type', 'application/json')
+        .send('null');
+
+      expect(resNull.status).toBe(400);
+      expect(resNull.body).toEqual({
+        error: 'Validation Error',
+        message: 'Request body must be a non-empty JSON object',
+      });
+      expect(eventIngestService.ingest).not.toHaveBeenCalled();
+    });
+
+    it('should return 413 Payload Too Large when ingest service throws PayloadTooLargeError', async () => {
+      eventIngestService.ingest.mockRejectedValue(
+        new PayloadTooLargeError('Payload too large (300000 bytes, maximum allowed is 262144 bytes)')
+      );
+
+      const response = await request(app)
+        .post('/events')
+        .set('Idempotency-Key', 'key-large')
+        .send({ message: 'x'.repeat(100) });
+
+      expect(response.status).toBe(413);
+      expect(response.body).toEqual({
+        error: {
+          type: 'payload_too_large',
+          message: 'Payload too large (300000 bytes, maximum allowed is 262144 bytes)',
+        },
+      });
+    });
+
+    it('should return 413 Payload Too Large when request body exceeds express json limit', async () => {
+      const originalLimit = config.ingest.maxPayloadBytes;
+      try {
+        config.ingest.maxPayloadBytes = 1024;
+        const testApp = createApp();
+        const response = await request(testApp)
+          .post('/events')
+          .set('Idempotency-Key', 'key-express-limit')
+          .set('Content-Type', 'application/json')
+          .send(JSON.stringify({ large: 'a'.repeat(2048) }));
+
+        expect(response.status).toBe(413);
+        expect(response.body.error.type).toBe('payload_too_large');
+      } finally {
+        config.ingest.maxPayloadBytes = originalLimit;
+      }
     });
   });
 

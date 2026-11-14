@@ -4,8 +4,7 @@
  */
 
 import deliveryRepository from '../../repositories/jdbc/deliveryRepository.js';
-import { findActiveByTenant } from '../../repositories/jdbc/endpointRepository.js';
-import { findAll } from '../../repositories/jdbc/tenantRepository.js';
+import { findDueEndpoints } from '../../repositories/jdbc/endpointRepository.js';
 import attemptExecutor from './attemptExecutor.js';
 import { handleOutcome } from './outcomeHandler.js';
 import { shouldAttempt } from '../resilience/thresholdCircuitBreaker.js';
@@ -48,7 +47,11 @@ async function processDelivery(delivery, endpoint) {
         delivery.id,
         deliveryState.RETRYING,
         new Date(now + 60000).toISOString(),
-        'Circuit breaker open'
+        'Circuit breaker open',
+        {
+          requireInFlight: true,
+          expectedAttemptCount: delivery.attemptCount,
+        }
       );
       return;
     }
@@ -66,7 +69,11 @@ async function processDelivery(delivery, endpoint) {
         delivery.id,
         deliveryState.RETRYING,
         new Date(now + 1000).toISOString(),
-        'Rate limited'
+        'Rate limited',
+        {
+          requireInFlight: true,
+          expectedAttemptCount: delivery.attemptCount,
+        }
       );
       return;
     }
@@ -89,49 +96,48 @@ async function processDelivery(delivery, endpoint) {
       delivery.id,
       deliveryState.RETRYING,
       new Date(now + 5000).toISOString(),
-      error.message
+      error.message,
+      {
+        requireInFlight: true,
+        expectedAttemptCount: delivery.attemptCount,
+      }
     );
   }
 }
 
 /**
  * Poll for and process due deliveries.
+ * Uses queue-driven candidate discovery to discover only endpoints with due deliveries.
+ * Avoids blind tenant/endpoint iteration and avoids opening database transactions when idle.
  */
 export async function poll() {
   const promises = [];
   try {
-    // Get all tenants
-    const tenants = await findAll();
-    
-    // For each tenant, get active endpoints
-    for (const tenant of tenants) {
-      const endpoints = await findActiveByTenant(tenant.id);
-      
-      // For each endpoint, try to claim a delivery
-      for (const endpoint of endpoints) {
-        const delivery = await deliveryRepository.claim(endpoint.id, LEASE_DURATION_MS);
-        
-        if (delivery) {
-          // Process delivery
-          promises.push(
-            processDelivery(delivery, endpoint).catch((error) => {
-              logger.error('Delivery processing error', {
-                deliveryId: delivery.id,
-                error: error.message,
-              });
-            })
-          );
+    const candidateEndpoints = await findDueEndpoints(WORKER_CONCURRENCY);
 
-          if (promises.length >= WORKER_CONCURRENCY) {
-            break;
-          }
+    if (!candidateEndpoints || candidateEndpoints.length === 0) {
+      return;
+    }
+
+    for (const endpoint of candidateEndpoints) {
+      const delivery = await deliveryRepository.claim(endpoint.id, LEASE_DURATION_MS);
+
+      if (delivery) {
+        promises.push(
+          processDelivery(delivery, endpoint).catch((error) => {
+            logger.error('Delivery processing error', {
+              deliveryId: delivery.id,
+              error: error.message,
+            });
+          })
+        );
+
+        if (promises.length >= WORKER_CONCURRENCY) {
+          break;
         }
       }
-
-      if (promises.length >= WORKER_CONCURRENCY) {
-        break;
-      }
     }
+
     await Promise.all(promises);
   } catch (error) {
     logger.error('Error in poll loop', { error: error.message });

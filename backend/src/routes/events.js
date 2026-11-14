@@ -35,9 +35,24 @@ router.post(
         });
       }
 
+      // Event body validation: require a non-null, non-array JSON object with at least one property
+      const body = req.body;
+      if (
+        body === undefined ||
+        body === null ||
+        typeof body !== 'object' ||
+        Array.isArray(body) ||
+        Object.keys(body).length === 0
+      ) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Request body must be a non-empty JSON object',
+        });
+      }
+
       const tenantId = req.tenantId;
       const idempotencyKey = req.headers['idempotency-key'];
-      const payloadJson = JSON.stringify(req.body);
+      const payloadJson = JSON.stringify(body);
 
       const result = await eventIngestService.ingest(
         tenantId,

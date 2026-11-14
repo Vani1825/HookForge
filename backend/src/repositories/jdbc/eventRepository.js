@@ -19,6 +19,31 @@ function mapRowToEvent(row) {
   });
 }
 
+// Row mapper for Delivery domain model
+function mapRowToDelivery(row) {
+  return createDelivery({
+    id: row.id,
+    eventId: row.event_id,
+    endpointId: row.endpoint_id,
+    seq: row.seq,
+    state: row.state,
+    attemptCount: row.attempt_count,
+    nextAttemptAt: row.next_attempt_at instanceof Date
+      ? row.next_attempt_at.toISOString()
+      : (row.next_attempt_at ? new Date(row.next_attempt_at).toISOString() : null),
+    leaseUntil: row.lease_until
+      ? (row.lease_until instanceof Date ? row.lease_until.toISOString() : new Date(row.lease_until).toISOString())
+      : null,
+    lastError: row.last_error,
+    createdAt: row.created_at instanceof Date
+      ? row.created_at.toISOString()
+      : (row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString()),
+    updatedAt: row.updated_at instanceof Date
+      ? row.updated_at.toISOString()
+      : (row.updated_at ? new Date(row.updated_at).toISOString() : new Date().toISOString()),
+  });
+}
+
 // ============ EventRepository Implementation ============
 
 /**
@@ -152,6 +177,65 @@ export async function enqueue(eventId, endpointId, seq, client = null) {
   }
 }
 
+/**
+ * Atomically allocate sequence numbers and enqueue deliveries for all active endpoints of a tenant.
+ * Uses a single set-based Common Table Expression (CTE) query to eliminate per-endpoint roundtrips.
+ *
+ * @param {string} tenantId - Tenant UUID
+ * @param {string} eventId - Event UUID
+ * @param {Object} [client=null] - Transaction database client
+ * @returns {Promise<Array<Object>>} Enqueued delivery domain models
+ */
+export async function enqueueBatch(tenantId, eventId, client = null) {
+  const sql = `
+    WITH locked_endpoints AS (
+      SELECT id
+      FROM endpoints
+      WHERE tenant_id = $1 AND active = true
+      ORDER BY id
+      FOR UPDATE
+    ),
+    updated_endpoints AS (
+      UPDATE endpoints e
+      SET next_seq = e.next_seq + 1
+      FROM locked_endpoints l
+      WHERE e.id = l.id
+      RETURNING e.id AS endpoint_id, e.next_seq - 1 AS seq
+    )
+    INSERT INTO deliveries (
+      event_id,
+      endpoint_id,
+      seq,
+      state,
+      attempt_count,
+      next_attempt_at
+    )
+    SELECT
+      $2,
+      u.endpoint_id,
+      u.seq,
+      'PENDING',
+      0,
+      now()
+    FROM updated_endpoints u
+    RETURNING *
+  `;
+
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
+  try {
+    const result = await queryFn(sql, [tenantId, eventId]);
+    return result.rows.map(mapRowToDelivery);
+  } catch (error) {
+    logger.error('Failed to batch enqueue deliveries', {
+      error: error.message,
+      tenantId,
+      eventId,
+    });
+    throw error;
+  }
+}
+
 // ============ DeliveryQueries Implementation ============
 
 /**
@@ -271,4 +355,5 @@ export default {
   findAllByTenant,
   // DeliveryEnqueuer
   enqueue,
+  enqueueBatch,
 };
