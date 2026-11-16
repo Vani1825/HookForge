@@ -150,12 +150,12 @@ export const SettingsPage: React.FC = () => {
             />
 
             <Input
-              label="Tenant API Key (X-Api-Key)"
+              label="Tenant API Key (Authorization: Bearer)"
               type="password"
               placeholder="whkey_..."
               value={inputApiKey}
               onChange={(e) => setInputApiKey(e.target.value)}
-              helperText="Tenant authentication token sent in the X-Api-Key header (verified via SHA-256 hash)."
+              helperText="Tenant authentication token sent in the Authorization: Bearer header (verified via SHA-256 hash)."
               leftIcon={<Key className="w-4 h-4 text-slate-400" />}
             />
 

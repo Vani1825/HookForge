@@ -4,6 +4,7 @@ import { mockStore } from '../mocks/mockStore'
 import * as endpointsApi from '../api/endpoints'
 import * as eventsApi from '../api/events'
 import * as deliveriesApi from '../api/deliveries'
+import * as metricsApi from '../api/metrics'
 import type {
   Endpoint,
   WebhookEvent,
@@ -46,16 +47,16 @@ interface AppContextValue {
     createEndpoint: (data: endpointsApi.CreateEndpointInput) => Promise<Endpoint>
     updateEndpoint: (id: string, data: endpointsApi.UpdateEndpointInput) => Promise<Endpoint>
     toggleEndpoint: (id: string, active: boolean) => Promise<Endpoint>
-    getEvents: () => Promise<WebhookEvent[]>
+    getEvents: (filter?: eventsApi.EventQueryParams) => Promise<deliveriesApi.PaginatedList<WebhookEvent>>
     getEventById: (id: string) => Promise<WebhookEvent | undefined>
     ingestEvent: (data: eventsApi.IngestEventInput) => Promise<{ duplicate: boolean; deliveriesEnqueued: number; eventId?: string }>
-    getDeliveries: (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }) => Promise<Delivery[]>
+    getDeliveries: (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }) => Promise<deliveriesApi.PaginatedList<Delivery>>
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
-    getOverviewMetrics: () => Promise<OverviewMetrics>
-    getTimeSeriesMetrics: () => Promise<TimeSeriesDataPoint[]>
-    getStatusDistribution: () => Promise<StatusDistribution[]>
+    getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<OverviewMetrics>
+    getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<TimeSeriesDataPoint[]>
+    getStatusDistribution: (filter?: metricsApi.MetricsQueryParams) => Promise<StatusDistribution[]>
   }
 }
 
@@ -191,11 +192,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return endpointsApi.toggleEndpointActive(id, active)
     },
 
-    getEvents: async (): Promise<WebhookEvent[]> => {
+    getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {
       if (mode === 'demo') {
-        return mockStore.getEvents()
+        return mockStore.getEvents(filter)
       }
-      return eventsApi.fetchEvents()
+      return eventsApi.fetchEvents(filter)
     },
 
     getEventById: async (id: string): Promise<WebhookEvent | undefined> => {
@@ -212,7 +213,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return eventsApi.ingestEvent(data)
     },
 
-    getDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }): Promise<Delivery[]> => {
+    getDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }): Promise<deliveriesApi.PaginatedList<Delivery>> => {
       if (mode === 'demo') {
         return mockStore.getDeliveries(filter)
       }
@@ -240,67 +241,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return deliveriesApi.replayDelivery(id)
     },
 
-    getOverviewMetrics: async (): Promise<OverviewMetrics> => {
+    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<OverviewMetrics> => {
       if (mode === 'demo') {
-        return mockStore.getOverviewMetrics()
+        return mockStore.getOverviewMetrics(filter)
       }
-      // In live mode, calculate from active deliveries and endpoints or fetch from /metrics
-      const [deliveries, endpoints, events] = await Promise.all([
-        deliveriesApi.fetchDeliveries().catch(() => []),
-        endpointsApi.fetchEndpoints().catch(() => []),
-        eventsApi.fetchEvents().catch(() => []),
-      ])
-
-      const total = deliveries.length
-      const succeeded = deliveries.filter((d) => d.state === 'SUCCEEDED').length
-      const failed = deliveries.filter((d) => d.state === 'DEAD').length
-      const pending = deliveries.filter(
-        (d) => d.state === 'PENDING' || d.state === 'IN_FLIGHT' || d.state === 'RETRYING'
-      ).length
-      const successRate = total > 0 ? (succeeded / total) * 100 : 100
-
-      return {
-        totalEvents: events.length,
-        totalDeliveries: total,
-        succeededDeliveries: succeeded,
-        failedDeliveries: failed,
-        pendingDeliveries: pending,
-        successRate: Math.round(successRate * 10) / 10,
-        averageLatencyMs: 74,
-        activeEndpoints: endpoints.filter((e) => e.active).length,
-        totalEndpoints: endpoints.length,
-        openCircuits: endpoints.filter((e) => e.circuit_state === 'OPEN').length,
-      }
+      return metricsApi.fetchSystemMetrics(filter)
     },
 
-    getTimeSeriesMetrics: async (): Promise<TimeSeriesDataPoint[]> => {
+    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<TimeSeriesDataPoint[]> => {
       if (mode === 'demo') {
-        return mockStore.getTimeSeriesMetrics()
+        return mockStore.getTimeSeriesMetrics(filter)
       }
-      // In live mode, return computed distribution if available or fallback cleanly
-      return mockStore.getTimeSeriesMetrics()
+      return metricsApi.fetchTimeSeriesMetrics(filter)
     },
 
-    getStatusDistribution: async (): Promise<StatusDistribution[]> => {
+    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams): Promise<StatusDistribution[]> => {
       if (mode === 'demo') {
-        return mockStore.getStatusDistribution()
+        return mockStore.getStatusDistribution(filter)
       }
-      const deliveries = await deliveriesApi.fetchDeliveries().catch(() => [])
-      const counts = {
-        SUCCEEDED: deliveries.filter((d) => d.state === 'SUCCEEDED').length,
-        RETRYING: deliveries.filter((d) => d.state === 'RETRYING').length,
-        DEAD: deliveries.filter((d) => d.state === 'DEAD').length,
-        IN_FLIGHT: deliveries.filter((d) => d.state === 'IN_FLIGHT').length,
-        PENDING: deliveries.filter((d) => d.state === 'PENDING').length,
-      }
-
-      return [
-        { name: 'Succeeded', value: counts.SUCCEEDED, color: '#10b981' },
-        { name: 'Retrying', value: counts.RETRYING, color: '#f59e0b' },
-        { name: 'Dead Letter', value: counts.DEAD, color: '#ef4444' },
-        { name: 'In Flight', value: counts.IN_FLIGHT, color: '#6366f1' },
-        { name: 'Pending', value: counts.PENDING, color: '#3b82f6' },
-      ]
+      return metricsApi.fetchStatusDistribution(filter)
     },
   }
 

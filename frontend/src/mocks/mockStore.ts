@@ -6,7 +6,11 @@ import type {
   OverviewMetrics,
   TimeSeriesDataPoint,
   StatusDistribution,
+  PaginationMeta,
 } from '../types'
+import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
+import type { EventQueryParams } from '../api/events'
+import type { MetricsQueryParams } from '../api/metrics'
 import {
   MOCK_TENANT,
   INITIAL_MOCK_ENDPOINTS,
@@ -75,8 +79,50 @@ class MockStore {
   }
 
   // --- Events ---
-  getEvents(): WebhookEvent[] {
-    return [...this.events]
+  getEvents(filter?: EventQueryParams): PaginatedList<WebhookEvent> {
+    let result = [...this.events]
+
+    if (filter?.idempotency_key) {
+      result = result.filter((e) => e.idempotency_key === filter.idempotency_key)
+    }
+
+    if (filter?.created_after) {
+      const after = new Date(filter.created_after).getTime()
+      result = result.filter((e) => new Date(e.created_at).getTime() >= after)
+    }
+
+    if (filter?.created_before) {
+      const before = new Date(filter.created_before).getTime()
+      result = result.filter((e) => new Date(e.created_at).getTime() <= before)
+    }
+
+    if (filter?.q) {
+      const q = filter.q.toLowerCase()
+      result = result.filter(
+        (e) =>
+          e.id.toLowerCase().includes(q) ||
+          e.idempotency_key.toLowerCase().includes(q)
+      )
+    }
+
+    const totalRecords = result.length
+    const page = Math.max(1, filter?.page || 1)
+    const pageSize = Math.min(100, Math.max(1, filter?.pageSize || filter?.limit || 20))
+    const totalPages = totalRecords === 0 ? 0 : Math.ceil(totalRecords / pageSize)
+    const offset = filter?.offset !== undefined && filter?.page === undefined ? Math.max(0, filter.offset) : (page - 1) * pageSize
+    const sliced = result.slice(offset, offset + pageSize)
+
+    const pagination: PaginationMeta = {
+      page,
+      pageSize,
+      totalRecords,
+      totalPages,
+      hasNext: offset + pageSize < totalRecords,
+      hasPrev: totalRecords > 0 && offset > 0,
+      ...(filter?.offset !== undefined && filter?.page === undefined ? { offset } : {}),
+    }
+
+    return createPaginatedList(sliced, pagination)
   }
 
   getEvent(id: string): WebhookEvent | undefined {
@@ -145,12 +191,7 @@ class MockStore {
   }
 
   // --- Deliveries ---
-  getDeliveries(filter?: {
-    state?: string
-    endpoint_id?: string
-    event_id?: string
-    search?: string
-  }): Delivery[] {
+  getDeliveries(filter?: DeliveryQueryParams & { search?: string }): PaginatedList<Delivery> {
     let result = [...this.deliveries]
 
     if (filter?.state && filter.state !== 'ALL') {
@@ -165,8 +206,19 @@ class MockStore {
       result = result.filter((d) => d.event_id === filter.event_id)
     }
 
-    if (filter?.search) {
-      const q = filter.search.toLowerCase()
+    if (filter?.created_after) {
+      const after = new Date(filter.created_after).getTime()
+      result = result.filter((d) => new Date(d.created_at).getTime() >= after)
+    }
+
+    if (filter?.created_before) {
+      const before = new Date(filter.created_before).getTime()
+      result = result.filter((d) => new Date(d.created_at).getTime() <= before)
+    }
+
+    const searchQuery = filter?.q || filter?.search
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
       result = result.filter(
         (d) =>
           d.id.toLowerCase().includes(q) ||
@@ -176,7 +228,24 @@ class MockStore {
       )
     }
 
-    return result
+    const totalRecords = result.length
+    const page = Math.max(1, filter?.page || 1)
+    const pageSize = Math.min(100, Math.max(1, filter?.pageSize || filter?.limit || 20))
+    const totalPages = totalRecords === 0 ? 0 : Math.ceil(totalRecords / pageSize)
+    const offset = filter?.offset !== undefined && filter?.page === undefined ? Math.max(0, filter.offset) : (page - 1) * pageSize
+    const sliced = result.slice(offset, offset + pageSize)
+
+    const pagination: PaginationMeta = {
+      page,
+      pageSize,
+      totalRecords,
+      totalPages,
+      hasNext: offset + pageSize < totalRecords,
+      hasPrev: totalRecords > 0 && offset > 0,
+      ...(filter?.offset !== undefined && filter?.page === undefined ? { offset } : {}),
+    }
+
+    return createPaginatedList(sliced, pagination)
   }
 
   getDelivery(id: string): Delivery | undefined {
@@ -252,11 +321,26 @@ class MockStore {
   }
 
   // --- Metrics ---
-  getOverviewMetrics(): OverviewMetrics {
-    const totalDeliveries = this.deliveries.length
-    const succeeded = this.deliveries.filter((d) => d.state === 'SUCCEEDED').length
-    const failed = this.deliveries.filter((d) => d.state === 'DEAD').length
-    const pending = this.deliveries.filter(
+  getOverviewMetrics(filter?: MetricsQueryParams): OverviewMetrics {
+    let dels = [...this.deliveries]
+    let evts = [...this.events]
+
+    if (filter?.created_after) {
+      const after = new Date(filter.created_after).getTime()
+      dels = dels.filter((d) => new Date(d.created_at).getTime() >= after)
+      evts = evts.filter((e) => new Date(e.created_at).getTime() >= after)
+    }
+
+    if (filter?.created_before) {
+      const before = new Date(filter.created_before).getTime()
+      dels = dels.filter((d) => new Date(d.created_at).getTime() <= before)
+      evts = evts.filter((e) => new Date(e.created_at).getTime() <= before)
+    }
+
+    const totalDeliveries = dels.length
+    const succeeded = dels.filter((d) => d.state === 'SUCCEEDED').length
+    const failed = dels.filter((d) => d.state === 'DEAD').length
+    const pending = dels.filter(
       (d) => d.state === 'PENDING' || d.state === 'IN_FLIGHT' || d.state === 'RETRYING'
     ).length
 
@@ -265,30 +349,86 @@ class MockStore {
     const openCircuits = this.endpoints.filter((e) => e.circuit_state === 'OPEN').length
 
     return {
-      totalEvents: this.events.length,
+      totalEvents: evts.length,
       totalDeliveries,
       succeededDeliveries: succeeded,
       failedDeliveries: failed,
       pendingDeliveries: pending,
       successRate: Math.round(successRate * 10) / 10,
-      averageLatencyMs: 68,
+      averageLatencyMs: totalDeliveries > 0 ? 68 : 0,
       activeEndpoints,
       totalEndpoints: this.endpoints.length,
       openCircuits,
     }
   }
 
-  getTimeSeriesMetrics(): TimeSeriesDataPoint[] {
+  getTimeSeriesMetrics(filter?: MetricsQueryParams): TimeSeriesDataPoint[] {
+    if (filter?.range === '7d') {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const now = new Date()
+      return Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(now.getTime() - (6 - i) * 86400000)
+        const dayLabel = `${monthNames[d.getUTCMonth()]} ${d.getUTCDate()}`
+        const y = d.getUTCFullYear()
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(d.getUTCDate()).padStart(2, '0')
+        const total = 500 + (i * 120) % 700
+        const succeeded = Math.round(total * 0.96)
+        const failed = total - succeeded
+        return {
+          timestamp: `${y}-${m}-${day}`,
+          label: dayLabel,
+          total,
+          succeeded,
+          failed,
+          pending: 0,
+        }
+      })
+    }
+
+    if (filter?.range === '30d') {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const now = new Date()
+      return Array.from({ length: 30 }, (_, i) => {
+        const d = new Date(now.getTime() - (29 - i) * 86400000)
+        const dayLabel = `${monthNames[d.getUTCMonth()]} ${d.getUTCDate()}`
+        const y = d.getUTCFullYear()
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0')
+        const day = String(d.getUTCDate()).padStart(2, '0')
+        const total = 400 + (i * 90) % 800
+        const succeeded = Math.round(total * 0.97)
+        const failed = total - succeeded
+        return {
+          timestamp: `${y}-${m}-${day}`,
+          label: dayLabel,
+          total,
+          succeeded,
+          failed,
+          pending: 0,
+        }
+      })
+    }
+
     return [...MOCK_TIME_SERIES]
   }
 
-  getStatusDistribution(): StatusDistribution[] {
+  getStatusDistribution(filter?: MetricsQueryParams): StatusDistribution[] {
+    let dels = [...this.deliveries]
+    if (filter?.created_after) {
+      const after = new Date(filter.created_after).getTime()
+      dels = dels.filter((d) => new Date(d.created_at).getTime() >= after)
+    }
+    if (filter?.created_before) {
+      const before = new Date(filter.created_before).getTime()
+      dels = dels.filter((d) => new Date(d.created_at).getTime() <= before)
+    }
+
     const counts = {
-      SUCCEEDED: this.deliveries.filter((d) => d.state === 'SUCCEEDED').length,
-      RETRYING: this.deliveries.filter((d) => d.state === 'RETRYING').length,
-      DEAD: this.deliveries.filter((d) => d.state === 'DEAD').length,
-      IN_FLIGHT: this.deliveries.filter((d) => d.state === 'IN_FLIGHT').length,
-      PENDING: this.deliveries.filter((d) => d.state === 'PENDING').length,
+      SUCCEEDED: dels.filter((d) => d.state === 'SUCCEEDED').length,
+      RETRYING: dels.filter((d) => d.state === 'RETRYING').length,
+      DEAD: dels.filter((d) => d.state === 'DEAD').length,
+      IN_FLIGHT: dels.filter((d) => d.state === 'IN_FLIGHT').length,
+      PENDING: dels.filter((d) => d.state === 'PENDING').length,
     }
 
     return [
