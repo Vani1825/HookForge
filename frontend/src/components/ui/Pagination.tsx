@@ -1,0 +1,164 @@
+import React from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { Button } from './Button'
+import type { PaginationMeta } from '../../types'
+
+export interface PaginationProps {
+  pagination: PaginationMeta
+  onPageChange: (newPage: number) => void
+  onPageSizeChange?: (newPageSize: number) => void
+  isLoading?: boolean
+  itemName?: string
+  pageSizeOptions?: number[]
+  className?: string
+}
+
+export const Pagination: React.FC<PaginationProps> = ({
+  pagination,
+  onPageChange,
+  onPageSizeChange,
+  isLoading = false,
+  itemName = 'items',
+  pageSizeOptions = [10, 20, 50, 100],
+  className = '',
+}) => {
+  const { page, pageSize, totalRecords, totalPages, hasNext, hasPrev } = pagination
+
+  const startRecord = totalRecords === 0 ? 0 : (page - 1) * pageSize + 1
+  const endRecord = Math.min(totalRecords, page * pageSize)
+
+  // Generate page numbers to display around the current page
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1)
+    }
+
+    const pages: (number | 'ellipsis')[] = []
+    pages.push(1)
+
+    if (page > 3) {
+      pages.push('ellipsis')
+    }
+
+    const start = Math.max(2, page - 1)
+    const end = Math.min(totalPages - 1, page + 1)
+
+    for (let p = start; p <= end; p++) {
+      pages.push(p)
+    }
+
+    if (page < totalPages - 2) {
+      pages.push('ellipsis')
+    }
+
+    pages.push(totalPages)
+    return pages
+  }
+
+  const pageNumbers = getPageNumbers()
+
+  return (
+    <nav
+      role="navigation"
+      aria-label="Pagination Navigation"
+      className={`flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border-t border-slate-200 select-none ${className}`}
+    >
+      {/* Record info & page size */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+        <span>
+          Showing{' '}
+          <span className="font-semibold text-slate-900">{startRecord}</span> to{' '}
+          <span className="font-semibold text-slate-900">{endRecord}</span> of{' '}
+          <span className="font-semibold text-slate-900">{totalRecords}</span> {itemName}
+        </span>
+
+        {onPageSizeChange && (
+          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+            <label htmlFor="page-size-select" className="text-slate-500">
+              Per page:
+            </label>
+            <select
+              id="page-size-select"
+              value={pageSize}
+              disabled={isLoading}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+              aria-label={`Select number of ${itemName} per page`}
+              className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:opacity-50"
+            >
+              {pageSizeOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      {/* Page navigation controls */}
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!hasPrev || isLoading}
+          onClick={() => onPageChange(page - 1)}
+          aria-label="Go to previous page"
+          leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
+          className="px-2.5 py-1 text-xs"
+        >
+          Previous
+        </Button>
+
+        {/* Page pills for desktop */}
+        <div className="hidden md:flex items-center gap-1 mx-1">
+          {pageNumbers.map((p, idx) => {
+            if (p === 'ellipsis') {
+              return (
+                <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-400 select-none">
+                  ...
+                </span>
+              )
+            }
+            const isCurrent = p === page
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onPageChange(p)}
+                disabled={isLoading}
+                aria-label={`Go to page ${p}`}
+                aria-current={isCurrent ? 'page' : undefined}
+                className={`w-7 h-7 text-xs rounded-md font-medium transition-colors cursor-pointer flex items-center justify-center ${
+                  isCurrent
+                    ? 'bg-slate-900 text-white font-semibold shadow-2xs'
+                    : 'text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {p}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Current page indicator for small screens */}
+        <span className="md:hidden text-xs text-slate-600 px-2 font-medium">
+          {page} / {totalPages || 1}
+        </span>
+
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={!hasNext || isLoading}
+          onClick={() => onPageChange(page + 1)}
+          aria-label="Go to next page"
+          rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
+          className="px-2.5 py-1 text-xs"
+        >
+          Next
+        </Button>
+      </div>
+    </nav>
+  )
+}
