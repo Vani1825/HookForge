@@ -13,11 +13,12 @@ import { IllegalStateTransitionError } from '../domain/errors/illegalStateTransi
 const router = express.Router();
 
 /**
- * GET /deliveries?state=DEAD
- * Get deliveries by state (tenant-scoped via auth middleware).
+ * GET /deliveries
+ * Query deliveries with tenant isolation, dynamic filters, and pagination.
  */
 router.get(
   '/',
+<<<<<<< HEAD
   query('state')
     .optional()
     .isIn([...deliveryState.values(), 'ALL'])
@@ -27,20 +28,83 @@ router.get(
   query('endpoint_id').optional().isUUID().withMessage('Invalid endpoint ID'),
   query('endpointId').optional().isUUID().withMessage('Invalid endpoint ID'),
   query('search').optional().isString().trim(),
+=======
+  [
+    query('state')
+      .optional()
+      .isIn([...deliveryState.values(), 'ALL'])
+      .withMessage('Invalid state'),
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('page must be a positive integer'),
+    query('pageSize')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('pageSize must be between 1 and 100'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 1000 })
+      .withMessage('Limit must be between 1 and 1000'),
+    query('offset')
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage('offset must be a non-negative integer'),
+    query('endpoint_id')
+      .optional()
+      .isUUID()
+      .withMessage('endpoint_id must be a valid UUID'),
+    query('event_id')
+      .optional()
+      .isUUID()
+      .withMessage('event_id must be a valid UUID'),
+    query('created_after')
+      .optional()
+      .isISO8601()
+      .withMessage('created_after must be a valid ISO 8601 date'),
+    query('created_before')
+      .optional()
+      .isISO8601()
+      .withMessage('created_before must be a valid ISO 8601 date')
+      .custom((value, { req }) => {
+        if (req.query.created_after) {
+          const after = new Date(req.query.created_after).getTime();
+          const before = new Date(value).getTime();
+          if (!isNaN(after) && !isNaN(before) && after > before) {
+            throw new Error('created_after cannot be later than created_before');
+          }
+        }
+        return true;
+      }),
+    query('q')
+      .optional()
+      .isString()
+      .trim(),
+  ],
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+          errors: errors.array(),
+        });
       }
 
+<<<<<<< HEAD
       const limit = parseInt(req.query.limit || '100', 10);
       const offset = req.query.offset !== undefined ? parseInt(req.query.offset, 10) : 0;
       const endpointId = req.query.endpoint_id || req.query.endpointId || null;
       const search = req.query.search || null;
+=======
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       const tenantId = req.tenantId;
       const stateQuery = req.query.state;
+      const state = stateQuery || 'DEAD';
 
+<<<<<<< HEAD
       let state = stateQuery || 'DEAD';
       let deliveries;
 
@@ -57,10 +121,36 @@ router.get(
         } else {
           deliveries = await deliveryService.getDeliveriesByState(state, tenantId, limit);
         }
+=======
+      // Resolve pagination respecting precedence: pageSize > limit, page > offset
+      let pageSize = 20;
+      let limit = 20;
+      let isLimit = false;
+      if (req.query.pageSize !== undefined) {
+        pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10)));
+        limit = pageSize;
+      } else if (req.query.limit !== undefined) {
+        limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10)));
+        pageSize = limit;
+        isLimit = true;
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       }
 
-      res.json({
+      let page = 1;
+      let offset = 0;
+      let isOffset = false;
+      if (req.query.page !== undefined) {
+        page = Math.max(1, parseInt(req.query.page, 10));
+        offset = (page - 1) * pageSize;
+      } else if (req.query.offset !== undefined) {
+        offset = Math.max(0, parseInt(req.query.offset, 10));
+        page = Math.floor(offset / pageSize) + 1;
+        isOffset = true;
+      }
+
+      const filters = {
         state,
+<<<<<<< HEAD
         deliveries: deliveries.map((d) => ({
           id: d.id,
           eventId: d.eventId,
@@ -84,6 +174,53 @@ router.get(
           updatedAt: d.updatedAt,
           updated_at: d.updatedAt,
         })),
+=======
+        endpoint_id: req.query.endpoint_id,
+        event_id: req.query.event_id,
+        created_after: req.query.created_after,
+        created_before: req.query.created_before,
+        q: req.query.q,
+      };
+
+      const pagination = {
+        page,
+        pageSize,
+        ...(isLimit ? { limit } : {}),
+        ...(isOffset ? { offset } : {}),
+      };
+
+      const result = await deliveryService.queryDeliveries(
+        tenantId,
+        filters,
+        pagination
+      );
+
+      const formattedDeliveries = result.deliveries.map((d) => ({
+        id: d.id,
+        eventId: d.eventId,
+        event_id: d.eventId,
+        endpointId: d.endpointId,
+        endpoint_id: d.endpointId,
+        seq: d.seq,
+        state: d.state.toString(),
+        attemptCount: d.attemptCount,
+        attempt_count: d.attemptCount,
+        nextAttemptAt: d.nextAttemptAt,
+        next_attempt_at: d.nextAttemptAt,
+        lastError: d.lastError,
+        last_error: d.lastError,
+        createdAt: d.createdAt,
+        created_at: d.createdAt,
+        updatedAt: d.updatedAt,
+        updated_at: d.updatedAt,
+      }));
+
+      res.json({
+        data: formattedDeliveries,
+        deliveries: formattedDeliveries,
+        state,
+        pagination: result.pagination,
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       });
     } catch (error) {
       next(error);
@@ -166,7 +303,11 @@ router.post(
 
       const delivery = await deliveryService.replayDelivery(deliveryId, tenantId);
 
+<<<<<<< HEAD
       const deliveryPayload = {
+=======
+      const deliveryData = {
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
         id: delivery.id,
         eventId: delivery.eventId,
         event_id: delivery.eventId,
@@ -187,14 +328,23 @@ router.post(
         createdAt: delivery.createdAt,
         created_at: delivery.createdAt,
         updatedAt: delivery.updatedAt,
+<<<<<<< HEAD
         updated_at: delivery.updatedAt,
+=======
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       };
 
       res.json({
         success: true,
+<<<<<<< HEAD
         message: 'Delivery replayed successfully',
         delivery: deliveryPayload,
         ...deliveryPayload,
+=======
+        message: 'Delivery re-enqueued as PENDING',
+        ...deliveryData,
+        delivery: deliveryData,
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       });
     } catch (error) {
       if (error instanceof IllegalStateTransitionError || error.name === 'IllegalStateTransitionError') {

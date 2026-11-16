@@ -5,7 +5,7 @@
  */
 
 import express from 'express';
-import { header, param, validationResult } from 'express-validator';
+import { header, param, query, validationResult } from 'express-validator';
 import { apiKeyAuth, TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
 import eventIngestService from '../services/ingest/eventIngestService.js';
 import eventRepository from '../repositories/jdbc/eventRepository.js';
@@ -64,17 +64,21 @@ router.post(
         // 200 for idempotent replay
         res.status(200).json({
           id: result.event.id,
+          eventId: result.event.id,
           idempotencyKey: result.event.idempotencyKey,
           createdAt: result.event.createdAt,
           deliveriesEnqueued: 0,
+          duplicate: true,
         });
       } else {
         // 202 for new event
         res.status(202).json({
           id: result.event.id,
+          eventId: result.event.id,
           idempotencyKey: result.event.idempotencyKey,
           createdAt: result.event.createdAt,
           deliveriesEnqueued: result.deliveriesEnqueued,
+          duplicate: false,
         });
       }
     } catch (error) {
@@ -136,16 +140,128 @@ router.get(
 
 /**
  * GET /events
- * List events for the authenticated tenant.
+ * Query events with tenant isolation, dynamic filters, and pagination.
  */
-router.get('/', apiKeyAuth, async (req, res, next) => {
-  try {
-    const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
-    const limit = parseInt(req.query.limit || '100', 10);
-    const events = await eventRepository.findAllByTenant(tenantId, limit);
+router.get(
+  '/',
+  apiKeyAuth,
+  [
+    query('page')
+      .optional()
+      .isInt({ min: 1 })
+      .withMessage('page must be a positive integer'),
+    query('pageSize')
+      .optional()
+      .isInt({ min: 1, max: 100 })
+      .withMessage('pageSize must be between 1 and 100'),
+    query('limit')
+      .optional()
+      .isInt({ min: 1, max: 1000 })
+      .withMessage('Limit must be between 1 and 1000'),
+    query('offset')
+      .optional()
+      .isInt({ min: 0 })
+      .withMessage('offset must be a non-negative integer'),
+    query('created_after')
+      .optional()
+      .isISO8601()
+      .withMessage('created_after must be a valid ISO 8601 date'),
+    query('created_before')
+      .optional()
+      .isISO8601()
+      .withMessage('created_before must be a valid ISO 8601 date')
+      .custom((value, { req }) => {
+        if (req.query.created_after) {
+          const after = new Date(req.query.created_after).getTime();
+          const before = new Date(value).getTime();
+          if (!isNaN(after) && !isNaN(before) && after > before) {
+            throw new Error('created_after cannot be later than created_before');
+          }
+        }
+        return true;
+      }),
+    query('idempotency_key')
+      .optional()
+      .isString()
+      .trim(),
+    query('q')
+      .optional()
+      .isString()
+      .trim(),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+          errors: errors.array(),
+        });
+      }
 
-    res.json(
-      events.map((e) => {
+      const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+
+      // Resolve pagination respecting precedence: pageSize > limit, page > offset
+      let pageSize = 20;
+      let limit = 20;
+      let isLimit = false;
+      if (req.query.pageSize !== undefined) {
+        pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize, 10)));
+        limit = pageSize;
+      } else if (req.query.limit !== undefined) {
+        limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10)));
+        pageSize = limit;
+        isLimit = true;
+      }
+
+      let page = 1;
+      let offset = 0;
+      let isOffset = false;
+      if (req.query.page !== undefined) {
+        page = Math.max(1, parseInt(req.query.page, 10));
+        offset = (page - 1) * pageSize;
+      } else if (req.query.offset !== undefined) {
+        offset = Math.max(0, parseInt(req.query.offset, 10));
+        page = Math.floor(offset / pageSize) + 1;
+        isOffset = true;
+      }
+
+      const filters = {
+        idempotency_key: req.query.idempotency_key,
+        created_after: req.query.created_after,
+        created_before: req.query.created_before,
+        q: req.query.q,
+      };
+
+      const repoPagination = {
+        page,
+        pageSize,
+        ...(isLimit ? { limit } : {}),
+        ...(isOffset ? { offset } : {}),
+      };
+
+      const result = await eventRepository.findWithFilters(
+        tenantId,
+        filters,
+        repoPagination
+      );
+
+      const totalRecords = result.totalRecords;
+      const totalPages = totalRecords === 0 ? 0 : Math.ceil(totalRecords / pageSize);
+      const hasNext = offset + limit < totalRecords;
+      const hasPrev = totalRecords > 0 && offset > 0;
+      const pagination = {
+        page,
+        pageSize,
+        totalRecords,
+        totalPages,
+        hasNext,
+        hasPrev,
+        ...(isOffset ? { offset } : {}),
+      };
+
+      const formattedEvents = result.events.map((e) => {
         let parsedPayload = e.payloadJson;
         try {
           if (typeof e.payloadJson === 'string') {
@@ -165,12 +281,18 @@ router.get('/', apiKeyAuth, async (req, res, next) => {
           createdAt: e.createdAt,
           created_at: e.createdAt,
         };
-      })
-    );
-  } catch (error) {
-    next(error);
+      });
+
+      res.json({
+        data: formattedEvents,
+        events: formattedEvents,
+        pagination,
+      });
+    } catch (error) {
+      next(error);
+    }
   }
-});
+);
 
 /**
  * GET /events/:id

@@ -135,3 +135,18 @@ export interface StatusDistribution {
   value: number
   color: string
 }
+
+export interface PaginationMeta {
+  page: number
+  pageSize: number
+  totalRecords: number
+  totalPages: number
+  hasNext: boolean
+  hasPrev: boolean
+  offset?: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  pagination: PaginationMeta
+}

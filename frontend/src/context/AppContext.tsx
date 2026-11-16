@@ -47,16 +47,22 @@ interface AppContextValue {
     createEndpoint: (data: endpointsApi.CreateEndpointInput) => Promise<Endpoint>
     updateEndpoint: (id: string, data: endpointsApi.UpdateEndpointInput) => Promise<Endpoint>
     toggleEndpoint: (id: string, active: boolean) => Promise<Endpoint>
-    getEvents: () => Promise<WebhookEvent[]>
+    getEvents: (filter?: eventsApi.EventQueryParams) => Promise<deliveriesApi.PaginatedList<WebhookEvent>>
     getEventById: (id: string) => Promise<WebhookEvent | undefined>
     ingestEvent: (data: eventsApi.IngestEventInput) => Promise<{ duplicate: boolean; deliveriesEnqueued: number; eventId?: string }>
-    getDeliveries: (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }) => Promise<Delivery[]>
+    getDeliveries: (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }) => Promise<deliveriesApi.PaginatedList<Delivery>>
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
+<<<<<<< HEAD
     getOverviewMetrics: (range?: string) => Promise<OverviewMetrics>
     getTimeSeriesMetrics: (range?: string) => Promise<TimeSeriesDataPoint[]>
     getStatusDistribution: (range?: string) => Promise<StatusDistribution[]>
+=======
+    getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<OverviewMetrics>
+    getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<TimeSeriesDataPoint[]>
+    getStatusDistribution: (filter?: metricsApi.MetricsQueryParams) => Promise<StatusDistribution[]>
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   }
 }
 
@@ -76,7 +82,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   })
 
   const [baseUrl, setBaseUrlState] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_BASE_URL) || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    return localStorage.getItem(STORAGE_KEY_BASE_URL) || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
   })
 
   const [apiKey, setApiKeyState] = useState<string>(() => {
@@ -192,11 +198,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return endpointsApi.toggleEndpointActive(id, active)
     },
 
-    getEvents: async (): Promise<WebhookEvent[]> => {
+    getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {
       if (mode === 'demo') {
-        return mockStore.getEvents()
+        return mockStore.getEvents(filter)
       }
-      return eventsApi.fetchEvents()
+      return eventsApi.fetchEvents(filter)
     },
 
     getEventById: async (id: string): Promise<WebhookEvent | undefined> => {
@@ -213,7 +219,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return eventsApi.ingestEvent(data)
     },
 
-    getDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }): Promise<Delivery[]> => {
+    getDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }): Promise<deliveriesApi.PaginatedList<Delivery>> => {
       if (mode === 'demo') {
         return mockStore.getDeliveries(filter)
       }
@@ -241,6 +247,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return deliveriesApi.replayDelivery(id)
     },
 
+<<<<<<< HEAD
     getOverviewMetrics: async (range?: string): Promise<OverviewMetrics> => {
       if (mode === 'demo') {
         return mockStore.getOverviewMetrics()
@@ -249,17 +256,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     },
 
     getTimeSeriesMetrics: async (range?: string): Promise<TimeSeriesDataPoint[]> => {
+=======
+    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<OverviewMetrics> => {
       if (mode === 'demo') {
-        return mockStore.getTimeSeriesMetrics()
+        return mockStore.getOverviewMetrics(filter)
       }
+      return metricsApi.fetchSystemMetrics(filter)
+    },
+
+    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<TimeSeriesDataPoint[]> => {
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+      if (mode === 'demo') {
+        return mockStore.getTimeSeriesMetrics(filter)
+      }
+<<<<<<< HEAD
       return metricsApi.fetchTimeSeriesMetrics(range ? { range } : undefined)
     },
 
     getStatusDistribution: async (range?: string): Promise<StatusDistribution[]> => {
+=======
+      return metricsApi.fetchTimeSeriesMetrics(filter)
+    },
+
+    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams): Promise<StatusDistribution[]> => {
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       if (mode === 'demo') {
-        return mockStore.getStatusDistribution()
+        return mockStore.getStatusDistribution(filter)
       }
+<<<<<<< HEAD
       return metricsApi.fetchStatusDistribution(range ? { range } : undefined)
+=======
+      return metricsApi.fetchStatusDistribution(filter)
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
     },
   }
 

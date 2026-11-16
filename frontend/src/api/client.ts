@@ -24,7 +24,7 @@ class ApiClient {
   private getBaseUrl(): string {
     const customBase = localStorage.getItem('hookforge_api_base_url')
     if (customBase) return customBase.replace(/\/+$/, '')
-    return (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '')
+    return (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081').replace(/\/+$/, '')
   }
 
   private getApiKey(): string | null {

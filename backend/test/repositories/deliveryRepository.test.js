@@ -877,4 +877,60 @@ describe('JdbcDeliveryRepository', () => {
       );
     });
   });
+
+  describe('findWithFilters', () => {
+    it('should accept arbitrary offset and preserve exact skip semantics in SQL', async () => {
+      query
+        .mockResolvedValueOnce({ rows: [{ count: 100 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      await deliveryRepository.findWithFilters(
+        'tenant-1',
+        { state: 'DEAD' },
+        { limit: 20, offset: 5 }
+      );
+
+      // Verify data query params contain exact limit=20 and offset=5
+      expect(query).toHaveBeenLastCalledWith(
+        expect.stringContaining('LIMIT $3 OFFSET $4'),
+        ['tenant-1', 'DEAD', 20, 5]
+      );
+    });
+
+    it('should support legacy limit up to 1000 without clamping to 100', async () => {
+      query
+        .mockResolvedValueOnce({ rows: [{ count: 500 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      await deliveryRepository.findWithFilters(
+        'tenant-1',
+        {},
+        { limit: 500 }
+      );
+
+      expect(query).toHaveBeenLastCalledWith(
+        expect.stringContaining('LIMIT $2 OFFSET $3'),
+        ['tenant-1', 500, 0]
+      );
+    });
+
+    it('should enforce parameter precedence: pageSize over limit, page over offset', async () => {
+      query
+        .mockResolvedValueOnce({ rows: [{ count: 50 }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      await deliveryRepository.findWithFilters(
+        'tenant-1',
+        {},
+        { pageSize: 10, limit: 500, page: 2, offset: 5 }
+      );
+
+      // pageSize=10 takes precedence over limit=500 -> limit=10
+      // page=2 takes precedence over offset=5 -> offset=(2-1)*10 = 10
+      expect(query).toHaveBeenLastCalledWith(
+        expect.stringContaining('LIMIT $2 OFFSET $3'),
+        ['tenant-1', 10, 10]
+      );
+    });
+  });
 });

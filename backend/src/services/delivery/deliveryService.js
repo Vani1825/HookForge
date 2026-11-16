@@ -133,12 +133,84 @@ export async function getDeliveryById(deliveryId, tenantId) {
   };
 }
 
+/**
+ * Query deliveries with tenant isolation, dynamic filters, and pagination.
+ *
+ * @param {string} tenantId - Tenant UUID for access control
+ * @param {Object} [filters={}] - Filter criteria (state, endpoint_id, event_id, created_after, created_before, q)
+ * @param {Object} [pagination={}] - Pagination options (page, pageSize, limit, offset)
+ * @returns {Promise<{ deliveries: Array, pagination: Object }>}
+ */
+export async function queryDeliveries(tenantId, filters = {}, pagination = {}) {
+  // Precedence: pageSize > limit
+  let limit = 20;
+  if (pagination.pageSize !== undefined) {
+    limit = Math.min(100, Math.max(1, parseInt(pagination.pageSize, 10)));
+  } else if (pagination.limit !== undefined) {
+    limit = Math.min(1000, Math.max(1, parseInt(pagination.limit, 10)));
+  }
+
+  // Precedence: page > offset
+  let page = 1;
+  let offset = 0;
+  const offsetRequested = pagination.offset !== undefined && pagination.page === undefined;
+
+  if (pagination.page !== undefined) {
+    page = Math.max(1, parseInt(pagination.page, 10));
+    offset = (page - 1) * limit;
+  } else if (pagination.offset !== undefined) {
+    offset = Math.max(0, parseInt(pagination.offset, 10));
+    page = Math.floor(offset / limit) + 1;
+  }
+
+  const repoPagination = {
+    page,
+    pageSize: limit,
+  };
+  if (pagination.limit !== undefined && pagination.pageSize === undefined) {
+    repoPagination.limit = limit;
+  }
+  if (pagination.offset !== undefined && pagination.page === undefined) {
+    repoPagination.offset = offset;
+  }
+
+  const result = await deliveryRepository.findWithFilters(
+    tenantId,
+    filters,
+    repoPagination
+  );
+
+  const totalRecords = result.totalRecords;
+  const totalPages = totalRecords === 0 ? 0 : Math.ceil(totalRecords / limit);
+  const hasNext = offset + limit < totalRecords;
+  const hasPrev = totalRecords > 0 && offset > 0;
+
+  const paginationMeta = {
+    page,
+    pageSize: limit,
+    totalRecords,
+    totalPages,
+    hasNext,
+    hasPrev,
+    ...(offsetRequested ? { offset } : {}),
+  };
+
+  return {
+    deliveries: result.deliveries,
+    pagination: paginationMeta,
+  };
+}
+
 export default {
   getDeliveriesByEvent,
   getDeliveriesByState,
   getAllDeliveries,
+<<<<<<< HEAD
   getDeliveries,
   countDeliveries,
+=======
+  queryDeliveries,
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   getDeliveryById,
   replayDelivery,
 };

@@ -496,6 +496,136 @@ export async function findAllByTenant(tenantId, limit = 100, options = {}) {
   }
 }
 
+function escapeLikePattern(str) {
+  return str.replace(/[%_\\]/g, '\\$&');
+}
+
+/**
+ * Query deliveries with tenant isolation, dynamic filters, and pagination.
+ *
+ * @param {string} tenantId - Tenant UUID
+ * @param {Object} filters - Filter criteria
+ * @param {string} [filters.state] - State string or 'ALL'
+ * @param {string} [filters.endpoint_id] - Endpoint UUID
+ * @param {string} [filters.event_id] - Event UUID
+ * @param {string} [filters.created_after] - ISO date string
+ * @param {string} [filters.created_before] - ISO date string
+ * @param {string} [filters.q] - Search query
+ * @param {Object} pagination - Pagination parameters
+ * @param {number} pagination.page - 1-based page number
+ * @param {number} pagination.pageSize - Items per page
+ * @returns {Promise<{ deliveries: Array, totalRecords: number }>}
+ */
+export async function findWithFilters(
+  tenantId,
+  filters = {},
+  pagination = { page: 1, pageSize: 20 }
+) {
+  const conditions = ['e.tenant_id = $1'];
+  const params = [tenantId];
+  let paramIndex = 2;
+
+  if (filters.state && filters.state !== 'ALL') {
+    conditions.push(`d.state = $${paramIndex}`);
+    params.push(filters.state);
+    paramIndex++;
+  }
+
+  if (filters.endpoint_id) {
+    conditions.push(`d.endpoint_id = $${paramIndex}`);
+    params.push(filters.endpoint_id);
+    paramIndex++;
+  }
+
+  if (filters.event_id) {
+    conditions.push(`d.event_id = $${paramIndex}`);
+    params.push(filters.event_id);
+    paramIndex++;
+  }
+
+  if (filters.created_after) {
+    conditions.push(`d.created_at >= $${paramIndex}`);
+    params.push(filters.created_after);
+    paramIndex++;
+  }
+
+  if (filters.created_before) {
+    conditions.push(`d.created_at <= $${paramIndex}`);
+    params.push(filters.created_before);
+    paramIndex++;
+  }
+
+  if (filters.q && filters.q.trim()) {
+    const pattern = `%${escapeLikePattern(filters.q.trim())}%`;
+    conditions.push(`(
+      d.id::text ILIKE $${paramIndex} OR
+      d.event_id::text ILIKE $${paramIndex} OR
+      d.endpoint_id::text ILIKE $${paramIndex} OR
+      (d.last_error IS NOT NULL AND d.last_error ILIKE $${paramIndex}) OR
+      e.url ILIKE $${paramIndex}
+    )`);
+    params.push(pattern);
+    paramIndex++;
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  const countSql = `
+    SELECT count(*)::int AS count
+    FROM deliveries d
+    JOIN endpoints e ON d.endpoint_id = e.id
+    WHERE ${whereClause}
+  `;
+
+  let limit = 20;
+  if (pagination.pageSize !== undefined) {
+    limit = Math.min(100, Math.max(1, parseInt(pagination.pageSize, 10)));
+  } else if (pagination.limit !== undefined) {
+    limit = Math.min(1000, Math.max(1, parseInt(pagination.limit, 10)));
+  }
+
+  let offset = 0;
+  if (pagination.page !== undefined) {
+    const page = Math.max(1, parseInt(pagination.page, 10));
+    offset = (page - 1) * limit;
+  } else if (pagination.offset !== undefined) {
+    offset = Math.max(0, parseInt(pagination.offset, 10));
+  }
+
+  const dataSql = `
+    SELECT d.*
+    FROM deliveries d
+    JOIN endpoints e ON d.endpoint_id = e.id
+    WHERE ${whereClause}
+    ORDER BY d.created_at DESC, d.id DESC
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `;
+
+  const dataParams = [...params, limit, offset];
+
+  try {
+    const [countResult, dataResult] = await Promise.all([
+      query(countSql, params),
+      query(dataSql, dataParams),
+    ]);
+
+    const totalRecords = countResult.rows[0]?.count || 0;
+    const deliveries = dataResult.rows.map(mapRowToDelivery);
+
+    return {
+      deliveries,
+      totalRecords,
+    };
+  } catch (error) {
+    logger.error('Failed to find deliveries with filters', {
+      error: error.message,
+      tenantId,
+      filters,
+    });
+    throw error;
+  }
+}
+
 /**
  * Find deliveries with flexible filtering, pagination, and sorting (tenant-scoped).
  *
@@ -845,8 +975,12 @@ export default {
   findByEvent,
   findByState,
   findAllByTenant,
+<<<<<<< HEAD
   findDeliveries,
   countDeliveries,
+=======
+  findWithFilters,
+>>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   findAttemptsByDeliveryId,
   findExpiredLeases,
   recoverExpiredLeasesBatch,

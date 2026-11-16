@@ -150,6 +150,46 @@ describe('EndpointService', () => {
     });
   });
 
+  describe('getById', () => {
+    it('should return endpoint DTO without secret when found', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      const mockEndpoint = {
+        id: mockEndpointId,
+        tenantId: mockTenantId,
+        url: 'https://example.com/webhook',
+        secret: 'whsec_secret123',
+        active: true,
+        rateLimitRps: 10,
+        nextSeq: 1,
+        circuitState: 'CLOSED',
+        circuitUntil: null,
+        consecutiveFailures: 0,
+        createdAt: new Date().toISOString(),
+      };
+
+      endpointRepository.findByIdAndTenant.mockResolvedValue(mockEndpoint);
+
+      const result = await endpointService.getById(mockTenantId, mockEndpointId);
+
+      expect(endpointRepository.findByIdAndTenant).toHaveBeenCalledWith(
+        mockEndpointId,
+        mockTenantId
+      );
+      expect(result).toHaveProperty('id', mockEndpointId);
+      expect(result).toHaveProperty('url', 'https://example.com/webhook');
+      expect(result).not.toHaveProperty('secret');
+    });
+
+    it('should return null when endpoint not found or cross-tenant', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      endpointRepository.findByIdAndTenant.mockResolvedValue(null);
+
+      const result = await endpointService.getById(mockTenantId, mockEndpointId);
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('update', () => {
     it('should update endpoint and validate ownership', async () => {
       const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;

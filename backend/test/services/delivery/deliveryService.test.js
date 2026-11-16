@@ -138,4 +138,138 @@ describe('DeliveryService', () => {
       expect(deliveryRepository.findByIdAndTenant).toHaveBeenCalledWith('delivery-1', 'tenant-1');
     });
   });
+
+  describe('queryDeliveries', () => {
+    it('should query deliveries with default pagination and filters', async () => {
+      const mockDeliveries = [
+        { id: 'delivery-1', state: deliveryState.DEAD },
+      ];
+      deliveryRepository.findWithFilters.mockResolvedValue({
+        deliveries: mockDeliveries,
+        totalRecords: 1,
+      });
+
+      const result = await deliveryService.queryDeliveries('tenant-1', { state: 'DEAD' });
+
+      expect(deliveryRepository.findWithFilters).toHaveBeenCalledWith(
+        'tenant-1',
+        { state: 'DEAD' },
+        { page: 1, pageSize: 20 }
+      );
+      expect(result.deliveries).toEqual(mockDeliveries);
+      expect(result.pagination).toEqual({
+        page: 1,
+        pageSize: 20,
+        totalRecords: 1,
+        totalPages: 1,
+        hasNext: false,
+        hasPrev: false,
+      });
+    });
+
+    it('should calculate pagination envelope correctly for multi-page results', async () => {
+      deliveryRepository.findWithFilters.mockResolvedValue({
+        deliveries: [],
+        totalRecords: 45,
+      });
+
+      const result = await deliveryService.queryDeliveries(
+        'tenant-1',
+        {},
+        { page: 2, pageSize: 20 }
+      );
+
+      expect(result.pagination).toEqual({
+        page: 2,
+        pageSize: 20,
+        totalRecords: 45,
+        totalPages: 3,
+        hasNext: true,
+        hasPrev: true,
+      });
+    });
+
+    it('should handle zero total records properly', async () => {
+      deliveryRepository.findWithFilters.mockResolvedValue({
+        deliveries: [],
+        totalRecords: 0,
+      });
+
+      const result = await deliveryService.queryDeliveries('tenant-1');
+
+      expect(result.pagination.totalPages).toBe(0);
+      expect(result.pagination.hasNext).toBe(false);
+      expect(result.pagination.hasPrev).toBe(false);
+    });
+
+    it('should support arbitrary offset preserving exact skip semantics', async () => {
+      deliveryRepository.findWithFilters.mockResolvedValue({
+        deliveries: [{ id: 'del-1' }],
+        totalRecords: 50,
+      });
+
+      const result = await deliveryService.queryDeliveries(
+        'tenant-1',
+        {},
+        { limit: 20, offset: 5 }
+      );
+
+      expect(deliveryRepository.findWithFilters).toHaveBeenCalledWith(
+        'tenant-1',
+        {},
+        { page: 1, pageSize: 20, limit: 20, offset: 5 }
+      );
+      expect(result.pagination).toEqual({
+        page: 1,
+        pageSize: 20,
+        totalRecords: 50,
+        totalPages: 3,
+        hasNext: true,
+        hasPrev: true,
+        offset: 5,
+      });
+    });
+
+    it('should support legacy limit up to 1000 without clamping', async () => {
+      deliveryRepository.findWithFilters.mockResolvedValue({
+        deliveries: [],
+        totalRecords: 500,
+      });
+
+      const result = await deliveryService.queryDeliveries(
+        'tenant-1',
+        {},
+        { limit: 500 }
+      );
+
+      expect(deliveryRepository.findWithFilters).toHaveBeenCalledWith(
+        'tenant-1',
+        {},
+        { page: 1, pageSize: 500, limit: 500 }
+      );
+      expect(result.pagination.pageSize).toBe(500);
+    });
+
+    it('should enforce parameter precedence: pageSize over limit, page over offset', async () => {
+      deliveryRepository.findWithFilters.mockResolvedValue({
+        deliveries: [],
+        totalRecords: 50,
+      });
+
+      const result = await deliveryService.queryDeliveries(
+        'tenant-1',
+        {},
+        { pageSize: 10, limit: 500, page: 2, offset: 5 }
+      );
+
+      expect(deliveryRepository.findWithFilters).toHaveBeenCalledWith(
+        'tenant-1',
+        {},
+        { page: 2, pageSize: 10 }
+      );
+      expect(result.pagination.pageSize).toBe(10);
+      expect(result.pagination.page).toBe(2);
+      expect(result.pagination.offset).toBeUndefined();
+    });
+  });
 });
