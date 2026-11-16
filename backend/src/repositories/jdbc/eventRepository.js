@@ -108,6 +108,113 @@ export async function findAllByTenant(tenantId, limit = 100) {
   }
 }
 
+/**
+ * Query events with tenant isolation, dynamic filters, and pagination.
+ *
+ * @param {string} tenantId - Tenant UUID
+ * @param {Object} filters - Filter criteria
+ * @param {string} [filters.idempotency_key] - Exact or partial idempotency key
+ * @param {string} [filters.created_after] - ISO date string
+ * @param {string} [filters.created_before] - ISO date string
+ * @param {string} [filters.q] - Search query (id or idempotency_key)
+ * @param {Object} pagination - Pagination parameters
+ * @param {number} pagination.page - 1-based page number
+ * @param {number} pagination.pageSize - Items per page
+ * @returns {Promise<{ events: Array, totalRecords: number }>}
+ */
+export async function findWithFilters(
+  tenantId,
+  filters = {},
+  pagination = { page: 1, pageSize: 20 }
+) {
+  const conditions = ['tenant_id = $1'];
+  const params = [tenantId];
+  let paramIndex = 2;
+
+  if (filters.idempotency_key && filters.idempotency_key.trim()) {
+    conditions.push(`idempotency_key = $${paramIndex}`);
+    params.push(filters.idempotency_key.trim());
+    paramIndex++;
+  }
+
+  if (filters.created_after) {
+    conditions.push(`created_at >= $${paramIndex}`);
+    params.push(filters.created_after);
+    paramIndex++;
+  }
+
+  if (filters.created_before) {
+    conditions.push(`created_at <= $${paramIndex}`);
+    params.push(filters.created_before);
+    paramIndex++;
+  }
+
+  if (filters.q && filters.q.trim()) {
+    const pattern = `%${filters.q.trim().replace(/[%_\\]/g, '\\$&')}%`;
+    conditions.push(`(
+      id::text ILIKE $${paramIndex} OR
+      idempotency_key ILIKE $${paramIndex}
+    )`);
+    params.push(pattern);
+    paramIndex++;
+  }
+
+  const whereClause = conditions.join(' AND ');
+
+  const countSql = `
+    SELECT count(*)::int AS count
+    FROM events
+    WHERE ${whereClause}
+  `;
+
+  let limit = 20;
+  if (pagination.pageSize !== undefined) {
+    limit = Math.min(100, Math.max(1, parseInt(pagination.pageSize, 10)));
+  } else if (pagination.limit !== undefined) {
+    limit = Math.min(1000, Math.max(1, parseInt(pagination.limit, 10)));
+  }
+
+  let offset = 0;
+  if (pagination.page !== undefined) {
+    const page = Math.max(1, parseInt(pagination.page, 10));
+    offset = (page - 1) * limit;
+  } else if (pagination.offset !== undefined) {
+    offset = Math.max(0, parseInt(pagination.offset, 10));
+  }
+
+  const dataSql = `
+    SELECT id, tenant_id, payload, idempotency_key, created_at
+    FROM events
+    WHERE ${whereClause}
+    ORDER BY created_at DESC, id DESC
+    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+  `;
+
+  const dataParams = [...params, limit, offset];
+
+  try {
+    const [countResult, dataResult] = await Promise.all([
+      query(countSql, params),
+      query(dataSql, dataParams),
+    ]);
+
+    const totalRecords = countResult.rows[0]?.count || 0;
+    const events = dataResult.rows.map(mapRowToEvent);
+
+    return {
+      events,
+      totalRecords,
+    };
+  } catch (error) {
+    logger.error('Failed to query events with filters', {
+      error: error.message,
+      tenantId,
+      filters,
+    });
+    throw error;
+  }
+}
+
 // ============ DeliveryEnqueuer Implementation ============
 
 /**
@@ -258,6 +365,7 @@ export default {
   findByTenantAndIdempotencyKey,
   findById,
   findAllByTenant,
+  findWithFilters,
   // DeliveryEnqueuer
   enqueue,
 };
