@@ -142,10 +142,10 @@ export const SettingsPage: React.FC = () => {
           <form onSubmit={handleSaveConnection} className="space-y-4">
             <Input
               label="Backend Base URL"
-              placeholder="http://localhost:8080"
+              placeholder="http://localhost:8081"
               value={inputBaseUrl}
               onChange={(e) => setInputBaseUrl(e.target.value)}
-              helperText="The host and port where your Express server runs (default: http://localhost:8080)."
+              helperText="The host and port where your Express server runs (default: http://localhost:8081)."
               leftIcon={<Server className="w-4 h-4 text-slate-400" />}
             />
 

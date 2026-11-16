@@ -75,7 +75,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   })
 
   const [baseUrl, setBaseUrlState] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_BASE_URL) || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+    return localStorage.getItem(STORAGE_KEY_BASE_URL) || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
   })
 
   const [apiKey, setApiKeyState] = useState<string>(() => {

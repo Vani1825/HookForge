@@ -34,7 +34,7 @@ function normalizeDelivery(d: any): Delivery {
 export async function fetchDeliveries(params?: DeliveryQueryParams): Promise<Delivery[]> {
   const queryParams: Record<string, string | number | boolean> = {}
   if (params) {
-    if (params.state) queryParams.state = params.state
+    queryParams.state = params.state || 'ALL'
     if (params.endpoint_id) queryParams.endpoint_id = params.endpoint_id
     if (params.event_id) queryParams.event_id = params.event_id
     if (params.limit) queryParams.limit = params.limit

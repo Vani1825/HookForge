@@ -89,17 +89,17 @@ cp .env.example .env
 Default variables in `.env`:
 
 ```env
-# URL where your Express backend server is running
-VITE_API_BASE_URL=http://localhost:8080
+# URL where your Express backend server is running (HookForge maps to port 8081)
+VITE_API_BASE_URL=http://localhost:8081
 
-# Start in Demo Mode (true) or Live API Mode (false)
-VITE_DEMO_MODE=true
+# Start in Live API Mode (false) or Demo Mode (true)
+VITE_DEMO_MODE=false
 
-# Optional tenant API key sent in X-Api-Key header
+# Optional tenant API key sent in Authorization: Bearer header
 VITE_API_KEY=
 ```
 
-> **Note:** Base URL and API Key can also be changed dynamically at runtime directly inside the **Settings** page without restarting Vite.
+> **Note:** Base URL and API Key can also be changed dynamically at runtime directly inside the **Settings** page (`http://localhost:5173/settings`) without restarting Vite.
 
 ### 3. Start Development Server
 
@@ -150,10 +150,10 @@ When running HookForge backend locally:
 1. In the root directory, start PostgreSQL and backend server:
    ```bash
    # In project root
-   npm run dev
+   docker compose up -d
    ```
-2. Verify backend is running on `http://localhost:8080/health`.
-3. In the frontend, toggle the top bar switch to **Live API** or go to **Settings** and test the connection.
+2. Verify backend is running on `http://localhost:8081/health`.
+3. In the frontend, toggle the top bar switch to **Live API Mode** or go to **Settings** and test the connection.
 
 ---
 
