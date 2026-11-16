@@ -142,20 +142,20 @@ export const SettingsPage: React.FC = () => {
           <form onSubmit={handleSaveConnection} className="space-y-4">
             <Input
               label="Backend Base URL"
-              placeholder="http://localhost:8080"
+              placeholder="http://localhost:8081"
               value={inputBaseUrl}
               onChange={(e) => setInputBaseUrl(e.target.value)}
-              helperText="The host and port where your Express server runs (default: http://localhost:8080)."
+              helperText="The host and port where your Express server runs (default: http://localhost:8081)."
               leftIcon={<Server className="w-4 h-4 text-slate-400" />}
             />
 
             <Input
-              label="Tenant API Key (X-Api-Key)"
+              label="Tenant API Key (Authorization: Bearer)"
               type="password"
               placeholder="whkey_..."
               value={inputApiKey}
               onChange={(e) => setInputApiKey(e.target.value)}
-              helperText="Tenant authentication token sent in the X-Api-Key header (verified via SHA-256 hash)."
+              helperText="Tenant authentication token sent in the Authorization: Bearer header (verified via SHA-256 hash)."
               leftIcon={<Key className="w-4 h-4 text-slate-400" />}
             />
 

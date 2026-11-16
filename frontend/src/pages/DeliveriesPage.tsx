@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Send,
   Search,
@@ -7,6 +7,8 @@ import {
   Check,
   ChevronRight,
   Filter,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -14,45 +16,216 @@ import { Input } from '../components/ui/Input'
 import { StatusBadge } from '../components/StatusBadge'
 import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
+import { Pagination } from '../components/ui/Pagination'
 import { DeliveryDetailDrawer } from '../components/DeliveryDetailDrawer'
 import { ReplayModal } from '../components/ReplayModal'
 import { useApp } from '../context/AppContext'
 import { formatRelativeTime, truncateId, formatStatusCode, copyToClipboard } from '../utils/formatters'
-import type { Delivery } from '../types'
+import type { Delivery, Endpoint, PaginationMeta } from '../types'
 
 export const DeliveriesPage: React.FC = () => {
   const { service, mode } = useApp()
 
   const [deliveries, setDeliveries] = useState<Delivery[]>([])
+  const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Pagination state
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+  const [pagination, setPagination] = useState<PaginationMeta>({
+    page: 1,
+    pageSize: 20,
+    totalRecords: 0,
+    totalPages: 0,
+    hasNext: false,
+    hasPrev: false,
+  })
+
+  // Filter states
   const [searchQuery, setSearchQuery] = useState('')
   const [stateFilter, setStateFilter] = useState<string>('ALL')
+  const [endpointFilter, setEndpointFilter] = useState<string>('')
+  const [eventFilter, setEventFilter] = useState<string>('')
+  const [createdAfterFilter, setCreatedAfterFilter] = useState<string>('')
+  const [createdBeforeFilter, setCreatedBeforeFilter] = useState<string>('')
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
 
+  // Drawers & Modals
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
   const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
-
   const [replayModalOpen, setReplayModalOpen] = useState(false)
   const [deliveryToReplay, setDeliveryToReplay] = useState<Delivery | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  const loadDeliveries = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      const data = await service.getDeliveries()
-      setDeliveries(data)
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch deliveries'
-      setError(msg)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [service])
+  // Guard against race conditions and out-of-order network responses
+  const latestRequestIdRef = useRef(0)
 
+  // Load configured endpoints for the dropdown filter
   useEffect(() => {
-    loadDeliveries()
-  }, [loadDeliveries, mode])
+    service.getEndpoints().then(setEndpoints).catch(() => setEndpoints([]))
+  }, [service, mode])
+
+  const loadDeliveries = useCallback(
+    async (
+      targetPage = page,
+      targetPageSize = pageSize,
+      currentFilters = {
+        state: stateFilter,
+        endpoint_id: endpointFilter,
+        event_id: eventFilter,
+        created_after: createdAfterFilter,
+        created_before: createdBeforeFilter,
+        q: searchQuery,
+      }
+    ) => {
+      const reqId = ++latestRequestIdRef.current
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        const queryParams: Record<string, string | number> = {
+          page: targetPage,
+          pageSize: targetPageSize,
+          state: currentFilters.state || 'ALL',
+        }
+
+        if (currentFilters.endpoint_id?.trim()) {
+          queryParams.endpoint_id = currentFilters.endpoint_id.trim()
+        }
+        if (currentFilters.event_id?.trim()) {
+          queryParams.event_id = currentFilters.event_id.trim()
+        }
+        if (currentFilters.created_after) {
+          const afterDate = new Date(
+            currentFilters.created_after.includes('T')
+              ? currentFilters.created_after
+              : `${currentFilters.created_after}T00:00:00.000Z`
+          )
+          if (!isNaN(afterDate.getTime())) {
+            queryParams.created_after = afterDate.toISOString()
+          }
+        }
+        if (currentFilters.created_before) {
+          const beforeDate = new Date(
+            currentFilters.created_before.includes('T')
+              ? currentFilters.created_before
+              : `${currentFilters.created_before}T23:59:59.999Z`
+          )
+          if (!isNaN(beforeDate.getTime())) {
+            queryParams.created_before = beforeDate.toISOString()
+          }
+        }
+        if (currentFilters.q?.trim()) {
+          queryParams.q = currentFilters.q.trim()
+        }
+
+        const res = await service.getDeliveries(queryParams)
+
+        // Ignore stale responses
+        if (reqId !== latestRequestIdRef.current) return
+
+        setDeliveries(res.data || res)
+        if (res.pagination) {
+          setPagination(res.pagination)
+        }
+      } catch (err: unknown) {
+        if (reqId !== latestRequestIdRef.current) return
+        const msg = err instanceof Error ? err.message : 'Failed to fetch deliveries'
+        setError(msg)
+      } finally {
+        if (reqId === latestRequestIdRef.current) {
+          setIsLoading(false)
+        }
+      }
+    },
+    [
+      service,
+      page,
+      pageSize,
+      stateFilter,
+      endpointFilter,
+      eventFilter,
+      createdAfterFilter,
+      createdBeforeFilter,
+      searchQuery,
+    ]
+  )
+
+  // Initial fetch and reload on mode change
+  useEffect(() => {
+    loadDeliveries(page, pageSize)
+  }, [loadDeliveries, mode, page, pageSize])
+
+  // Handlers for pagination
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage)
+    loadDeliveries(newPage, pageSize)
+  }
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setPageSize(newPageSize)
+    setPage(1)
+    loadDeliveries(1, newPageSize)
+  }
+
+  // Helper to apply filter change (always resets to page 1)
+  const applyFilterUpdate = (
+    updates: Partial<{
+      state: string
+      endpoint_id: string
+      event_id: string
+      created_after: string
+      created_before: string
+      q: string
+    }>
+  ) => {
+    const updated = {
+      state: updates.state !== undefined ? updates.state : stateFilter,
+      endpoint_id: updates.endpoint_id !== undefined ? updates.endpoint_id : endpointFilter,
+      event_id: updates.event_id !== undefined ? updates.event_id : eventFilter,
+      created_after: updates.created_after !== undefined ? updates.created_after : createdAfterFilter,
+      created_before: updates.created_before !== undefined ? updates.created_before : createdBeforeFilter,
+      q: updates.q !== undefined ? updates.q : searchQuery,
+    }
+
+    if (updates.state !== undefined) setStateFilter(updates.state)
+    if (updates.endpoint_id !== undefined) setEndpointFilter(updates.endpoint_id)
+    if (updates.event_id !== undefined) setEventFilter(updates.event_id)
+    if (updates.created_after !== undefined) setCreatedAfterFilter(updates.created_after)
+    if (updates.created_before !== undefined) setCreatedBeforeFilter(updates.created_before)
+    if (updates.q !== undefined) setSearchQuery(updates.q)
+
+    setPage(1)
+    loadDeliveries(1, pageSize, updated)
+  }
+
+  const handleClearAllFilters = () => {
+    setStateFilter('ALL')
+    setEndpointFilter('')
+    setEventFilter('')
+    setCreatedAfterFilter('')
+    setCreatedBeforeFilter('')
+    setSearchQuery('')
+    setPage(1)
+    loadDeliveries(1, pageSize, {
+      state: 'ALL',
+      endpoint_id: '',
+      event_id: '',
+      created_after: '',
+      created_before: '',
+      q: '',
+    })
+  }
+
+  const hasActiveFilters =
+    stateFilter !== 'ALL' ||
+    Boolean(endpointFilter) ||
+    Boolean(eventFilter) ||
+    Boolean(createdAfterFilter) ||
+    Boolean(createdBeforeFilter) ||
+    Boolean(searchQuery.trim())
 
   const handleCopy = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -64,7 +237,6 @@ export const DeliveriesPage: React.FC = () => {
   }
 
   const handleInspect = async (del: Delivery) => {
-    // If enriched attempts are not loaded, try fetching single delivery
     try {
       const detailed = await service.getDeliveryById(del.id)
       setSelectedDelivery(detailed || del)
@@ -79,20 +251,6 @@ export const DeliveriesPage: React.FC = () => {
     setReplayModalOpen(true)
   }
 
-  const filteredDeliveries = deliveries.filter((del) => {
-    if (stateFilter !== 'ALL' && del.state !== stateFilter) return false
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      return (
-        del.id.toLowerCase().includes(q) ||
-        del.event_id.toLowerCase().includes(q) ||
-        del.endpoint_url?.toLowerCase().includes(q) ||
-        (del.last_error && del.last_error.toLowerCase().includes(q))
-      )
-    }
-    return true
-  })
-
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
@@ -100,15 +258,16 @@ export const DeliveriesPage: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 tracking-tight">Delivery Pipeline Monitor</h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Durable PostgreSQL work queue with per-endpoint sequence ordering and lease expiration.
+            Durable PostgreSQL work queue with server-side pagination, per-endpoint ordering, and lease expiration.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="outline"
             size="sm"
-            onClick={loadDeliveries}
+            onClick={() => loadDeliveries(page, pageSize)}
             isLoading={isLoading}
             leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
           >
@@ -117,37 +276,219 @@ export const DeliveriesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Filter / Search Bar */}
-      <Card className="p-4 bg-white">
-        <div className="flex flex-col sm:flex-row items-center gap-3">
+      {/* Filter / Search Card */}
+      <Card className="p-4 bg-white space-y-3">
+        {/* Primary Row: Search, State, Endpoint, Advanced Toggle */}
+        <div className="flex flex-col md:flex-row items-center gap-3">
           <div className="flex-1 w-full">
             <Input
               placeholder="Search by Delivery ID, Event ID, Endpoint URL, or Error..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => applyFilterUpdate({ q: e.target.value })}
+              aria-label="Search deliveries"
               leftIcon={<Search className="w-4 h-4 text-slate-400" />}
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* State filter */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
               <Filter className="w-3.5 h-3.5" />
               <span>State:</span>
+              <select
+                value={stateFilter}
+                onChange={(e) => applyFilterUpdate({ state: e.target.value })}
+                aria-label="Filter deliveries by state"
+                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+              >
+                <option value="ALL">All States</option>
+                <option value="SUCCEEDED">Succeeded</option>
+                <option value="PENDING">Pending</option>
+                <option value="IN_FLIGHT">In Flight</option>
+                <option value="RETRYING">Retrying</option>
+                <option value="DEAD">Dead Letter</option>
+              </select>
             </div>
-            <select
-              value={stateFilter}
-              onChange={(e) => setStateFilter(e.target.value)}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+
+            {/* Endpoint filter dropdown */}
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+              <span>Endpoint:</span>
+              <select
+                value={endpointFilter}
+                onChange={(e) => applyFilterUpdate({ endpoint_id: e.target.value })}
+                aria-label="Filter deliveries by destination endpoint"
+                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 max-w-[180px] truncate cursor-pointer"
+              >
+                <option value="">All Endpoints</option>
+                {endpoints.map((ep) => (
+                  <option key={ep.id} value={ep.id}>
+                    {ep.url || ep.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Advanced Filters Button */}
+            <Button
+              type="button"
+              variant={showAdvancedFilters ? 'secondary' : 'outline'}
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              aria-expanded={showAdvancedFilters}
+              leftIcon={<SlidersHorizontal className="w-3.5 h-3.5" />}
+              className="text-xs"
             >
-              <option value="ALL">All States ({deliveries.length})</option>
-              <option value="SUCCEEDED">Succeeded</option>
-              <option value="PENDING">Pending</option>
-              <option value="IN_FLIGHT">In Flight</option>
-              <option value="RETRYING">Retrying</option>
-              <option value="DEAD">Dead Letter</option>
-            </select>
+              Filters
+            </Button>
           </div>
         </div>
+
+        {/* Collapsible Advanced Filters (Event ID, Date Range) */}
+        {showAdvancedFilters && (
+          <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label htmlFor="event-filter-input" className="block text-2xs font-medium text-slate-600 mb-1">
+                Event UUID
+              </label>
+              <Input
+                id="event-filter-input"
+                placeholder="Filter by Event UUID..."
+                value={eventFilter}
+                onChange={(e) => applyFilterUpdate({ event_id: e.target.value })}
+                className="text-xs"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="created-after-input" className="block text-2xs font-medium text-slate-600 mb-1">
+                Created After
+              </label>
+              <input
+                id="created-after-input"
+                type="date"
+                value={createdAfterFilter}
+                onChange={(e) => applyFilterUpdate({ created_after: e.target.value })}
+                aria-label="Filter deliveries created after date"
+                className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="created-before-input" className="block text-2xs font-medium text-slate-600 mb-1">
+                Created Before
+              </label>
+              <input
+                id="created-before-input"
+                type="date"
+                value={createdBeforeFilter}
+                onChange={(e) => applyFilterUpdate({ created_before: e.target.value })}
+                aria-label="Filter deliveries created before date"
+                className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Active Filters Bar */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
+            <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider">
+              Active Filters:
+            </span>
+
+            {stateFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                State: <strong className="font-semibold">{stateFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => applyFilterUpdate({ state: 'ALL' })}
+                  aria-label="Clear state filter"
+                  className="hover:text-slate-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                Search: <strong className="font-semibold truncate max-w-[120px]">{searchQuery}</strong>
+                <button
+                  type="button"
+                  onClick={() => applyFilterUpdate({ q: '' })}
+                  aria-label="Clear search query"
+                  className="hover:text-slate-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {endpointFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                Endpoint: <strong className="font-semibold truncate max-w-[120px]">{endpointFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => applyFilterUpdate({ endpoint_id: '' })}
+                  aria-label="Clear endpoint filter"
+                  className="hover:text-slate-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {eventFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                Event: <strong className="font-semibold truncate max-w-[120px]">{eventFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => applyFilterUpdate({ event_id: '' })}
+                  aria-label="Clear event filter"
+                  className="hover:text-slate-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {createdAfterFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                After: <strong className="font-semibold">{createdAfterFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => applyFilterUpdate({ created_after: '' })}
+                  aria-label="Clear created after filter"
+                  className="hover:text-slate-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {createdBeforeFilter && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+                Before: <strong className="font-semibold">{createdBeforeFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => applyFilterUpdate({ created_before: '' })}
+                  aria-label="Clear created before filter"
+                  className="hover:text-slate-900 cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              className="text-xs text-rose-600 hover:text-rose-700 font-medium underline ml-auto cursor-pointer"
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* Main Deliveries Table */}
@@ -155,18 +496,39 @@ export const DeliveriesPage: React.FC = () => {
         {isLoading ? (
           <TableSkeleton rows={6} cols={7} />
         ) : error && mode === 'live' ? (
-          <div className="p-8 text-center text-xs text-rose-600 space-y-2">
-            <p className="font-semibold">Failed to load deliveries from backend API.</p>
+          <div className="p-8 text-center text-xs text-rose-600 space-y-3">
+            <p className="font-semibold text-sm">Failed to load deliveries from backend API.</p>
             <p className="text-slate-500 font-mono">{error}</p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => loadDeliveries(page, pageSize)}
+              className="mx-auto"
+            >
+              Retry
+            </Button>
           </div>
-        ) : filteredDeliveries.length === 0 ? (
+        ) : deliveries.length === 0 ? (
           <EmptyState
             icon={<Send className="w-6 h-6 text-slate-400" />}
             title="No Deliveries Found"
             description={
-              searchQuery || stateFilter !== 'ALL'
+              hasActiveFilters
                 ? 'No deliveries matched your filter criteria.'
                 : 'No delivery tasks currently enqueued in the platform.'
+            }
+            action={
+              hasActiveFilters ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAllFilters}
+                >
+                  Clear Filters
+                </Button>
+              ) : undefined
             }
           />
         ) : (
@@ -185,7 +547,7 @@ export const DeliveriesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDeliveries.map((del) => {
+                {deliveries.map((del) => {
                   const statusInfo = formatStatusCode(del.last_status_code)
                   return (
                     <tr
@@ -197,9 +559,11 @@ export const DeliveriesPage: React.FC = () => {
                         <div className="flex items-center gap-1.5 font-mono font-medium text-slate-800">
                           <span>{truncateId(del.id, 8)}</span>
                           <button
+                            type="button"
                             onClick={(e) => handleCopy(del.id, e)}
                             className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
                             title="Copy Delivery ID"
+                            aria-label={`Copy delivery ID ${del.id}`}
                           >
                             {copiedId === del.id ? (
                               <Check className="w-3 h-3 text-emerald-600" />
@@ -265,6 +629,17 @@ export const DeliveriesPage: React.FC = () => {
             </table>
           </div>
         )}
+
+        {/* Server-side Pagination Component */}
+        {!isLoading && !error && (
+          <Pagination
+            pagination={pagination}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+            itemName="deliveries"
+            isLoading={isLoading}
+          />
+        )}
       </Card>
 
       {/* Delivery Detail Drawer */}
@@ -281,7 +656,7 @@ export const DeliveriesPage: React.FC = () => {
         isOpen={replayModalOpen}
         onClose={() => setReplayModalOpen(false)}
         onSuccess={() => {
-          loadDeliveries()
+          loadDeliveries(page, pageSize)
         }}
       />
     </div>

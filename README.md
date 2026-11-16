@@ -166,55 +166,155 @@ INGEST_MAX_PAYLOAD_BYTES=262144
 
 ---
 
-## Getting Started
+## Getting Started (Local Setup & PowerShell Commands)
 
-### 1. Start PostgreSQL Service
+### 1. Start Docker Desktop and HookForge Services
 
-To avoid conflicts with existing services running on port 5432 or 5433, HookForge maps PostgreSQL to host port `5434`:
+To avoid conflicts with existing services running on default PostgreSQL ports (5432 or 5433), HookForge maps PostgreSQL to host port `5434` and the Express backend to host port `8081`:
 
-```bash
-docker compose up -d postgres
+```powershell
+# Start HookForge PostgreSQL and Backend containers
+docker compose up -d
 ```
 
-### 2. Run Database Migrations
+Verify the containers are healthy and running:
+```powershell
+docker ps --filter "name=hookforge"
+```
 
-Apply the database schema from `migrations/V1__init.sql`:
+### 2. Install Dependencies
 
-```bash
+Install root and workspace dependencies:
+
+```powershell
+# Root monorepo
+npm install
+
+# Backend dependencies
+npm install --prefix backend
+
+# Frontend dependencies
+npm install --prefix frontend
+```
+
+### 3. Run Database Migrations
+
+Apply the database schema from `backend/migrations/V1__init.sql` to your local PostgreSQL instance:
+
+```powershell
 npm run db:migrate
 ```
 
-### 3. Start the HookForge Application
+### 4. Initialize a Local Development Tenant
 
-```bash
-npm start
+Generate your own cryptographically secure development API key and register a local tenant in PostgreSQL:
+
+```powershell
+npm run tenant:init
 ```
 
-For development with live reload:
-
-```bash
-npm run dev
+Output:
+```text
+=============================================================================
+           HookForge Development Tenant Initialized Successfully
+=============================================================================
+Tenant Name:  Default Dev Tenant
+Tenant ID:    <generated-uuid>
+Created At:   ...
+-----------------------------------------------------------------------------
+Development API Key:  whkey_<48-character-random-hex>
+-----------------------------------------------------------------------------
+IMPORTANT:
+1. Copy and save this API key now. HookForge stores only the SHA-256 hash
+   in PostgreSQL and cannot recover the plaintext key later.
+2. This key was NOT written to any file or committed to source control.
 ```
 
-### 4. Health Check
+> **Security & Idempotency Notes:**
+> - The command generates a cryptographically random 192-bit key (`whkey_...`).
+> - Only the SHA-256 hash is persisted into `tenants.api_key_hash`.
+> - The script refuses to run if `NODE_ENV=production`.
+> - If run again, existing tenant data is preserved without creating accidental duplicate tenants.
 
-```bash
-curl -X GET http://localhost:8081/health
+### 5. Configure the Development API Key in Frontend Settings
+
+1. Open HookForge in your browser at [http://localhost:5173](http://localhost:5173).
+2. Click **Settings** (or Platform Settings) in the sidebar.
+3. Under **Backend API Configuration**:
+   - **Backend Base URL:** `http://localhost:8081`
+   - **Tenant API Key (X-Api-Key):** `<paste your generated whkey_... key>`
+4. Click **Save API Preferences**.
+5. Click **Test Health** to confirm the `200 OK` connection to `/health`.
+6. Under **Environment Operation Mode**, click **Live API Mode**.
+7. Navigate to the **Dashboard** — your live metrics, endpoints, and deliveries will load immediately without authentication errors.
+
+### 6. Start the Frontend Development Server
+
+If not already running:
+
+```powershell
+npm run dev:frontend
+# Or: cd frontend; npm run dev
 ```
 
-Expected response:
-```json
-{
-  "status": "up",
-  "timestamp": "2026-10-26T18:30:00.000Z",
-  "checks": {
-    "database": {
-      "status": "up",
-      "timestamp": "2026-10-26T18:30:00.000Z"
-    }
-  }
-}
+Visit [http://localhost:5173](http://localhost:5173) in your browser.
+
+### 7. Verify Authentication & Submit a Test Event (PowerShell)
+
+You can verify the complete pipeline using PowerShell:
+
+```powershell
+# Set your development key in PowerShell session
+$API_KEY = "whkey_<your-generated-key>"
+
+# 1. Check Backend Health (public route)
+curl.exe -s http://localhost:8081/health
+
+# 2. Verify Authentication (protected route returns empty array or registered endpoints)
+curl.exe -s -H "Authorization: Bearer $API_KEY" http://localhost:8081/endpoints
+
+# 3. Register a Webhook Endpoint
+curl.exe -s -X POST http://localhost:8081/endpoints `
+  -H "Authorization: Bearer $API_KEY" `
+  -H "Content-Type: application/json" `
+  -d '{\"url\":\"http://host.docker.internal:9000/hook\",\"rateLimitRps\":20}'
+
+# 4. Ingest an Event with an Idempotency Key
+curl.exe -s -X POST http://localhost:8081/events `
+  -H "Authorization: Bearer $API_KEY" `
+  -H "Idempotency-Key: evt_ps_test_001" `
+  -H "Content-Type: application/json" `
+  -d '{\"event\":\"order.completed\",\"orderId\":\"ord_9901\",\"amount\":4999}'
+
+# 5. Retrieve Deliveries Status
+curl.exe -s "http://localhost:8081/deliveries?state=ALL" `
+  -H "Authorization: Bearer $API_KEY"
 ```
+
+---
+
+## Troubleshooting Guide
+
+### 1. `401 Unauthorized` / "Backend Connection Failed — Unauthorized"
+
+| Symptom | Cause | Solution |
+|---|---|---|
+| `{"error":"Unauthorized","message":"Missing Authorization header"}` | The client did not send an `Authorization` header. | In the frontend Settings page, paste your API key and click **Save API Preferences**. Ensure `Authorization: Bearer <key>` is sent. |
+| `{"error":"Unauthorized","message":"Invalid API key"}` | The API key sent does not match any tenant in PostgreSQL (`SELECT id FROM tenants WHERE api_key_hash = SHA256(key)`). | Run `npm run tenant:init` to create a dev tenant. Copy the generated `whkey_...` key and paste it into Settings. |
+| `{"error":"Unauthorized","message":"Authorization header must use Bearer scheme"}` | The header scheme is not `Bearer <key>` (e.g., `Basic` or missing prefix). | Provide the header in format: `Authorization: Bearer whkey_...`. |
+| Dashboard shows "Backend Connection Failed — Unauthorized" | Frontend is in **Live API Mode** but `localStorage` or `VITE_API_KEY` is empty or invalid. | Go to `http://localhost:5173/settings`, enter your development API key, click **Save API Preferences**, and reload Dashboard. |
+
+### 2. Database Connection Failures (`ECONNREFUSED` / Database Down)
+
+- **Port Mapping:** HookForge's PostgreSQL container binds to host port `5434` (mapped to container `5432`). Ensure `.env` and `backend/.env` have `DATABASE_PORT=5434`.
+- **Existing Postgres Instances:** If port 5432 or 5433 is in use by another local PostgreSQL or Docker project, HookForge avoids them by using `5434`. Do NOT change `DATABASE_PORT` to 5432 unless you are certain your HookForge container is mapped to 5432.
+- **Restart Container:** Run `docker compose restart postgres` and verify status with `docker compose ps`.
+
+### 3. Port Conflicts
+
+- **Port 8081 (Backend):** HookForge Express server is exposed on host port `8081`. If another service occupies 8081, update the host port in `docker-compose.yml` (`"8082:8080"`) and update `VITE_API_BASE_URL` in `frontend/.env`.
+- **Port 5173 (Frontend):** Vite runs on `5173`. If occupied, Vite automatically chooses `5174`. Check terminal output when running `npm run dev:frontend`.
+- **Webhook Target URLs:** When running HookForge in Docker, `http://localhost:<port>` from within the backend container refers to the container itself. Use `http://host.docker.internal:<port>` to reach services running on the host machine.
 
 ---
 

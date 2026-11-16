@@ -11,6 +11,8 @@ import config from '../src/config/index.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const { Pool } = pg;
+
 const pool = new Pool({
   host: config.database.host,
   port: config.database.port,

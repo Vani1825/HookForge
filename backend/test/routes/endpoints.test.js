@@ -21,6 +21,7 @@ vi.mock('../../src/services/endpoint/endpointService.js', () => ({
   default: {
     create: vi.fn(),
     list: vi.fn(),
+    getById: vi.fn(),
     update: vi.fn(),
   },
 }));
@@ -121,6 +122,53 @@ describe('Endpoint Routes', () => {
       expect(response.body).toHaveLength(1);
       expect(response.body[0]).toHaveProperty('url');
       expect(response.body[0]).not.toHaveProperty('secret');
+    });
+  });
+
+  describe('GET /endpoints/:id', () => {
+    it('should return endpoint DTO without secret when found', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      const mockEndpoint = {
+        id: mockEndpointId,
+        url: 'https://example.com/webhook',
+        active: true,
+        rateLimitRps: 10,
+        rate_limit_rps: 10,
+        circuitState: 'CLOSED',
+        circuit_state: 'CLOSED',
+        consecutiveFailures: 0,
+        consecutive_failures: 0,
+        nextSeq: 1,
+        next_seq: 1,
+        createdAt: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      };
+
+      endpointService.getById.mockResolvedValue(mockEndpoint);
+
+      const response = await request(app)
+        .get(`/endpoints/${mockEndpointId}`)
+        .expect(200);
+
+      expect(endpointService.getById).toHaveBeenCalledWith(mockTenantId, mockEndpointId);
+      expect(response.body.id).toBe(mockEndpointId);
+      expect(response.body.url).toBe('https://example.com/webhook');
+      expect(response.body).not.toHaveProperty('secret');
+    });
+
+    it('should return 404 when endpoint not found', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      endpointService.getById.mockResolvedValue(null);
+
+      await request(app)
+        .get(`/endpoints/${mockEndpointId}`)
+        .expect(404);
+    });
+
+    it('should return 400 for invalid endpoint ID format', async () => {
+      await request(app)
+        .get('/endpoints/invalid-uuid')
+        .expect(400);
     });
   });
 

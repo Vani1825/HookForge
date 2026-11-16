@@ -71,6 +71,30 @@ export async function list(tenantId) {
 }
 
 /**
+ * Get an endpoint by ID for a tenant.
+ *
+ * @param {string} tenantId - Tenant UUID
+ * @param {string} endpointId - Endpoint UUID
+ * @returns {Promise<Object|null>} Endpoint DTO (without secret) or null if not found
+ */
+export async function getById(tenantId, endpointId) {
+  const endpoint = await endpointRepository.findByIdAndTenant(
+    endpointId,
+    tenantId
+  );
+
+  if (!endpoint) {
+    logger.warn('Endpoint not found or access denied', {
+      endpointId,
+      tenantId,
+    });
+    return null;
+  }
+
+  return toResponseDTO(endpoint);
+}
+
+/**
  * Update an endpoint.
  *
  * @param {string} tenantId - Tenant UUID
@@ -126,5 +150,6 @@ export async function update(tenantId, endpointId, request) {
 export default {
   create,
   list,
+  getById,
   update,
 };
