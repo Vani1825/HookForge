@@ -645,6 +645,10 @@ export const DeliveriesPage: React.FC = () => {
         isOpen={detailDrawerOpen}
         onClose={() => setDetailDrawerOpen(false)}
         onReplayRequest={handleReplayClick}
+        onReplaySuccess={(updated) => {
+          setSelectedDelivery(updated)
+          loadDeliveries(page, pageSize)
+        }}
       />
 
       {/* Replay Confirmation Modal */}
@@ -652,8 +656,18 @@ export const DeliveriesPage: React.FC = () => {
         delivery={deliveryToReplay}
         isOpen={replayModalOpen}
         onClose={() => setReplayModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(updated) => {
           loadDeliveries(page, pageSize)
+          if (updated && selectedDelivery && updated.id === selectedDelivery.id) {
+            setSelectedDelivery(updated)
+          } else if (selectedDelivery && deliveryToReplay && selectedDelivery.id === deliveryToReplay.id) {
+            service
+              .getDeliveryById(selectedDelivery.id)
+              .then((fresh) => {
+                if (fresh) setSelectedDelivery(fresh)
+              })
+              .catch(() => {})
+          }
         }}
       />
     </div>

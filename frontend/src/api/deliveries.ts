@@ -116,7 +116,27 @@ export async function fetchDeliveries(params?: DeliveryQueryParams): Promise<Pag
 
 export async function fetchDeliveryById(id: string): Promise<Delivery> {
   const res = await apiClient.get<Delivery>(`/deliveries/${id}`)
-  return normalizeDelivery(res)
+  const delivery = normalizeDelivery(res)
+
+  if (delivery.event_id && !delivery.event) {
+    try {
+      const eventRes = await apiClient.get<any>(`/events/${delivery.event_id}`)
+      if (eventRes) {
+        delivery.event = {
+          id: eventRes.id,
+          tenant_id: eventRes.tenant_id || eventRes.tenantId,
+          payload: eventRes.payload,
+          idempotency_key: eventRes.idempotency_key || eventRes.idempotencyKey,
+          created_at: eventRes.created_at || eventRes.createdAt,
+          event_type: eventRes.event_type || eventRes.eventType,
+        }
+      }
+    } catch {
+      // Graceful fallback if event endpoint is unavailable or returns error
+    }
+  }
+
+  return delivery
 }
 
 export async function fetchDeliveriesByEvent(eventId: string): Promise<Delivery[]> {

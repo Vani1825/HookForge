@@ -213,6 +213,10 @@ export const DeadLettersPage: React.FC = () => {
           setDeliveryToReplay(del)
           setReplayModalOpen(true)
         }}
+        onReplaySuccess={(updated) => {
+          setSelectedDelivery(updated)
+          loadDeadLetters()
+        }}
       />
 
       {/* Replay Modal */}
@@ -220,8 +224,18 @@ export const DeadLettersPage: React.FC = () => {
         delivery={deliveryToReplay}
         isOpen={replayModalOpen}
         onClose={() => setReplayModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(updated) => {
           loadDeadLetters()
+          if (updated && selectedDelivery && updated.id === selectedDelivery.id) {
+            setSelectedDelivery(updated)
+          } else if (selectedDelivery && deliveryToReplay && selectedDelivery.id === deliveryToReplay.id) {
+            service
+              .getDeliveryById(selectedDelivery.id)
+              .then((fresh) => {
+                if (fresh) setSelectedDelivery(fresh)
+              })
+              .catch(() => {})
+          }
         }}
       />
     </div>

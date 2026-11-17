@@ -212,6 +212,10 @@ export const ReplayPage: React.FC = () => {
         onReplayRequest={(del) => {
           handleOpenReplay(del)
         }}
+        onReplaySuccess={(updated) => {
+          setSelectedDelivery(updated)
+          loadData()
+        }}
       />
 
       {/* Replay Confirmation Modal */}
@@ -219,8 +223,18 @@ export const ReplayPage: React.FC = () => {
         delivery={deliveryToReplay}
         isOpen={replayModalOpen}
         onClose={() => setReplayModalOpen(false)}
-        onSuccess={() => {
+        onSuccess={(updated) => {
           loadData()
+          if (updated && selectedDelivery && updated.id === selectedDelivery.id) {
+            setSelectedDelivery(updated)
+          } else if (selectedDelivery && deliveryToReplay && selectedDelivery.id === deliveryToReplay.id) {
+            service
+              .getDeliveryById(selectedDelivery.id)
+              .then((fresh) => {
+                if (fresh) setSelectedDelivery(fresh)
+              })
+              .catch(() => {})
+          }
         }}
       />
     </div>
