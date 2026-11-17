@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Menu, Plus, Send, Search, MoreVertical } from 'lucide-react'
 import { ModeToggle } from '../components/ModeToggle'
 import { Button } from '../components/ui/Button'
@@ -19,6 +19,17 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const location = useLocation()
   const [mobileOverflowOpen, setMobileOverflowOpen] = useState(false)
+
+  // Close mobile overflow menu on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileOverflowOpen) {
+        setMobileOverflowOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [mobileOverflowOpen])
 
   const getPageSectionAndTitle = (pathname: string) => {
     switch (pathname) {
@@ -47,24 +58,24 @@ export const Header: React.FC<HeaderProps> = ({
   const isEndpointsPage = location.pathname === '/endpoints'
 
   return (
-    <header className="h-16 bg-white border-b border-[#E7E8EC] px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 sticky top-0 z-30">
-      {/* Left: Mobile Drawer Trigger & Breadcrumbs */}
+    <header className="h-16 bg-white border-b border-[#E7E8EC] px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-4 sticky top-0 z-30">
+      {/* Left: Mobile/Tablet Drawer Trigger & Breadcrumbs */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         <button
           onClick={onOpenMobileMenu}
-          className="lg:hidden p-2 text-[#64748B] hover:text-[#202938] hover:bg-[#F7F6F2] rounded-lg cursor-pointer shrink-0"
+          className="lg:hidden p-2 text-[#64748B] hover:text-[#202938] hover:bg-[#F7F6F2] rounded-lg cursor-pointer shrink-0 transition-colors"
           aria-label="Open navigation menu"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Desktop Breadcrumbs (Hidden on mobile) */}
-        <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 text-xs text-[#64748B] shrink-0">
-          <span className="font-medium text-[#64748B]">HookForge</span>
-          <span className="text-[#CBD5E1]">/</span>
-          <span className="font-medium text-[#64748B] hidden md:inline">{section}</span>
-          <span className="text-[#CBD5E1] hidden md:inline">/</span>
-          <span className="font-semibold text-[#202938]">{title}</span>
+        {/* Desktop & Tablet Breadcrumbs (Hidden on small mobile) */}
+        <nav aria-label="Breadcrumb" className="hidden sm:flex items-center gap-1.5 text-xs text-[#64748B] min-w-0">
+          <span className="font-medium text-[#64748B] shrink-0">HookForge</span>
+          <span className="text-[#CBD5E1] shrink-0">/</span>
+          <span className="font-medium text-[#64748B] hidden lg:inline shrink-0">{section}</span>
+          <span className="text-[#CBD5E1] hidden lg:inline shrink-0">/</span>
+          <span className="font-semibold text-[#202938] truncate">{title}</span>
         </nav>
 
         {/* Mobile Page Title */}
@@ -74,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Middle: Global Search Trigger (Desktop & Tablet) */}
-      <div className="hidden lg:flex items-center flex-1 max-w-xs mx-2 xl:mx-4">
+      <div className="hidden md:flex items-center flex-1 max-w-[180px] lg:max-w-xs mx-2 xl:mx-4 min-w-0">
         <button
           type="button"
           onClick={onOpenSearch}
@@ -84,23 +95,25 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <Search className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
           <span className="flex-1 truncate">Quick search...</span>
-          <kbd className="hidden xl:inline-block px-1.5 py-0.5 text-3xs font-semibold bg-white text-[#64748B] border border-[#E7E8EC] rounded shadow-2xs">
+          <kbd className="hidden lg:inline-block px-1.5 py-0.5 text-3xs font-semibold bg-white text-[#64748B] border border-[#E7E8EC] rounded shadow-2xs">
             ⌘K
           </kbd>
         </button>
       </div>
 
-      {/* Right Desktop: Actions, Mode Toggle, and Developer Profile */}
-      <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
-        {/* Quick Send Event Action (Preserved globally) */}
+      {/* Right Desktop & Tablet: Actions, Mode Toggle, and Developer Profile */}
+      <div className="hidden md:flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Quick Send Event Action */}
         <Button
           variant="outline"
           size="sm"
           onClick={onOpenSendEvent}
           leftIcon={<Send className="w-3.5 h-3.5 text-[#64748B]" />}
-          className="inline-flex"
+          className="inline-flex text-xs px-2 sm:px-2.5 py-1.5"
+          title="Send test webhook event"
         >
-          Send Event
+          <span className="hidden lg:inline">Send Event</span>
+          <span className="lg:hidden">Send</span>
         </Button>
 
         {/* Quick Add Endpoint Action (Hidden on Endpoints page to eliminate duplicate action) */}
@@ -110,13 +123,15 @@ export const Header: React.FC<HeaderProps> = ({
             size="sm"
             onClick={onOpenAddEndpoint}
             leftIcon={<Plus className="w-3.5 h-3.5" />}
+            className="inline-flex text-xs px-2 sm:px-2.5 py-1.5"
+            title="Register webhook endpoint"
           >
-            <span className="hidden sm:inline">Add Endpoint</span>
-            <span className="sm:hidden">Add</span>
+            <span className="hidden lg:inline">Add Endpoint</span>
+            <span className="lg:hidden">Add</span>
           </Button>
         )}
 
-        <div className="h-4 w-px bg-[#E7E8EC] hidden sm:block mx-0.5" />
+        <div className="h-4 w-px bg-[#E7E8EC] mx-0.5" />
 
         {/* Live / Demo Mode Switcher */}
         <ModeToggle />
@@ -177,22 +192,24 @@ export const Header: React.FC<HeaderProps> = ({
 
           {mobileOverflowOpen && (
             <>
+              {/* Backdrop */}
               <div
-                className="fixed inset-0 z-40"
+                className="fixed inset-0 z-40 bg-black/10"
                 onClick={() => setMobileOverflowOpen(false)}
                 aria-hidden="true"
               />
+              {/* Dropdown Menu */}
               <div
-                className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-xl shadow-xl border border-[#E7E8EC] p-3 space-y-3 animate-fade-in text-xs text-left"
+                className="absolute right-0 top-full mt-2 z-50 w-64 max-w-[calc(100vw-24px)] bg-white rounded-xl shadow-xl border border-[#E7E8EC] p-3 space-y-3 animate-fade-in text-xs text-left"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header info */}
                 <div className="flex items-center justify-between pb-2 border-b border-[#E7E8EC]">
                   <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] flex items-center justify-center font-bold text-2xs">
+                    <div className="w-6 h-6 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] flex items-center justify-center font-bold text-2xs shrink-0">
                       DEV
                     </div>
-                    <span className="font-semibold text-[#202938]">Developer Workspace</span>
+                    <span className="font-semibold text-[#202938] truncate">Developer Workspace</span>
                   </div>
                 </div>
 
@@ -202,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
                     Operation Mode
                   </span>
                   <div className="overflow-x-auto">
-                    <ModeToggle />
+                    <ModeToggle showStatusBadge={false} />
                   </div>
                 </div>
 
@@ -216,7 +233,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-[#F7F6F2] text-[#202938] font-medium transition-colors cursor-pointer text-left"
                   >
-                    <Send className="w-3.5 h-3.5 text-[#5277D9]" />
+                    <Send className="w-3.5 h-3.5 text-[#5277D9] shrink-0" />
                     <span>Send Test Event</span>
                   </button>
                   <button
@@ -227,7 +244,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-[#F7F6F2] text-[#202938] font-medium transition-colors cursor-pointer text-left"
                   >
-                    <Plus className="w-3.5 h-3.5 text-[#5277D9]" />
+                    <Plus className="w-3.5 h-3.5 text-[#5277D9] shrink-0" />
                     <span>Add Webhook Endpoint</span>
                   </button>
                 </div>

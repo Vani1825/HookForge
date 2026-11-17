@@ -48,12 +48,13 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
       subtitle={`ID: ${delivery.id}`}
       width="xl"
       footer={
-        <div className="flex items-center justify-between w-full">
-          <Button variant="outline" size="sm" onClick={onClose}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full">
+          <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
           {delivery.state === 'DEAD' && onReplayRequest && (
             <Button
+              className="w-full sm:w-auto"
               variant="danger"
               size="sm"
               leftIcon={<RotateCw className="w-3.5 h-3.5" />}
@@ -66,7 +67,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
       }
     >
       {/* Status & Overview Bar */}
-      <div className="flex items-center justify-between p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC]">
         <div>
           <span className="text-xs text-[#64748B] font-medium block">Current State</span>
           <div className="mt-1 flex items-center gap-2">
@@ -77,7 +78,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
 
         <button
           onClick={handleCopyId}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#202938] bg-white border border-[#E7E8EC] rounded-lg hover:bg-[#F7F6F2] shadow-2xs cursor-pointer"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#202938] bg-white border border-[#E7E8EC] rounded-lg hover:bg-[#F7F6F2] shadow-2xs cursor-pointer self-start sm:self-auto"
         >
           {copiedId ? (
             <>
@@ -122,7 +123,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
         <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
           Timing & Leases
         </h4>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
           <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
             <span className="text-[#64748B] block">Created At</span>
             <span className="font-medium text-[#202938]">{formatDateTime(delivery.created_at)}</span>
@@ -143,7 +144,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
         {delivery.lease_until && (
           <div className="flex items-center gap-2 p-2 bg-[#EAF0FF] border border-[#DCE5FA] rounded-lg text-xs text-[#5277D9]">
             <Clock className="w-3.5 h-3.5 shrink-0" />
-            <span>Active Worker Lease until: {formatDateTime(delivery.lease_until)}</span>
+            <span className="truncate">Active Worker Lease until: {formatDateTime(delivery.lease_until)}</span>
           </div>
         )}
       </div>
@@ -165,7 +166,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
           <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
             Delivery Attempts ({attempts.length})
           </h4>
-          <span className="text-2xs text-[#64748B]">Chronological execution order</span>
+          <span className="text-2xs text-[#64748B]">Chronological order</span>
         </div>
 
         {attempts.length === 0 ? (
@@ -178,14 +179,14 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
               const statusInfo = formatStatusCode(att.status_code)
               return (
                 <div key={att.id} className="p-3 text-xs flex flex-col gap-1.5">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                     <span className="font-semibold text-[#202938]">
                       Attempt #{att.attempt_no}
                     </span>
-                    <span className="text-[#64748B]">{formatDateTime(att.started_at)}</span>
+                    <span className="text-[#64748B] text-2xs">{formatDateTime(att.started_at)}</span>
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <span
                       className={`inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold border ${
                         statusInfo.category === 'success'

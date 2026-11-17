@@ -61,10 +61,10 @@ export const Pagination: React.FC<PaginationProps> = ({
     <nav
       role="navigation"
       aria-label="Pagination Navigation"
-      className={`flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border-t border-[#E7E8EC] select-none ${className}`}
+      className={`flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 px-3 sm:px-4 py-3 bg-white border-t border-[#E7E8EC] select-none ${className}`}
     >
       {/* Record info & page size */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
+      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-3 text-xs text-[#64748B] w-full sm:w-auto">
         <span>
           Showing{' '}
           <span className="font-semibold text-[#202938]">{startRecord}</span> to{' '}
@@ -96,7 +96,7 @@ export const Pagination: React.FC<PaginationProps> = ({
       </div>
 
       {/* Page navigation controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto">
         <Button
           type="button"
           variant="outline"

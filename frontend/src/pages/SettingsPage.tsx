@@ -74,7 +74,7 @@ export const SettingsPage: React.FC = () => {
             Switch between interactive simulated demo data and live backend API communication.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4 p-5">
+        <CardContent className="space-y-4 p-4 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div
               onClick={() => setMode('demo')}
@@ -137,7 +137,7 @@ export const SettingsPage: React.FC = () => {
             Configure the target server URL and credentials used for Live API requests.
           </p>
         </CardHeader>
-        <CardContent className="p-5">
+        <CardContent className="p-4 sm:p-5">
           <form onSubmit={handleSaveConnection} className="space-y-4">
             <Input
               label="Backend Base URL"
@@ -160,7 +160,7 @@ export const SettingsPage: React.FC = () => {
 
             {/* Health status banner */}
             <div
-              className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
+              className={`p-3.5 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                 backendHealth.status === 'up'
                   ? 'bg-[#159B78]/10 border-[#159B78]/30 text-[#159B78]'
                   : backendHealth.status === 'down'
@@ -168,13 +168,13 @@ export const SettingsPage: React.FC = () => {
                   : 'bg-[#F7F6F2] border-[#E7E8EC] text-[#64748B]'
               }`}
             >
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {backendHealth.status === 'up' ? (
                   <CheckCircle2 className="w-4 h-4 text-[#159B78] shrink-0" />
                 ) : (
                   <AlertCircle className="w-4 h-4 text-[#E76B64] shrink-0" />
                 )}
-                <span>
+                <span className="leading-relaxed">
                   <strong>Backend Status:</strong>{' '}
                   {backendHealth.status === 'up'
                     ? 'Connected (GET /health responded 200 OK)'
@@ -189,13 +189,14 @@ export const SettingsPage: React.FC = () => {
                 onClick={handleTestConnection}
                 isLoading={isTesting}
                 leftIcon={<RefreshCw className="w-3 h-3" />}
+                className="self-start sm:self-auto shrink-0"
               >
                 Test Health
               </Button>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="submit" variant="primary" size="sm">
+              <Button type="submit" variant="primary" size="sm" className="w-full sm:w-auto">
                 Save API Preferences
               </Button>
             </div>
@@ -209,7 +210,7 @@ export const SettingsPage: React.FC = () => {
           <CardTitle>Tenant & Organization</CardTitle>
           <p className="text-xs text-[#64748B]">Tenant identifier and registration metadata</p>
         </CardHeader>
-        <CardContent className="space-y-3 text-xs">
+        <CardContent className="space-y-3 text-xs p-4 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]">
               <span className="text-[#64748B] block mb-0.5">Tenant Name</span>
@@ -232,7 +233,7 @@ export const SettingsPage: React.FC = () => {
             Core architecture parameters defined in <code className="text-[#202938] font-mono">src/config/index.js</code>
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 sm:p-5">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] space-y-1">
               <span className="font-semibold text-[#202938]">Retry Policy</span>

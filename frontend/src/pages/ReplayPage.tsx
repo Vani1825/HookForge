@@ -82,10 +82,10 @@ export const ReplayPage: React.FC = () => {
       />
 
       {/* Replay Protocol Explanation */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 bg-white space-y-1.5 text-xs">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+        <Card className="p-3.5 sm:p-4 bg-white space-y-1.5 text-xs min-w-0">
           <div className="flex items-center gap-2 font-semibold text-[#202938]">
-            <span className="w-5 h-5 rounded-full bg-[#EAF0FF] flex items-center justify-center text-[#5277D9] font-bold text-2xs">
+            <span className="w-5 h-5 rounded-full bg-[#EAF0FF] flex items-center justify-center text-[#5277D9] font-bold text-2xs shrink-0">
               1
             </span>
             <span>Eligibility</span>
@@ -96,9 +96,9 @@ export const ReplayPage: React.FC = () => {
           </p>
         </Card>
 
-        <Card className="p-4 bg-white space-y-1.5 text-xs">
+        <Card className="p-3.5 sm:p-4 bg-white space-y-1.5 text-xs min-w-0">
           <div className="flex items-center gap-2 font-semibold text-[#202938]">
-            <span className="w-5 h-5 rounded-full bg-[#EAF0FF] flex items-center justify-center text-[#5277D9] font-bold text-2xs">
+            <span className="w-5 h-5 rounded-full bg-[#EAF0FF] flex items-center justify-center text-[#5277D9] font-bold text-2xs shrink-0">
               2
             </span>
             <span>Queue Re-enqueue</span>
@@ -109,9 +109,9 @@ export const ReplayPage: React.FC = () => {
           </p>
         </Card>
 
-        <Card className="p-4 bg-white space-y-1.5 text-xs">
+        <Card className="p-3.5 sm:p-4 bg-white space-y-1.5 text-xs min-w-0">
           <div className="flex items-center gap-2 font-semibold text-[#202938]">
-            <span className="w-5 h-5 rounded-full bg-[#EAF0FF] flex items-center justify-center text-[#5277D9] font-bold text-2xs">
+            <span className="w-5 h-5 rounded-full bg-[#EAF0FF] flex items-center justify-center text-[#5277D9] font-bold text-2xs shrink-0">
               3
             </span>
             <span>Ordering Semantics</span>
@@ -124,8 +124,8 @@ export const ReplayPage: React.FC = () => {
       </div>
 
       {/* Replayable Deliveries Table */}
-      <Card className="overflow-hidden">
-        <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5 flex flex-row items-center justify-between">
+      <Card className="overflow-hidden min-w-0">
+        <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-1">
           <CardTitle>Replayable Deliveries ({replayableDeliveries.length})</CardTitle>
           <span className="text-2xs text-[#64748B]">Terminal DEAD deliveries eligible for replay</span>
         </CardHeader>
@@ -145,7 +145,7 @@ export const ReplayPage: React.FC = () => {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Delivery ID</th>

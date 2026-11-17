@@ -107,11 +107,12 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
       description="Publish an event through HookForge's ingest pipeline and trigger atomic delivery fan-out."
       maxWidth="lg"
       footer={
-        <div className="flex items-center justify-between w-full">
-          <Button variant="ghost" size="sm" onClick={handleReset}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full">
+          <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={handleReset}>
             {result ? 'Done' : 'Cancel'}
           </Button>
           <Button
+            className="w-full sm:w-auto"
             variant="primary"
             size="sm"
             onClick={handleSend}

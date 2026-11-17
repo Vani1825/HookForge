@@ -274,10 +274,10 @@ export const DeliveriesPage: React.FC = () => {
       />
 
       {/* Filter / Search Card */}
-      <Card className="p-4 bg-white space-y-3">
+      <Card className="p-3.5 sm:p-4 bg-white space-y-3">
         {/* Primary Row: Search, State, Endpoint, Advanced Toggle */}
-        <div className="flex flex-col md:flex-row items-center gap-3">
-          <div className="flex-1 w-full">
+        <div className="flex flex-col md:flex-row items-center gap-2.5 sm:gap-3">
+          <div className="flex-1 w-full min-w-0">
             <Input
               placeholder="Search by Delivery ID, Event ID, Endpoint URL, or Error..."
               value={searchQuery}
@@ -289,14 +289,14 @@ export const DeliveriesPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             {/* State filter */}
-            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-semibold">
-              <Filter className="w-3.5 h-3.5" />
-              <span>State:</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-semibold flex-1 sm:flex-initial min-w-0">
+              <Filter className="w-3.5 h-3.5 shrink-0" />
+              <span className="shrink-0">State:</span>
               <select
                 value={stateFilter}
                 onChange={(e) => applyFilterUpdate({ state: e.target.value })}
                 aria-label="Filter deliveries by state"
-                className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-2.5 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
+                className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-2.5 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer flex-1 sm:flex-initial min-w-0"
               >
                 <option value="ALL">All States</option>
                 <option value="SUCCEEDED">Succeeded</option>
@@ -308,13 +308,13 @@ export const DeliveriesPage: React.FC = () => {
             </div>
 
             {/* Endpoint filter dropdown */}
-            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-semibold">
-              <span>Endpoint:</span>
+            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-semibold flex-1 sm:flex-initial min-w-0">
+              <span className="shrink-0">Endpoint:</span>
               <select
                 value={endpointFilter}
                 onChange={(e) => applyFilterUpdate({ endpoint_id: e.target.value })}
                 aria-label="Filter deliveries by destination endpoint"
-                className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-2.5 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] max-w-[180px] truncate cursor-pointer"
+                className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-2.5 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] max-w-[180px] truncate cursor-pointer flex-1 sm:flex-initial min-w-0"
               >
                 <option value="">All Endpoints</option>
                 {endpoints.map((ep) => (
@@ -489,7 +489,7 @@ export const DeliveriesPage: React.FC = () => {
       </Card>
 
       {/* Main Deliveries Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden min-w-0">
         {isLoading ? (
           <TableSkeleton rows={6} cols={7} />
         ) : error && mode === 'live' ? (
@@ -530,7 +530,7 @@ export const DeliveriesPage: React.FC = () => {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[760px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Delivery ID</th>

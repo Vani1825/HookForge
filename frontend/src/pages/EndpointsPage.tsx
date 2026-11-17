@@ -129,9 +129,9 @@ export const EndpointsPage: React.FC = () => {
       />
 
       {/* Filter / Search Bar */}
-      <Card className="p-4 bg-white space-y-3">
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="flex-1 w-full">
+      <Card className="p-3.5 sm:p-4 bg-white space-y-3">
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 sm:gap-3">
+          <div className="flex-1 w-full min-w-0">
             <Input
               placeholder="Search by URL, ID, or description..."
               value={searchQuery}
@@ -145,7 +145,7 @@ export const EndpointsPage: React.FC = () => {
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE')}
-              className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
+              className="flex-1 sm:flex-initial min-w-0 text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
             >
               <option value="ALL">All States</option>
               <option value="ACTIVE">Active Only</option>
@@ -158,7 +158,7 @@ export const EndpointsPage: React.FC = () => {
               onChange={(e) =>
                 setCircuitFilter(e.target.value as 'ALL' | 'CLOSED' | 'OPEN' | 'HALF_OPEN')
               }
-              className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
+              className="flex-1 sm:flex-initial min-w-0 text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
             >
               <option value="ALL">All Circuits</option>
               <option value="CLOSED">Closed (Healthy)</option>
@@ -231,7 +231,7 @@ export const EndpointsPage: React.FC = () => {
       </Card>
 
       {/* Main Endpoints Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden min-w-0">
         {isLoading ? (
           <TableSkeleton rows={5} cols={6} />
         ) : error && mode === 'live' ? (
@@ -271,7 +271,7 @@ export const EndpointsPage: React.FC = () => {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4 min-w-[280px]">Endpoint Destination</th>

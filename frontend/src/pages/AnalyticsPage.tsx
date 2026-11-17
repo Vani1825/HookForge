@@ -135,7 +135,7 @@ export const AnalyticsPage: React.FC = () => {
 
   if (error && mode === 'live') {
     return (
-      <div className="p-6 bg-white border border-rose-200 rounded-xl space-y-3 text-left">
+      <div className="p-4 sm:p-6 bg-white border border-rose-200 rounded-xl space-y-3 text-left">
         <h3 className="text-sm font-bold text-rose-700">Analytics Query Failed</h3>
         <p className="text-xs text-slate-600">{error}</p>
         <Button variant="outline" size="sm" onClick={() => loadData(dateRange)}>Retry</Button>
@@ -152,12 +152,12 @@ export const AnalyticsPage: React.FC = () => {
         title="Delivery Analytics"
         description="Operational metrics, endpoint reliability distributions, and throughput diagnostics."
         actions={
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
             {/* Active Range Boundaries Indicator */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F7F6F2] border border-[#E7E8EC] text-2xs text-[#64748B] font-medium">
-              <Calendar className="w-3.5 h-3.5 text-[#64748B]" />
-              <span className="font-semibold text-[#202938]">{dateRange.toUpperCase()}:</span>
-              <span className="font-mono text-[#64748B]">{activeRangeBoundsText}</span>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F7F6F2] border border-[#E7E8EC] text-2xs text-[#64748B] font-medium min-w-0">
+              <Calendar className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
+              <span className="font-semibold text-[#202938] shrink-0">{dateRange.toUpperCase()}:</span>
+              <span className="font-mono text-[#64748B] truncate">{activeRangeBoundsText}</span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -201,7 +201,7 @@ export const AnalyticsPage: React.FC = () => {
       />
 
       {/* KPI Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <StatCard
           title="Success Rate"
           value={formatRate(metrics?.successRate, metrics?.totalDeliveries)}
@@ -248,14 +248,14 @@ export const AnalyticsPage: React.FC = () => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Success vs Failed Bar Chart */}
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5">
             <CardTitle>Delivery Outcomes Over Time</CardTitle>
             <p className="text-xs text-[#64748B]">
               {dateRange === '24h' ? 'Hourly' : 'Daily'} ratio of successful vs failed deliveries (UTC, {dateRange.toUpperCase()})
             </p>
           </CardHeader>
-          <CardContent className="h-72 p-5">
+          <CardContent className="h-64 sm:h-72 p-3 sm:p-5 min-w-0">
             {timeSeries.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-[#64748B]">
                 No delivery activity recorded for this period.
@@ -285,14 +285,14 @@ export const AnalyticsPage: React.FC = () => {
         </Card>
 
         {/* Volume Trend Area Chart */}
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5">
             <CardTitle>Total Dispatch Throughput</CardTitle>
             <p className="text-xs text-[#64748B]">
               {dateRange === '24h' ? 'Hourly' : 'Daily'} aggregate delivery request volume (UTC, {dateRange.toUpperCase()})
             </p>
           </CardHeader>
-          <CardContent className="h-72 p-5">
+          <CardContent className="h-64 sm:h-72 p-3 sm:p-5 min-w-0">
             {timeSeries.length === 0 ? (
               <div className="h-full flex items-center justify-center text-xs text-[#64748B]">
                 No delivery activity recorded for this period.
@@ -329,7 +329,7 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* Endpoint-level breakdown table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden min-w-0">
         <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5">
           <CardTitle>Endpoint Reliability Breakdown</CardTitle>
           <p className="text-xs text-[#64748B]">
@@ -343,7 +343,7 @@ export const AnalyticsPage: React.FC = () => {
           <div className="p-8 text-center text-xs text-[#64748B]">No endpoints found.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[620px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Endpoint Destination</th>

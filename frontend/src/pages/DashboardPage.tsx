@@ -110,13 +110,13 @@ export const DashboardPage: React.FC = () => {
       {/* Meaningful Backend Communication Error Banner (Live API Mode) */}
       {error && mode === 'live' && (
         <Card className="border-[#E76B64]/30 bg-white shadow-xs overflow-hidden">
-          <div className="p-5 sm:p-6 space-y-4">
+          <div className="p-4 sm:p-6 space-y-4">
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-[#E76B64]/10 border border-[#E76B64]/20 flex items-center justify-center text-[#E76B64] shrink-0 mt-0.5">
                 <AlertOctagon className="w-5 h-5" />
               </div>
               <div className="space-y-1 flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="text-base font-bold text-[#202938]">
                     Backend API Connection Notice
                   </h3>
@@ -168,13 +168,13 @@ export const DashboardPage: React.FC = () => {
 
       {/* Summary KPI Cards */}
       {isLoading && !metrics ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
           {Array.from({ length: 5 }).map((_, i) => (
             <CardSkeleton key={i} />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
           <StatCard
             title="Total Events"
             value={metrics?.totalEvents ?? 0}
@@ -226,17 +226,17 @@ export const DashboardPage: React.FC = () => {
       {/* Visual Analytics / Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Delivery Volume Chart (2 columns) */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between pb-2 border-b border-[#E7E8EC] bg-[#F7F6F2]">
+        <Card className="lg:col-span-2 min-w-0">
+          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[#E7E8EC] bg-[#F7F6F2]">
             <div>
               <CardTitle>Delivery Throughput Over Time</CardTitle>
               <p className="text-xs text-[#64748B]">Hourly delivery dispatches across 24 hours</p>
             </div>
-            <span className="text-2xs font-semibold px-2.5 py-0.5 bg-white text-[#202938] border border-[#E7E8EC] rounded-full shadow-2xs">
+            <span className="text-2xs font-semibold px-2.5 py-0.5 bg-white text-[#202938] border border-[#E7E8EC] rounded-full shadow-2xs self-start sm:self-auto">
               Past 24 Hours
             </span>
           </CardHeader>
-          <CardContent className="h-72 p-5">
+          <CardContent className="h-64 sm:h-72 p-3 sm:p-5 min-w-0">
             {timeSeries.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4">
                 <Clock className="w-8 h-8 text-[#64748B] mb-2" />
@@ -296,12 +296,12 @@ export const DashboardPage: React.FC = () => {
         </Card>
 
         {/* Status Distribution Chart (1 column) */}
-        <Card>
+        <Card className="min-w-0">
           <CardHeader className="pb-2 border-b border-[#E7E8EC] bg-[#F7F6F2]">
             <CardTitle>Delivery Status Distribution</CardTitle>
             <p className="text-xs text-[#64748B]">Breakdown of current queue states</p>
           </CardHeader>
-          <CardContent className="h-72 p-4 flex flex-col items-center justify-center">
+          <CardContent className="h-64 sm:h-72 p-3 sm:p-4 flex flex-col items-center justify-center min-w-0">
             {statusDistribution.reduce((acc, curr) => acc + (curr.value || 0), 0) === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4">
                 <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#E7E8EC] flex items-center justify-center text-[#64748B] mb-2">
@@ -348,7 +348,7 @@ export const DashboardPage: React.FC = () => {
                 </ResponsiveContainer>
 
                 {/* Custom Legend */}
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-2xs text-[#64748B] w-full px-2">
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 mt-2 text-2xs text-[#64748B] w-full px-1">
                   {statusDistribution.map((item) => {
                     const themeColorMap: Record<string, string> = {
                       Succeeded: '#159B78',
@@ -359,10 +359,10 @@ export const DashboardPage: React.FC = () => {
                     }
                     const bulletColor = themeColorMap[item.name] || item.color || '#5277D9'
                     return (
-                      <div key={item.name} className="flex items-center gap-1.5">
+                      <div key={item.name} className="flex items-center gap-1.5 min-w-0">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: bulletColor }} />
                         <span className="truncate">{item.name}:</span>
-                        <span className="font-semibold text-[#202938]">{item.value}</span>
+                        <span className="font-semibold text-[#202938] shrink-0">{item.value}</span>
                       </div>
                     )
                   })}
@@ -376,7 +376,7 @@ export const DashboardPage: React.FC = () => {
       {/* Grid: Recent Deliveries & Endpoint Health */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent Deliveries Table (2 cols) */}
-        <Card className="lg:col-span-2 overflow-hidden">
+        <Card className="lg:col-span-2 overflow-hidden min-w-0">
           <CardHeader className="flex flex-row items-center justify-between border-b border-[#E7E8EC] bg-[#F7F6F2] py-3.5">
             <div>
               <CardTitle>Recent Delivery Activity</CardTitle>
@@ -384,7 +384,7 @@ export const DashboardPage: React.FC = () => {
             </div>
             <NavLink
               to="/deliveries"
-              className="text-xs font-semibold text-[#5277D9] hover:text-[#4366C4] inline-flex items-center gap-1 cursor-pointer"
+              className="text-xs font-semibold text-[#5277D9] hover:text-[#4366C4] inline-flex items-center gap-1 cursor-pointer shrink-0"
             >
               <span>View all</span>
               <ChevronRight className="w-3.5 h-3.5" />
@@ -397,7 +397,7 @@ export const DashboardPage: React.FC = () => {
             <div className="p-8 text-center text-xs text-[#64748B]">No delivery attempts recorded yet.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <table className="w-full text-left text-xs min-w-[620px]">
                 <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                   <tr>
                     <th className="py-2.5 px-4">Delivery ID</th>
@@ -469,7 +469,7 @@ export const DashboardPage: React.FC = () => {
         </Card>
 
         {/* System Overview & Circuit Breakers (1 col) */}
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden min-w-0">
           <CardHeader className="flex flex-row items-center justify-between border-b border-[#E7E8EC] bg-[#F7F6F2] py-3.5">
             <div>
               <CardTitle>Endpoint Circuit Health</CardTitle>
@@ -477,14 +477,14 @@ export const DashboardPage: React.FC = () => {
             </div>
             <NavLink
               to="/endpoints"
-              className="text-xs font-semibold text-[#5277D9] hover:text-[#4366C4] inline-flex items-center gap-1 cursor-pointer"
+              className="text-xs font-semibold text-[#5277D9] hover:text-[#4366C4] inline-flex items-center gap-1 cursor-pointer shrink-0"
             >
               <span>Manage</span>
               <ChevronRight className="w-3.5 h-3.5" />
             </NavLink>
           </CardHeader>
 
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-3 sm:p-4 space-y-3">
             <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] space-y-1.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-[#64748B]">Active Endpoints</span>
@@ -516,8 +516,8 @@ export const DashboardPage: React.FC = () => {
                     key={ep.id}
                     className="p-2.5 rounded-lg border border-[#E7E8EC] bg-white space-y-1 text-xs hover:border-[#D1D5DB] transition-colors"
                   >
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono text-[#202938] font-semibold truncate max-w-[180px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[#202938] font-semibold truncate flex-1 min-w-0">
                         {ep.url}
                       </span>
                       <CircuitBadge state={ep.circuit_state} consecutiveFailures={ep.consecutive_failures} />

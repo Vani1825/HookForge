@@ -43,7 +43,7 @@ export const DashboardLayout: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Persistent Demo Mode Banner */}
         {mode === 'demo' ? (
-          <div className="bg-[#EAF0FF] border-b border-[#DCE5FA] px-4 py-1.5 text-xs text-[#202938] flex items-center justify-between">
+          <div className="bg-[#EAF0FF] border-b border-[#DCE5FA] px-3 sm:px-4 py-2 sm:py-1.5 text-xs text-[#202938] flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 sm:gap-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-3.5 h-3.5 text-[#5277D9] shrink-0" />
               <span>
@@ -52,7 +52,7 @@ export const DashboardLayout: React.FC = () => {
             </div>
             <button
               onClick={toggleMode}
-              className="text-2xs font-semibold text-[#5277D9] hover:text-[#4366C4] underline underline-offset-2 ml-2 cursor-pointer shrink-0"
+              className="text-2xs font-semibold text-[#5277D9] hover:text-[#4366C4] underline underline-offset-2 ml-0 sm:ml-2 cursor-pointer shrink-0 self-start sm:self-auto"
             >
               Switch to Live API Mode &rarr;
             </button>
@@ -60,7 +60,7 @@ export const DashboardLayout: React.FC = () => {
         ) : (
           /* Live Mode Status Banner when backend is down */
           backendHealth.status === 'down' && (
-            <div className="bg-[#E76B64]/10 border-b border-[#E76B64]/25 px-4 py-2 text-xs text-[#202938] flex items-center justify-between">
+            <div className="bg-[#E76B64]/10 border-b border-[#E76B64]/25 px-3 sm:px-4 py-2 text-xs text-[#202938] flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-[#E76B64] shrink-0" />
                 <span>
@@ -68,7 +68,7 @@ export const DashboardLayout: React.FC = () => {
                   {backendHealth.error || 'Connection refused'}). Switch to Demo Mode to explore with simulated fixtures.
                 </span>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
                 <button
                   onClick={() => checkHealth()}
                   className="inline-flex items-center gap-1 text-2xs font-medium text-[#E76B64] hover:text-white bg-[#E76B64]/20 hover:bg-[#E76B64] px-2 py-0.5 rounded cursor-pointer transition-colors"
@@ -96,7 +96,7 @@ export const DashboardLayout: React.FC = () => {
         />
 
         {/* Page Viewport */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto min-w-0">
           <Outlet />
         </main>
       </div>

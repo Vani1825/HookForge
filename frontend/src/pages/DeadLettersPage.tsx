@@ -98,7 +98,7 @@ export const DeadLettersPage: React.FC = () => {
       />
 
       {/* Head of line notice */}
-      <div className="p-4 bg-[#E5B34B]/10 border border-[#E5B34B]/25 rounded-xl flex items-start gap-3">
+      <div className="p-3.5 sm:p-4 bg-[#E5B34B]/10 border border-[#E5B34B]/25 rounded-xl flex items-start gap-3">
         <ShieldAlert className="w-5 h-5 text-[#B8871E] shrink-0 mt-0.5" />
         <div className="text-xs text-[#202938] space-y-1">
           <p className="font-semibold text-[#B8871E]">Head-of-Line Architecture Note</p>
@@ -111,7 +111,7 @@ export const DeadLettersPage: React.FC = () => {
       </div>
 
       {/* Search Input */}
-      <Card className="p-4 bg-white">
+      <Card className="p-3.5 sm:p-4 bg-white min-w-0">
         <Input
           placeholder="Search dead letters by ID, URL, or error diagnostics..."
           value={searchQuery}
@@ -121,7 +121,7 @@ export const DeadLettersPage: React.FC = () => {
       </Card>
 
       {/* Dead Letters Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden min-w-0">
         {isLoading ? (
           <TableSkeleton rows={4} cols={6} />
         ) : error && mode === 'live' ? (
@@ -141,7 +141,7 @@ export const DeadLettersPage: React.FC = () => {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Delivery ID</th>

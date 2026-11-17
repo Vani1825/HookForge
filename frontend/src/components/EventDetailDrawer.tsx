@@ -54,15 +54,15 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
       width="xl"
       footer={
         <div className="flex items-center justify-end w-full">
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
         </div>
       }
     >
       {/* Event Header metadata */}
-      <div className="p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC] space-y-3">
-        <div className="flex items-center justify-between">
+      <div className="p-3.5 sm:p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC] space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] font-mono">
             {event.event_type || 'custom.event'}
           </span>
@@ -70,7 +70,7 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
         </div>
 
         <div className="space-y-1.5 text-xs">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-[#64748B]">Event ID:</span>
             <button
               onClick={handleCopyId}
@@ -81,14 +81,14 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-1">
             <span className="text-[#64748B]">Idempotency Key:</span>
             <button
               onClick={handleCopyKey}
-              className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer"
+              className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer truncate max-w-[200px] sm:max-w-none"
             >
-              <span>{event.idempotency_key}</span>
-              {copiedKey ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
+              <span className="truncate">{event.idempotency_key}</span>
+              {copiedKey ? <Check className="w-3 h-3 text-[#159B78] shrink-0" /> : <Copy className="w-3 h-3 text-[#64748B] shrink-0" />}
             </button>
           </div>
         </div>
@@ -104,7 +104,7 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
 
       {/* Associated Fan-out Deliveries */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-1">
           <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
             Enqueued Deliveries ({relatedDeliveries.length})
           </h4>
@@ -120,15 +120,15 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
             {relatedDeliveries.map((del) => (
               <div
                 key={del.id}
-                className="p-3 text-xs flex items-center justify-between hover:bg-[#F7F6F2] transition-colors"
+                className="p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-[#F7F6F2] transition-colors"
               >
-                <div className="min-w-0 pr-3">
+                <div className="min-w-0 pr-2">
                   <div className="font-mono text-[#202938] truncate font-semibold">
                     {del.endpoint_url || del.endpoint_id}
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-2xs text-[#64748B]">
                     <span>Seq #{del.seq}</span>
-                    <span>•</span>
+                    <span>&bull;</span>
                     <span>Attempts: {del.attempt_count}</span>
                   </div>
                 </div>

@@ -57,11 +57,12 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({
       description="Re-enqueue an exhausted dead-letter delivery back into the dispatch pipeline."
       maxWidth="md"
       footer={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 w-full">
+          <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
           <Button
+            className="w-full sm:w-auto"
             variant="primary"
             size="sm"
             onClick={handleReplay}
@@ -99,20 +100,20 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({
 
         {/* Delivery Details Summary */}
         <div className="p-3 bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">Delivery ID:</span>
-            <span className="font-mono text-[#202938] font-semibold">{delivery.id}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#64748B] shrink-0">Delivery ID:</span>
+            <span className="font-mono text-[#202938] font-semibold truncate">{delivery.id}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">Endpoint:</span>
-            <span className="font-mono text-[#202938] truncate max-w-xs">{delivery.endpoint_url || delivery.endpoint_id}</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#64748B] shrink-0">Endpoint:</span>
+            <span className="font-mono text-[#202938] truncate max-w-[180px] sm:max-w-xs">{delivery.endpoint_url || delivery.endpoint_id}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">Sequence:</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#64748B] shrink-0">Sequence:</span>
             <span className="font-mono text-[#202938]">#{delivery.seq}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-[#64748B]">Attempts Exhausted:</span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[#64748B] shrink-0">Attempts Exhausted:</span>
             <span className="font-semibold text-[#E76B64]">{delivery.attempt_count} attempts</span>
           </div>
           {delivery.last_error && (

@@ -252,9 +252,9 @@ export const EventsPage: React.FC = () => {
       />
 
       {/* Filter / Search Bar */}
-      <Card className="p-4 bg-white space-y-3">
-        <div className="flex flex-col md:flex-row items-center gap-3">
-          <div className="flex-1 w-full">
+      <Card className="p-3.5 sm:p-4 bg-white space-y-3">
+        <div className="flex flex-col md:flex-row items-center gap-2.5 sm:gap-3">
+          <div className="flex-1 w-full min-w-0">
             <Input
               placeholder="Search by Event ID or Idempotency Key..."
               value={searchQuery}
@@ -401,7 +401,7 @@ export const EventsPage: React.FC = () => {
       </Card>
 
       {/* Events Table */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden min-w-0">
         {isLoading ? (
           <TableSkeleton rows={5} cols={5} />
         ) : error && mode === 'live' ? (
@@ -452,7 +452,7 @@ export const EventsPage: React.FC = () => {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[680px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Event ID</th>
