@@ -52,6 +52,8 @@ describe('Delivery Routes', () => {
         id: mockDeliveryId,
         eventId: mockEventId,
         endpointId: mockEndpointId,
+        endpointUrl: 'https://example.com/webhook',
+        lastStatusCode: 504,
         seq: 1,
         state: deliveryState.DEAD,
         attemptCount: 3,
@@ -81,6 +83,10 @@ describe('Delivery Routes', () => {
       expect(response.body.state).toBe('DEAD');
       expect(response.body.data).toHaveLength(1);
       expect(response.body.deliveries).toHaveLength(1);
+      expect(response.body.deliveries[0].endpoint_url).toBe('https://example.com/webhook');
+      expect(response.body.deliveries[0].endpointUrl).toBe('https://example.com/webhook');
+      expect(response.body.deliveries[0].last_status_code).toBe(504);
+      expect(response.body.deliveries[0].lastStatusCode).toBe(504);
       expect(response.body.pagination).toEqual({
         page: 1,
         pageSize: 20,
@@ -277,6 +283,48 @@ describe('Delivery Routes', () => {
       );
     });
 
+    it('should pass pagination and filtering options to deliveryService', async () => {
+      deliveryService.queryDeliveries.mockResolvedValue({
+        deliveries: [],
+        pagination: { page: 3, pageSize: 25, totalRecords: 0, totalPages: 0, hasNext: false, hasPrev: false },
+      });
+
+      await request(app).get(`/deliveries?state=RETRYING&limit=25&offset=50&endpoint_id=${mockEndpointId}&search=timeout`);
+
+      expect(deliveryService.queryDeliveries).toHaveBeenCalledWith(
+        mockTenantId,
+        expect.objectContaining({
+          state: 'RETRYING',
+          endpoint_id: mockEndpointId,
+          q: 'timeout',
+        }),
+        expect.objectContaining({
+          limit: 25,
+          offset: 50,
+        })
+      );
+    });
+
+    it('should pass options to getAllDeliveries when state is ALL', async () => {
+      deliveryService.queryDeliveries.mockResolvedValue({
+        deliveries: [],
+        pagination: { page: 1, pageSize: 50, totalRecords: 0, totalPages: 0, hasNext: false, hasPrev: false },
+      });
+
+      await request(app).get('/deliveries?state=ALL&limit=50&offset=10');
+
+      expect(deliveryService.queryDeliveries).toHaveBeenCalledWith(
+        mockTenantId,
+        expect.objectContaining({
+          state: 'ALL',
+        }),
+        expect.objectContaining({
+          limit: 50,
+          offset: 10,
+        })
+      );
+    });
+
     it('should return 400 for invalid state', async () => {
       const response = await request(app).get('/deliveries?state=INVALID');
       expect(response.status).toBe(400);
@@ -406,6 +454,8 @@ describe('Delivery Routes', () => {
         id: mockDeliveryId,
         eventId: mockEventId,
         endpointId: mockEndpointId,
+        endpointUrl: 'https://example.com/webhook',
+        lastStatusCode: 500,
         seq: 1,
         state: deliveryState.PENDING,
         attemptCount: 0,
@@ -420,9 +470,13 @@ describe('Delivery Routes', () => {
       const response = await request(app).post(`/deliveries/${mockDeliveryId}/replay`);
 
       expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('Delivery replayed successfully');
+      expect(response.body.delivery).toBeDefined();
+      expect(response.body.delivery.id).toBe(mockDeliveryId);
+      expect(response.body.delivery.endpoint_url).toBe('https://example.com/webhook');
       expect(response.body.id).toBe(mockDeliveryId);
       expect(response.body.state).toBe('PENDING');
-      expect(response.body.success).toBe(true);
       expect(deliveryService.replayDelivery).toHaveBeenCalledWith(mockDeliveryId, mockTenantId);
     });
 

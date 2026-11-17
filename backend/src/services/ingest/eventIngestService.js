@@ -4,9 +4,9 @@
  */
 
 import eventRepository from '../../repositories/jdbc/eventRepository.js';
-import deliveryEnqueuer from '../../repositories/jdbc/eventRepository.js';
-import endpointRepository from '../../repositories/jdbc/endpointRepository.js';
 import { transaction } from '../../config/database.js';
+import config from '../../config/index.js';
+import { PayloadTooLargeError } from '../../middleware/errorHandler.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -19,23 +19,29 @@ import logger from '../../utils/logger.js';
  * @returns {Promise<Object>} Ingest result with event and delivery count
  */
 export async function ingest(tenantId, idempotencyKey, payloadJson) {
-  // Size cap (256KB) - reject before DB
-  const sizeLimit = 256 * 1024; // 256KB
-  if (Buffer.byteLength(payloadJson, 'utf8') > sizeLimit) {
-    throw new Error('Payload too large (max 256KB)');
+  // Configurable size cap (defaults to config.ingest.maxPayloadBytes) - reject before DB
+  const maxPayloadBytes = config?.ingest?.maxPayloadBytes ?? 262144;
+  const payloadBytes = Buffer.byteLength(payloadJson, 'utf8');
+  if (payloadBytes > maxPayloadBytes) {
+    throw new PayloadTooLargeError(
+      `Payload too large (${payloadBytes} bytes, maximum allowed is ${maxPayloadBytes} bytes)`
+    );
   }
 
   // Single transaction for event + deliveries
   return await transaction(async (client) => {
-    // Try insert event with ON CONFLICT behavior handled by checking first
-    const existing = await eventRepository.findByTenantAndIdempotencyKey(
-      tenantId,
-      idempotencyKey
-    );
+    // 1. Attempt direct insert with ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
+    const event = await eventRepository.insert(tenantId, payloadJson, idempotencyKey, client);
 
-    if (existing) {
+    // If event is null, conflict occurred (duplicate idempotency key)
+    if (!event) {
+      const existing = await eventRepository.findByTenantAndIdempotencyKey(
+        tenantId,
+        idempotencyKey,
+        client
+      );
       logger.info('Duplicate idempotency key', {
-        eventId: existing.id,
+        eventId: existing?.id,
         tenantId,
         idempotencyKey,
       });
@@ -46,19 +52,9 @@ export async function ingest(tenantId, idempotencyKey, payloadJson) {
       };
     }
 
-    // Insert new event
-    const event = await eventRepository.insert(tenantId, payloadJson, idempotencyKey);
-
-    // Find all active endpoints for tenant (ORDER BY id for stable lock order)
-    const activeEndpoints = await endpointRepository.findActiveByTenant(tenantId);
-
-    // For each endpoint (stable order), allocate sequence and enqueue delivery
-    let deliveriesEnqueued = 0;
-    for (const endpoint of activeEndpoints) {
-      const seq = await endpointRepository.allocate(endpoint.id);
-      await deliveryEnqueuer.enqueue(event.id, endpoint.id, seq);
-      deliveriesEnqueued++;
-    }
+    // 2. Batch fan-out: allocate sequences and enqueue deliveries in a single set-based SQL operation
+    const deliveries = await eventRepository.enqueueBatch(tenantId, event.id, client);
+    const deliveriesEnqueued = deliveries.length;
 
     logger.info('Event ingested', {
       eventId: event.id,

@@ -10,6 +10,19 @@ const logLevel = config.nodeEnv === 'production' ? 'info' : 'debug';
 
 const logger = pino({
   level: logLevel,
+  hooks: {
+    logMethod(inputArgs, method) {
+      if (
+        typeof inputArgs[0] === 'string' &&
+        typeof inputArgs[1] === 'object' &&
+        inputArgs[1] !== null
+      ) {
+        const [msg, obj, ...rest] = inputArgs;
+        return method.call(this, obj, msg, ...rest);
+      }
+      return method.apply(this, inputArgs);
+    },
+  },
   transport:
     config.nodeEnv === 'development'
       ? {

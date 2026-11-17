@@ -36,15 +36,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 
     const variantStyles = {
       primary:
-        'bg-slate-900 text-white hover:bg-slate-800 focus-visible:ring-slate-900 border border-slate-900 shadow-xs',
+        'bg-[#5277D9] text-white hover:bg-[#4366C4] active:bg-[#3856AD] focus-visible:ring-[#5277D9] border border-[#5277D9] shadow-xs',
       secondary:
-        'bg-slate-100 text-slate-800 hover:bg-slate-200 focus-visible:ring-slate-400 border border-slate-200',
+        'bg-[#EAF0FF] text-[#5277D9] hover:bg-[#DCE5FA] focus-visible:ring-[#5277D9] border border-[#DCE5FA]',
       outline:
-        'bg-white text-slate-700 hover:bg-slate-50 border border-slate-300 focus-visible:ring-slate-400 shadow-xs',
+        'bg-white text-[#202938] hover:bg-[#F7F6F2] hover:border-[#D1D5DB] focus-visible:ring-[#5277D9] border border-[#E7E8EC] shadow-2xs',
       ghost:
-        'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900 focus-visible:ring-slate-400',
+        'bg-transparent text-[#64748B] hover:bg-[#F7F6F2] hover:text-[#202938] focus-visible:ring-[#5277D9]',
       danger:
-        'bg-rose-600 text-white hover:bg-rose-700 focus-visible:ring-rose-500 border border-rose-600 shadow-xs',
+        'bg-[#E76B64] text-white hover:bg-[#D9564F] active:bg-[#C94740] focus-visible:ring-[#E76B64] border border-[#E76B64] shadow-xs',
     }
 
     return (

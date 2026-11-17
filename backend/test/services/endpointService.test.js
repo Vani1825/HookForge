@@ -5,12 +5,29 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('dns', () => {
+  const mockLookup = vi.fn().mockImplementation(async (hostname) => {
+    return [{ address: '93.184.216.34', family: 4 }];
+  });
+  return {
+    default: {
+      promises: {
+        lookup: mockLookup,
+      },
+    },
+    promises: {
+      lookup: mockLookup,
+    },
+  };
+});
+
 vi.mock('../../src/repositories/jdbc/endpointRepository.js', () => ({
   default: {
     insert: vi.fn(),
     findByIdAndTenant: vi.fn(),
     findAllByTenant: vi.fn(),
     update: vi.fn(),
+    deactivate: vi.fn(),
   },
 }));
 
@@ -97,6 +114,22 @@ describe('EndpointService', () => {
         10
       );
     });
+
+    it('should reject SSRF destination URL on create', async () => {
+      await expect(
+        endpointService.create(mockTenantId, {
+          url: 'http://169.254.169.254/latest/meta-data/',
+        })
+      ).rejects.toThrow('cloud metadata');
+    });
+
+    it('should reject private IP destination URL on create', async () => {
+      await expect(
+        endpointService.create(mockTenantId, {
+          url: 'http://10.0.0.1/webhook',
+        })
+      ).rejects.toThrow('private or reserved');
+    });
   });
 
   describe('list', () => {
@@ -126,6 +159,10 @@ describe('EndpointService', () => {
       expect(result[0]).toHaveProperty('id');
       expect(result[0]).toHaveProperty('url');
       expect(result[0]).not.toHaveProperty('secret');
+      expect(result[0]).not.toHaveProperty('secretCiphertext');
+      expect(result[0]).not.toHaveProperty('secretIv');
+      expect(result[0]).not.toHaveProperty('secretTag');
+      expect(result[0]).not.toHaveProperty('secretVersion');
     });
   });
 
@@ -251,6 +288,76 @@ describe('EndpointService', () => {
           rateLimitRps: 10, // unchanged
         })
       );
+    });
+
+    it('should reject SSRF destination URL on update', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      endpointRepository.findByIdAndTenant.mockResolvedValue({
+        id: mockEndpointId,
+        tenantId: mockTenantId,
+        url: 'https://example.com/webhook',
+        active: true,
+      });
+
+      await expect(
+        endpointService.update(mockTenantId, mockEndpointId, {
+          url: 'http://169.254.169.254/webhook',
+        })
+      ).rejects.toThrow('cloud metadata');
+    });
+  });
+
+  describe('get', () => {
+    it('should return endpoint DTO without secret when found', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      const mockEndpoint = {
+        id: mockEndpointId,
+        tenantId: mockTenantId,
+        url: 'https://example.com/webhook',
+        secret: 'whsec_secret123',
+        active: true,
+        rateLimitRps: 10,
+        nextSeq: 1,
+        circuitState: 'CLOSED',
+        circuitUntil: null,
+        consecutiveFailures: 0,
+        createdAt: new Date().toISOString(),
+      };
+      endpointRepository.findByIdAndTenant.mockResolvedValue(mockEndpoint);
+
+      const result = await endpointService.get(mockTenantId, mockEndpointId);
+      expect(result).toBeDefined();
+      expect(result.id).toBe(mockEndpointId);
+      expect(result).not.toHaveProperty('secret');
+    });
+
+    it('should return null when endpoint not found', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      endpointRepository.findByIdAndTenant.mockResolvedValue(null);
+
+      const result = await endpointService.get(mockTenantId, mockEndpointId);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('remove', () => {
+    it('should deactivate endpoint when found', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      const mockEndpoint = { id: mockEndpointId, tenantId: mockTenantId };
+      endpointRepository.findByIdAndTenant.mockResolvedValue(mockEndpoint);
+      endpointRepository.deactivate.mockResolvedValue();
+
+      const result = await endpointService.remove(mockTenantId, mockEndpointId);
+      expect(result).toEqual({ success: true, id: mockEndpointId, active: false });
+      expect(endpointRepository.deactivate).toHaveBeenCalledWith(mockEndpointId);
+    });
+
+    it('should return null when endpoint not found for removal', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      endpointRepository.findByIdAndTenant.mockResolvedValue(null);
+
+      const result = await endpointService.remove(mockTenantId, mockEndpointId);
+      expect(result).toBeNull();
     });
   });
 });

@@ -11,6 +11,8 @@ export function createDelivery(data = {}) {
     id: data.id || uuidv4(),
     eventId: data.eventId,
     endpointId: data.endpointId,
+    endpointUrl: data.endpointUrl || null,
+    lastStatusCode: data.lastStatusCode !== undefined ? data.lastStatusCode : null,
     seq: data.seq,
     state: data.state ? deliveryState.fromString(data.state) : deliveryState.PENDING,
     attemptCount: data.attemptCount !== undefined ? data.attemptCount : 0,

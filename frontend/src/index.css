@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
+@theme {
+  --color-warm-ivory: #F7F6F2;
+  --color-card-surface: #FFFFFF;
+  --color-royal-blue: #5277D9;
+  --color-royal-blue-hover: #4366C4;
+  --color-light-blue: #EAF0FF;
+  --color-secondary-blue: #DCE5FA;
+  --color-text-main: #202938;
+  --color-text-secondary: #64748B;
+  --color-success-green: #159B78;
+  --color-error-red: #E76B64;
+  --color-warning-amber: #E5B34B;
+  --color-border-subtle: #E7E8EC;
+  --color-border-strong: #D1D5DB;
+}
+
 @layer base {
   :root {
-    --bg-app: #f8fafc;
-    --card-bg: #ffffff;
-    --navy-900: #0f172a;
-    --navy-800: #1e293b;
-    --slate-600: #475569;
-    --slate-400: #94a3b8;
-    --slate-200: #e2e8f0;
+    --bg-app: #F7F6F2;
+    --card-bg: #FFFFFF;
+    --primary-blue: #5277D9;
+    --primary-blue-hover: #4366C4;
+    --light-blue: #EAF0FF;
+    --secondary-blue: #DCE5FA;
+    --text-main: #202938;
+    --text-secondary: #64748B;
+    --color-success: #159B78;
+    --color-error: #E76B64;
+    --color-warning: #E5B34B;
+    --border-subtle: #E7E8EC;
   }
 
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     background-color: var(--bg-app);
-    color: var(--navy-900);
+    color: var(--text-main);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Custom scrollbars */
+  /* Custom subtle scrollbars */
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -31,11 +52,11 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #DCE5FA;
     border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #CBD5E1;
   }
 }

@@ -1,14 +1,17 @@
 /**
  * Metrics routes - REST API for system telemetry and operational metrics.
  * GET /metrics - Overview metrics with time-series and status distribution
+ * GET /metrics/overview - Alias for /metrics
  * GET /metrics/timeseries - Time-series throughput metrics
  * GET /metrics/distribution - Delivery status distribution
+ * GET /metrics/endpoints - Per-endpoint breakdown
  */
 
 import express from 'express';
 import { query, validationResult } from 'express-validator';
 import { apiKeyAuth, TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
 import metricsService from '../services/metrics/metricsService.js';
+import analyticsService from '../services/analytics/analyticsService.js';
 
 const router = express.Router();
 
@@ -89,10 +92,10 @@ function extractDateFilters(req) {
 }
 
 /**
- * GET /metrics
+ * GET /metrics & GET /metrics/overview
  * System overview metrics for the authenticated tenant with consistent date boundaries.
  */
-router.get('/', apiKeyAuth, metricsQueryValidators, async (req, res, next) => {
+async function handleOverview(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -120,7 +123,10 @@ router.get('/', apiKeyAuth, metricsQueryValidators, async (req, res, next) => {
   } catch (error) {
     next(error);
   }
-});
+}
+
+router.get('/', apiKeyAuth, metricsQueryValidators, handleOverview);
+router.get('/overview', apiKeyAuth, metricsQueryValidators, handleOverview);
 
 /**
  * GET /metrics/timeseries
@@ -165,6 +171,22 @@ router.get('/distribution', apiKeyAuth, metricsQueryValidators, async (req, res,
     const filters = extractDateFilters(req);
     const distribution = await metricsService.getStatusDistribution(tenantId, filters);
     res.status(200).json(distribution);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /metrics/endpoints
+ * Per-endpoint reliability breakdown.
+ */
+router.get('/endpoints', apiKeyAuth, async (req, res, next) => {
+  try {
+    const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+    const endpoints = typeof analyticsService?.getEndpointBreakdown === 'function'
+      ? await analyticsService.getEndpointBreakdown(tenantId).catch(() => [])
+      : [];
+    res.status(200).json(endpoints);
   } catch (error) {
     next(error);
   }

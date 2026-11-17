@@ -25,6 +25,21 @@ jobs:
       run:
         working-directory: backend
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: webhooks_test
+          POSTGRES_USER: webhooks
+          POSTGRES_PASSWORD: webhooks
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -42,10 +57,28 @@ jobs:
       - name: Run linter
         run: npm run lint
 
+      - name: Run database migrations
+        run: node scripts/migrate.js
+        env:
+          NODE_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USER: webhooks
+          DATABASE_PASSWORD: webhooks
+          DATABASE_NAME: webhooks_test
+          DATABASE_URL: postgresql://webhooks:webhooks@localhost:5432/webhooks_test
+
       - name: Run unit & integration tests
         run: npm test
         env:
           NODE_ENV: test
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USER: webhooks
+          DATABASE_PASSWORD: webhooks
+          DATABASE_NAME: webhooks_test
+          DATABASE_URL: postgresql://webhooks:webhooks@localhost:5432/webhooks_test
+          WEBHOOK_SECRET_ENCRYPTION_KEY: xtjJgOfow8xiWAGfiGe6t0aS9tD2ml8WQyA+524ki7A=
 
   frontend:
     name: Frontend (Lint, Test & Build)

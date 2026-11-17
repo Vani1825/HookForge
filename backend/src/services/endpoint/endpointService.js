@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import endpointRepository from '../../repositories/jdbc/endpointRepository.js';
 import { toResponseDTO } from '../../domain/models/endpoint.js';
+import { validateUrl } from '../../utils/ssrf.js';
 import logger from '../../utils/logger.js';
 
 /**
@@ -35,8 +36,8 @@ function generateSecret() {
 export async function create(tenantId, request) {
   const { url, rateLimitRps = 10 } = request;
 
-  // SSRF validation - skip for MVP per reference (documented gap)
-  // In production, validate URL against private IP ranges
+  // SSRF protection: validate protocol, port, host literals, and resolved DNS
+  await validateUrl(url);
 
   const secret = generateSecret();
 
@@ -120,6 +121,11 @@ export async function update(tenantId, endpointId, request) {
     return null;
   }
 
+  // SSRF protection on URL update
+  if (request.url !== undefined) {
+    await validateUrl(request.url);
+  }
+
   // Patch fields (only update provided fields)
   const updates = {
     id: existing.id,
@@ -147,9 +153,42 @@ export async function update(tenantId, endpointId, request) {
   return toResponseDTO(updated);
 }
 
+/**
+ * Retrieve a single endpoint for a tenant.
+ *
+ * @param {string} tenantId - Tenant UUID
+ * @param {string} endpointId - Endpoint UUID
+ * @returns {Promise<Object|null>} Endpoint DTO (without secret) or null if not found
+ */
+export async function get(tenantId, endpointId) {
+  const endpoint = await endpointRepository.findByIdAndTenant(endpointId, tenantId);
+  if (!endpoint) {
+    return null;
+  }
+  return toResponseDTO(endpoint);
+}
+
+/**
+ * Deactivate/delete an endpoint for a tenant.
+ *
+ * @param {string} tenantId - Tenant UUID
+ * @param {string} endpointId - Endpoint UUID
+ * @returns {Promise<Object|null>} Result object or null if not found
+ */
+export async function remove(tenantId, endpointId) {
+  const existing = await endpointRepository.findByIdAndTenant(endpointId, tenantId);
+  if (!existing) {
+    return null;
+  }
+  await endpointRepository.deactivate(endpointId);
+  return { success: true, id: endpointId, active: false };
+}
+
 export default {
   create,
   list,
   getById,
   update,
+  get,
+  remove,
 };

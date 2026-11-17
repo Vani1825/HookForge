@@ -7,10 +7,13 @@ import http from 'http';
 import crypto from 'crypto';
 import request from 'supertest';
 import app from '../src/app.js';
-import pool, { query, closePool } from '../src/config/database.js';
+import { query, closePool } from '../src/config/database.js';
 import { poll } from '../src/services/delivery/dispatcher.js';
 import { recoverExpiredLeases } from '../src/services/resilience/leaseReaper.js';
-import endpointRepository from '../src/repositories/jdbc/endpointRepository.js';
+import config from '../src/config/index.js';
+
+// Allow local mock receiver in acceptance test environment
+config.ssrf.allowLocal = true;
 
 const MOCK_RECEIVER_PORT = 9095;
 const MOCK_RECEIVER_URL = `http://127.0.0.1:${MOCK_RECEIVER_PORT}/webhook`;
@@ -130,7 +133,7 @@ async function run() {
       .send({ url: MOCK_RECEIVER_URL, rateLimitRps: 20 });
 
     if (ep1Res.status !== 201) throw new Error(`Create endpoint failed: ${JSON.stringify(ep1Res.body)}`);
-    const endpoint1Id = ep1Res.body.id;
+    const _endpoint1Id = ep1Res.body.id;
     const endpoint1Secret = ep1Res.body.secret;
 
     // Ingest Event
@@ -539,7 +542,7 @@ async function run() {
 
     // Now send another event while circuit is OPEN
     resetReceiver('success'); // Even if receiver is 200, dispatcher should block attempt!
-    const evBlocked = await request(app)
+    const _evBlocked = await request(app)
       .post('/events')
       .set('Authorization', `Bearer ${tenantAKey}`)
       .set('Idempotency-Key', `e2e-cb-blocked-${Date.now()}`)

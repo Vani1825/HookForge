@@ -24,6 +24,7 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
 }) => {
   const [copiedId, setCopiedId] = useState(false)
   const [copiedKey, setCopiedKey] = useState(false)
+  const [copiedPayload, setCopiedPayload] = useState(false)
 
   if (!event) return null
 
@@ -43,7 +44,20 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
     }
   }
 
+  const handleCopyPayload = async () => {
+    const ok = await copyToClipboard(JSON.stringify(event.payload, null, 2))
+    if (ok) {
+      setCopiedPayload(true)
+      setTimeout(() => setCopiedPayload(false), 2000)
+    }
+  }
+
   const relatedDeliveries = deliveries.filter((d) => d.event_id === event.id)
+  const succeeded = relatedDeliveries.filter((d) => d.state === 'SUCCEEDED').length
+  const failed = relatedDeliveries.filter((d) => d.state === 'DEAD').length
+  const inProgress = relatedDeliveries.filter(
+    (d) => d.state === 'PENDING' || d.state === 'IN_FLIGHT' || d.state === 'RETRYING'
+  ).length
 
   return (
     <Drawer
@@ -54,81 +68,118 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
       width="xl"
       footer={
         <div className="flex items-center justify-end w-full">
-          <Button variant="outline" size="sm" onClick={onClose}>
+          <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
         </div>
       }
     >
       {/* Event Header metadata */}
-      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-800 font-mono">
+      <div className="p-3.5 sm:p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC] space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] font-mono">
             {event.event_type || 'custom.event'}
           </span>
-          <span className="text-xs text-slate-500">{formatDateTime(event.created_at)}</span>
+          <span className="text-xs text-[#64748B]">{formatDateTime(event.created_at)}</span>
         </div>
 
         <div className="space-y-1.5 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Event ID:</span>
+          <div className="flex flex-wrap items-center justify-between gap-1">
+            <span className="text-[#64748B]">Event ID:</span>
             <button
               onClick={handleCopyId}
-              className="inline-flex items-center gap-1 font-mono text-slate-700 hover:text-slate-900 cursor-pointer"
+              className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer"
+              title="Copy Event ID"
+              aria-label={`Copy event ID ${event.id}`}
             >
               <span>{truncateId(event.id, 12)}</span>
-              {copiedId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+              {copiedId ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
             </button>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-slate-500">Idempotency Key:</span>
+          <div className="flex flex-wrap items-center justify-between gap-1">
+            <span className="text-[#64748B]">Idempotency Key:</span>
             <button
               onClick={handleCopyKey}
-              className="inline-flex items-center gap-1 font-mono text-slate-700 hover:text-slate-900 cursor-pointer"
+              className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer truncate max-w-[200px] sm:max-w-none"
+              title="Copy Idempotency Key"
+              aria-label={`Copy idempotency key ${event.idempotency_key}`}
             >
-              <span>{event.idempotency_key}</span>
-              {copiedKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+              <span className="truncate">{event.idempotency_key}</span>
+              {copiedKey ? <Check className="w-3 h-3 text-[#159B78] shrink-0" /> : <Copy className="w-3 h-3 text-[#64748B] shrink-0" />}
             </button>
           </div>
+        </div>
+
+        {/* Outcome summary bar */}
+        <div className="pt-2 border-t border-[#E7E8EC] flex flex-wrap items-center gap-1.5 text-2xs">
+          <span className="text-[#64748B] font-semibold">Delivery Outcomes:</span>
+          <span className="font-semibold text-[#202938]">{relatedDeliveries.length} total</span>
+          {succeeded > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#159B78]/10 text-[#159B78] border border-[#159B78]/25 font-semibold">
+              {succeeded} succeeded
+            </span>
+          )}
+          {failed > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#E76B64]/10 text-[#E76B64] border border-[#E76B64]/25 font-semibold">
+              {failed} dead
+            </span>
+          )}
+          {inProgress > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] font-semibold">
+              {inProgress} active
+            </span>
+          )}
         </div>
       </div>
 
       {/* JSON Payload */}
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Event Body (JSON Payload)
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
+            Event Body (JSON Payload)
+          </h4>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleCopyPayload}
+            className="text-2xs h-7 px-2"
+            leftIcon={copiedPayload ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3" />}
+          >
+            {copiedPayload ? 'Copied' : 'Copy JSON'}
+          </Button>
+        </div>
         <JsonViewer data={event.payload} maxHeight="max-h-80" />
       </div>
 
       {/* Associated Fan-out Deliveries */}
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-1">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
             Enqueued Deliveries ({relatedDeliveries.length})
           </h4>
-          <span className="text-2xs text-slate-400">Atomic fan-out per endpoint</span>
+          <span className="text-2xs text-[#64748B]">Atomic fan-out per endpoint</span>
         </div>
 
         {relatedDeliveries.length === 0 ? (
-          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500 text-center">
+          <div className="p-4 rounded-lg bg-[#F7F6F2] border border-[#E7E8EC] text-xs text-[#64748B] text-center">
             No active deliveries recorded for this event.
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
+          <div className="border border-[#E7E8EC] rounded-xl overflow-hidden divide-y divide-[#E7E8EC] bg-white">
             {relatedDeliveries.map((del) => (
               <div
                 key={del.id}
-                className="p-3 text-xs flex items-center justify-between hover:bg-slate-50 transition-colors"
+                className="p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-[#F7F6F2] transition-colors"
               >
-                <div className="min-w-0 pr-3">
-                  <div className="font-mono text-slate-800 truncate font-medium">
+                <div className="min-w-0 pr-2">
+                  <div className="font-mono text-[#202938] truncate font-semibold">
                     {del.endpoint_url || del.endpoint_id}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-2xs text-slate-400">
+                  <div className="flex items-center gap-2 mt-1 text-2xs text-[#64748B]">
                     <span>Seq #{del.seq}</span>
-                    <span>•</span>
+                    <span>&bull;</span>
                     <span>Attempts: {del.attempt_count}</span>
                   </div>
                 </div>

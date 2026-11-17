@@ -34,6 +34,8 @@ describe('Formatters Utility', () => {
     expect(formatRate(0)).toBe('0.0%')
     expect(formatRate(NaN)).toBe('0.0%')
     expect(formatRate(null)).toBe('0.0%')
+    expect(formatRate(100, 0)).toBe('—')
+    expect(formatRate(0, 0)).toBe('—')
   })
 
   it('formats dates cleanly', () => {

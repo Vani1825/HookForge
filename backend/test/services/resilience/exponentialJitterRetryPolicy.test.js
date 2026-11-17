@@ -2,7 +2,7 @@
  * Tests for ExponentialJitterRetryPolicy.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import exponentialJitterRetryPolicy from '../../../src/services/resilience/exponentialJitterRetryPolicy.js';
 import { deliveryOutcome } from '../../../src/domain/deliveryOutcome.js';
 import randomGenerator from '../../../src/utils/random.js';

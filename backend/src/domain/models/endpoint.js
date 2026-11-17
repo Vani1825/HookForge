@@ -12,6 +12,13 @@ export function createEndpoint(data = {}) {
     tenantId: data.tenantId,
     url: data.url,
     secret: data.secret,
+    secretCiphertext: data.secretCiphertext ?? data.secret_ciphertext ?? null,
+    secretIv: data.secretIv ?? data.secret_iv ?? null,
+    secretTag: data.secretTag ?? data.secret_tag ?? null,
+    secretVersion:
+      data.secretVersion !== undefined
+        ? data.secretVersion
+        : (data.secret_version !== undefined ? data.secret_version : null),
     active: data.active !== undefined ? data.active : true,
     rateLimitRps: data.rateLimitRps !== undefined ? data.rateLimitRps : 10,
     nextSeq: data.nextSeq !== undefined ? data.nextSeq : 1,

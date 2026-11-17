@@ -61,20 +61,20 @@ export const Pagination: React.FC<PaginationProps> = ({
     <nav
       role="navigation"
       aria-label="Pagination Navigation"
-      className={`flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-3 bg-white border-t border-slate-200 select-none ${className}`}
+      className={`flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 px-3 sm:px-4 py-3 bg-white border-t border-[#E7E8EC] select-none ${className}`}
     >
       {/* Record info & page size */}
-      <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2 sm:gap-3 text-xs text-[#64748B] w-full sm:w-auto">
         <span>
           Showing{' '}
-          <span className="font-semibold text-slate-900">{startRecord}</span> to{' '}
-          <span className="font-semibold text-slate-900">{endRecord}</span> of{' '}
-          <span className="font-semibold text-slate-900">{totalRecords}</span> {itemName}
+          <span className="font-semibold text-[#202938]">{startRecord}</span> to{' '}
+          <span className="font-semibold text-[#202938]">{endRecord}</span> of{' '}
+          <span className="font-semibold text-[#202938]">{totalRecords}</span> {itemName}
         </span>
 
         {onPageSizeChange && (
-          <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
-            <label htmlFor="page-size-select" className="text-slate-500">
+          <div className="flex items-center gap-1.5 pl-2 border-l border-[#E7E8EC]">
+            <label htmlFor="page-size-select" className="text-[#64748B]">
               Per page:
             </label>
             <select
@@ -83,7 +83,7 @@ export const Pagination: React.FC<PaginationProps> = ({
               disabled={isLoading}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
               aria-label={`Select number of ${itemName} per page`}
-              className="text-xs bg-slate-50 border border-slate-200 rounded px-2 py-1 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 disabled:opacity-50"
+              className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded px-2 py-1 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] disabled:opacity-50"
             >
               {pageSizeOptions.map((opt) => (
                 <option key={opt} value={opt}>
@@ -96,7 +96,7 @@ export const Pagination: React.FC<PaginationProps> = ({
       </div>
 
       {/* Page navigation controls */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-between sm:justify-end gap-1 w-full sm:w-auto">
         <Button
           type="button"
           variant="outline"
@@ -115,7 +115,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           {pageNumbers.map((p, idx) => {
             if (p === 'ellipsis') {
               return (
-                <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-400 select-none">
+                <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-[#64748B] select-none">
                   ...
                 </span>
               )
@@ -131,8 +131,8 @@ export const Pagination: React.FC<PaginationProps> = ({
                 aria-current={isCurrent ? 'page' : undefined}
                 className={`w-7 h-7 text-xs rounded-md font-medium transition-colors cursor-pointer flex items-center justify-center ${
                   isCurrent
-                    ? 'bg-slate-900 text-white font-semibold shadow-2xs'
-                    : 'text-slate-700 hover:bg-slate-100'
+                    ? 'bg-[#5277D9] text-white font-semibold shadow-2xs'
+                    : 'text-[#202938] hover:bg-[#EAF0FF] hover:text-[#5277D9]'
                 }`}
               >
                 {p}
@@ -142,7 +142,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         </div>
 
         {/* Current page indicator for small screens */}
-        <span className="md:hidden text-xs text-slate-600 px-2 font-medium">
+        <span className="md:hidden text-xs text-[#64748B] px-2 font-medium">
           {page} / {totalPages || 1}
         </span>
 

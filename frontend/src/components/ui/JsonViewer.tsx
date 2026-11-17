@@ -55,17 +55,17 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({
     const highlighted = htmlSafe.replace(
       /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+-]?\d+)?)/g,
       (match) => {
-        let cls = 'text-amber-700' // number
+        let cls = 'text-[#B8871E]' // number
         if (/^"/.test(match)) {
           if (/:$/.test(match)) {
-            cls = 'text-slate-800 font-semibold' // key
+            cls = 'text-[#202938] font-semibold' // key
           } else {
-            cls = 'text-emerald-700' // string
+            cls = 'text-[#159B78]' // string
           }
         } else if (/true|false/.test(match)) {
-          cls = 'text-purple-700 font-medium' // boolean
+          cls = 'text-[#5277D9] font-medium' // boolean
         } else if (/null/.test(match)) {
-          cls = 'text-rose-600 italic' // null
+          cls = 'text-[#E76B64] italic' // null
         }
         return `<span class="${cls}">${match}</span>`
       }
@@ -75,29 +75,29 @@ export const JsonViewer: React.FC<JsonViewerProps> = ({
   }
 
   return (
-    <div className={cn('rounded-lg border border-slate-200 bg-slate-900/2 overflow-hidden text-left', className)}>
-      <div className="flex items-center justify-between px-3 py-2 bg-slate-100/70 border-b border-slate-200 text-xs">
-        <span className="font-medium text-slate-700">{title}</span>
+    <div className={cn('rounded-lg border border-[#E7E8EC] bg-white overflow-hidden text-left', className)}>
+      <div className="flex items-center justify-between px-3 py-2 bg-[#F7F6F2] border-b border-[#E7E8EC] text-xs">
+        <span className="font-semibold text-[#202938]">{title}</span>
         <button
           onClick={handleCopy}
           type="button"
           aria-label="Copy JSON"
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 hover:text-slate-900 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-[#202938] bg-white border border-[#E7E8EC] rounded hover:bg-[#F7F6F2] transition-colors cursor-pointer"
         >
           {copied ? (
             <>
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
-              <span className="text-emerald-700">Copied</span>
+              <Check className="w-3.5 h-3.5 text-[#159B78]" />
+              <span className="text-[#159B78]">Copied</span>
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5" />
+              <Copy className="w-3.5 h-3.5 text-[#64748B]" />
               <span>Copy</span>
             </>
           )}
         </button>
       </div>
-      <div className={cn('p-4 overflow-auto bg-slate-50/50', maxHeight)}>
+      <div className={cn('p-4 overflow-auto bg-[#F7F6F2]/30', maxHeight)}>
         {highlightSyntax(formattedJson)}
       </div>
     </div>

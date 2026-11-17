@@ -10,7 +10,6 @@ import { apiKeyAuth, TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
 import eventIngestService from '../services/ingest/eventIngestService.js';
 import eventRepository from '../repositories/jdbc/eventRepository.js';
 import deliveryService from '../services/delivery/deliveryService.js';
-import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -36,9 +35,24 @@ router.post(
         });
       }
 
+      // Event body validation: require a non-null, non-array JSON object with at least one property
+      const body = req.body;
+      if (
+        body === undefined ||
+        body === null ||
+        typeof body !== 'object' ||
+        Array.isArray(body) ||
+        Object.keys(body).length === 0
+      ) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: 'Request body must be a non-empty JSON object',
+        });
+      }
+
       const tenantId = req.tenantId;
       const idempotencyKey = req.headers['idempotency-key'];
-      const payloadJson = JSON.stringify(req.body);
+      const payloadJson = JSON.stringify(body);
 
       const result = await eventIngestService.ingest(
         tenantId,
@@ -96,14 +110,26 @@ router.get(
         eventId,
         deliveries: deliveries.map((d) => ({
           id: d.id,
+          eventId: d.eventId,
+          event_id: d.eventId,
           endpointId: d.endpointId,
+          endpoint_id: d.endpointId,
+          endpointUrl: d.endpointUrl || null,
+          endpoint_url: d.endpointUrl || null,
           seq: d.seq,
           state: d.state.toString(),
           attemptCount: d.attemptCount,
+          attempt_count: d.attemptCount,
           nextAttemptAt: d.nextAttemptAt,
+          next_attempt_at: d.nextAttemptAt,
           lastError: d.lastError,
+          last_error: d.lastError,
+          lastStatusCode: d.lastStatusCode ?? null,
+          last_status_code: d.lastStatusCode ?? null,
           createdAt: d.createdAt,
+          created_at: d.createdAt,
           updatedAt: d.updatedAt,
+          updated_at: d.updatedAt,
         })),
       });
     } catch (error) {

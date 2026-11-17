@@ -107,11 +107,12 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
       description="Publish an event through HookForge's ingest pipeline and trigger atomic delivery fan-out."
       maxWidth="lg"
       footer={
-        <div className="flex items-center justify-between w-full">
-          <Button variant="ghost" size="sm" onClick={handleReset}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 w-full">
+          <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={handleReset}>
             {result ? 'Done' : 'Cancel'}
           </Button>
           <Button
+            className="w-full sm:w-auto"
             variant="primary"
             size="sm"
             onClick={handleSend}
@@ -128,16 +129,16 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
           <div
             className={`p-3.5 rounded-xl border flex items-start gap-2.5 text-xs ${
               result.duplicate
-                ? 'bg-amber-50 border-amber-200 text-amber-900'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                ? 'bg-[#E5B34B]/10 border-[#E5B34B]/25 text-[#202938]'
+                : 'bg-[#159B78]/10 border-[#159B78]/25 text-[#202938]'
             }`}
           >
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-600" />
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-[#159B78]" />
             <div>
-              <p className="font-semibold">
+              <p className="font-semibold text-[#202938]">
                 {result.duplicate ? 'Idempotency Conflict Detected' : 'Event Successfully Ingested'}
               </p>
-              <p className="mt-0.5">
+              <p className="mt-0.5 text-[#64748B]">
                 {result.duplicate
                   ? `An event with this idempotency key already exists. No duplicate deliveries were queued.`
                   : `Created ${result.deliveriesEnqueued} delivery work row(s) for active endpoints.`}
@@ -147,8 +148,8 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
         )}
 
         {apiError && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-xs text-rose-700">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <div className="p-3 bg-[#E76B64]/10 border border-[#E76B64]/25 rounded-lg flex items-center gap-2 text-xs text-[#E76B64]">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#E76B64]" />
             <span>{apiError}</span>
           </div>
         )}
@@ -164,11 +165,11 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
 
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label className="text-xs font-medium text-slate-700">Idempotency Key</label>
+              <label className="text-xs font-semibold text-[#202938]">Idempotency Key</label>
               <button
                 type="button"
                 onClick={() => setIdempotencyKey(generateIdempotencyKey())}
-                className="text-2xs text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+                className="text-2xs text-[#64748B] hover:text-[#202938] flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-2.5 h-2.5" />
                 <span>Regenerate</span>
@@ -184,11 +185,11 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
         </div>
 
         <div className="space-y-1.5">
-          <label className="block text-xs font-medium text-slate-700">JSON Payload</label>
+          <label className="block text-xs font-semibold text-[#202938]">JSON Payload</label>
           <textarea
             rows={8}
-            className={`w-full font-mono text-xs p-3 rounded-lg border bg-slate-50/50 text-slate-900 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900 ${
-              jsonError ? 'border-rose-400' : 'border-slate-300'
+            className={`w-full font-mono text-xs p-3 rounded-lg border bg-[#F7F6F2]/50 text-[#202938] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#5277D9] focus:border-[#5277D9] ${
+              jsonError ? 'border-[#E76B64]' : 'border-[#E7E8EC]'
             }`}
             value={payloadText}
             onChange={(e) => {
@@ -197,9 +198,9 @@ export const SendEventModal: React.FC<SendEventModalProps> = ({
             }}
           />
           {jsonError ? (
-            <p className="text-xs text-rose-600 font-medium">{jsonError}</p>
+            <p className="text-xs text-[#E76B64] font-medium">{jsonError}</p>
           ) : (
-            <p className="text-2xs text-slate-400">Payload must be valid JSON (max 256KB cap).</p>
+            <p className="text-2xs text-[#64748B]">Payload must be valid JSON (max 256KB cap).</p>
           )}
         </div>
       </form>

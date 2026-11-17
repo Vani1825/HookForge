@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider } from './context/AppContext'
+import { NotificationProvider } from './context/NotificationContext'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { EndpointsPage } from './pages/EndpointsPage'
@@ -15,20 +16,22 @@ export function App() {
   return (
     <AppProvider>
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<DashboardLayout />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="dashboard" element={<Navigate to="/" replace />} />
-            <Route path="endpoints" element={<EndpointsPage />} />
-            <Route path="events" element={<EventsPage />} />
-            <Route path="deliveries" element={<DeliveriesPage />} />
-            <Route path="dead-letters" element={<DeadLettersPage />} />
-            <Route path="replay" element={<ReplayPage />} />
-            <Route path="analytics" element={<AnalyticsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Route>
-        </Routes>
+        <NotificationProvider>
+          <Routes>
+            <Route path="/" element={<DashboardLayout />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="dashboard" element={<Navigate to="/" replace />} />
+              <Route path="endpoints" element={<EndpointsPage />} />
+              <Route path="events" element={<EventsPage />} />
+              <Route path="deliveries" element={<DeliveriesPage />} />
+              <Route path="dead-letters" element={<DeadLettersPage />} />
+              <Route path="replay" element={<ReplayPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Route>
+          </Routes>
+        </NotificationProvider>
       </BrowserRouter>
     </AppProvider>
   )

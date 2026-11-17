@@ -70,10 +70,20 @@ export interface Delivery {
   updated_at: string
   // Enriched relationships
   endpoint_url?: string
+  endpointUrl?: string
   endpoint?: Endpoint
   event?: WebhookEvent
   attempts?: DeliveryAttempt[]
   last_status_code?: number | null
+  lastStatusCode?: number | null
+  // CamelCase aliases
+  eventId?: string
+  endpointId?: string
+  attemptCount?: number
+  nextAttemptAt?: string
+  lastError?: string | null
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface IngestRequest {
@@ -87,6 +97,14 @@ export interface IngestResult {
   eventId?: string
 }
 
+export interface WorkerHealth {
+  status: 'up' | 'down' | 'degraded' | 'unavailable' | 'unknown'
+  activeWorkers?: number | null
+  currentlyProcessing?: number | null
+  lastHeartbeat?: string | null
+  error?: string
+}
+
 export interface HealthResponse {
   status: 'up' | 'down'
   timestamp: string
@@ -95,6 +113,7 @@ export interface HealthResponse {
       status: 'up' | 'down'
       error?: string
     }
+    worker?: WorkerHealth
   }
 }
 
@@ -104,6 +123,12 @@ export interface OverviewMetrics {
   succeededDeliveries: number
   failedDeliveries: number
   pendingDeliveries: number
+  pendingCount?: number
+  inFlightCount?: number
+  retryingCount?: number
+  queueBacklog?: number
+  currentlyProcessing?: number
+  deadLetterCount?: number
   successRate: number
   averageLatencyMs: number
   activeEndpoints: number
@@ -140,3 +165,32 @@ export interface PaginatedResponse<T> {
   data: T[]
   pagination: PaginationMeta
 }
+
+export type NotificationSeverity = 'success' | 'warning' | 'error' | 'info'
+
+export type NotificationCategory =
+  | 'delivery_success'
+  | 'delivery_failed'
+  | 'delivery_retry'
+  | 'dead_letter'
+  | 'system_health'
+
+export interface AppNotification {
+  id: string
+  title: string
+  description: string
+  timestamp: string
+  severity: NotificationSeverity
+  category: NotificationCategory
+  read: boolean
+  entityId?: string
+  link?: string
+  metadata?: {
+    endpointUrl?: string
+    statusCode?: number | null
+    attemptCount?: number
+    error?: string | null
+    [key: string]: unknown
+  }
+}
+

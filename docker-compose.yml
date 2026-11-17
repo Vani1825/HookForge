@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: webhooks
       POSTGRES_PASSWORD: webhooks
     ports:
-      - "5434:5432"
+      - "${POSTGRES_PORT:-5434}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U webhooks -d webhooks"]
       interval: 3s
@@ -26,9 +26,21 @@ services:
       DATABASE_USER: webhooks
       DATABASE_PASSWORD: webhooks
       DATABASE_NAME: webhooks
-      NODE_ENV: production
+      DATABASE_URL: "postgresql://webhooks:webhooks@postgres:5432/webhooks"
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 8080
+      HOST: 0.0.0.0
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      WEBHOOK_SECRET_ENCRYPTION_KEY: ${WEBHOOK_SECRET_ENCRYPTION_KEY:-xtjJgOfow8xiWAGfiGe6t0aS9tD2ml8WQyA+524ki7A=}
+    command: sh -c "node scripts/migrate.js && if [ \"$$NODE_ENV\" != \"production\" ]; then node scripts/seed.js; fi && node src/server.js"
     ports:
-      - "8081:8080"
+      - "${BACKEND_PORT:-${PORT:-8081}}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
 volumes:
   pgdata:

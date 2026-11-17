@@ -86,6 +86,31 @@ describe('DeliveryService', () => {
       expect(result).toEqual(mockUpdated);
     });
 
+    it('should preserve endpointUrl and lastStatusCode when replaying', async () => {
+      const mockDelivery = {
+        id: 'delivery-1',
+        eventId: 'event-1',
+        endpointId: 'endpoint-1',
+        endpointUrl: 'https://webhook.example.com/endpoint',
+        lastStatusCode: 504,
+        seq: 1,
+        state: deliveryState.DEAD,
+      };
+
+      const mockUpdated = {
+        id: 'delivery-1',
+        state: deliveryState.PENDING,
+      };
+
+      deliveryRepository.findByIdAndTenant.mockResolvedValue(mockDelivery);
+      deliveryRepository.releaseLease.mockResolvedValue(mockUpdated);
+
+      const result = await deliveryService.replayDelivery('delivery-1', 'tenant-1');
+
+      expect(result.endpointUrl).toBe('https://webhook.example.com/endpoint');
+      expect(result.lastStatusCode).toBe(504);
+    });
+
     it('should throw 404 when delivery not found', async () => {
       deliveryRepository.findByIdAndTenant.mockResolvedValue(null);
 

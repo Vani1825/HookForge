@@ -132,6 +132,7 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
         maxWidth="lg"
         footer={
           <Button
+            className="w-full sm:w-auto"
             variant="primary"
             onClick={() => {
               onSuccess(createdEndpoint)
@@ -142,32 +143,33 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
           </Button>
         }
       >
-        <div className="space-y-4">
-          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-            <div className="text-xs text-amber-900 space-y-1">
-              <p className="font-semibold">Important Security Notice</p>
+        <div className="space-y-4 text-left">
+          <div className="p-3.5 bg-[#E5B34B]/10 border border-[#E5B34B]/25 rounded-xl flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-[#B8871E] shrink-0 mt-0.5" />
+            <div className="text-xs text-[#202938] space-y-1">
+              <p className="font-semibold text-[#B8871E]">Important Security Notice</p>
               <p>
                 HookForge computes an HMAC-SHA256 signature using this secret for all deliveries sent
                 to <strong>{createdEndpoint.url}</strong>.
               </p>
-              <p className="font-medium text-amber-950">
+              <p className="font-medium text-[#B8871E]">
                 This secret is shown only once and cannot be retrieved later.
               </p>
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-slate-700">Webhook HMAC Secret</label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 p-2.5 font-mono text-xs bg-slate-100 rounded-lg border border-slate-300 text-slate-900 break-all select-all font-semibold">
+            <label className="text-xs font-semibold text-[#202938]">Webhook HMAC Secret</label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex-1 p-2.5 font-mono text-xs bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] text-[#202938] break-all select-all font-semibold">
                 {createdEndpoint.secret}
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleCopySecret}
-                leftIcon={copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                leftIcon={copiedSecret ? <Check className="w-3.5 h-3.5 text-[#159B78]" /> : <Copy className="w-3.5 h-3.5" />}
+                className="shrink-0"
               >
                 {copiedSecret ? 'Copied' : 'Copy'}
               </Button>
@@ -186,11 +188,12 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
       description="Register a new destination URL to receive webhook event dispatches."
       maxWidth="md"
       footer={
-        <div className="flex items-center justify-end gap-2 w-full">
-          <Button variant="outline" size="sm" onClick={handleReset} disabled={isLoading}>
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 w-full">
+          <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={handleReset} disabled={isLoading}>
             Cancel
           </Button>
           <Button
+            className="w-full sm:w-auto"
             variant="primary"
             size="sm"
             onClick={handleSubmit}

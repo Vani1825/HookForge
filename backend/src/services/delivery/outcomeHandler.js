@@ -43,15 +43,29 @@ export async function handleOutcome(
     error: attempt.error,
   });
 
-  // Increment attempt count
-  await deliveryRepository.incrementAttemptCount(delivery.id);
-
   const outcomeStr = outcome?.toString() || outcome;
 
-  // Handle based on outcome
+  // Handle based on outcome: atomically update state, attempt count, and validate lease
   if (outcome === deliveryOutcome.SUCCESS || outcomeStr === 'SUCCESS') {
-    // Mark as SUCCEEDED
-    const updated = await deliveryRepository.markTerminal(delivery.id, deliveryState.SUCCEEDED);
+    // Mark as SUCCEEDED with atomic attempt increment, stale worker protection, and attempt-level fencing
+    const updated = await deliveryRepository.markTerminal(
+      delivery.id,
+      deliveryState.SUCCEEDED,
+      {
+        incrementAttempt: true,
+        requireInFlight: true,
+        expectedAttemptCount: delivery.attemptCount,
+      }
+    );
+
+    if (!updated) {
+      logger.warn('Stale worker attempt rejected: delivery is no longer IN_FLIGHT or lease expired', {
+        deliveryId: delivery.id,
+        endpointId: endpoint.id,
+        attemptCount,
+      });
+      return null;
+    }
     
     // Update circuit breaker on success
     const circuitUpdate = await thresholdCircuitBreaker.recordResult(
@@ -74,8 +88,25 @@ export async function handleOutcome(
   }
 
   if (outcome === deliveryOutcome.ENDPOINT_GONE || outcomeStr === 'ENDPOINT_GONE') {
-    // Mark as DEAD (permanent failure)
-    const updated = await deliveryRepository.markTerminal(delivery.id, deliveryState.DEAD);
+    // Mark as DEAD (permanent failure) with atomic attempt increment, stale worker protection, and attempt-level fencing
+    const updated = await deliveryRepository.markTerminal(
+      delivery.id,
+      deliveryState.DEAD,
+      {
+        incrementAttempt: true,
+        requireInFlight: true,
+        expectedAttemptCount: delivery.attemptCount,
+      }
+    );
+
+    if (!updated) {
+      logger.warn('Stale worker attempt rejected: delivery is no longer IN_FLIGHT or lease expired', {
+        deliveryId: delivery.id,
+        endpointId: endpoint.id,
+        attemptCount,
+      });
+      return null;
+    }
     
     // Update circuit breaker
     const circuitUpdate = await thresholdCircuitBreaker.recordResult(
@@ -101,8 +132,25 @@ export async function handleOutcome(
   const delay = await retryPolicy.nextDelay(attemptCount, outcome);
 
   if (delay === null) {
-    // No more retries - mark as DEAD
-    const updated = await deliveryRepository.markTerminal(delivery.id, deliveryState.DEAD);
+    // No more retries - mark as DEAD with atomic attempt increment, stale worker protection, and attempt-level fencing
+    const updated = await deliveryRepository.markTerminal(
+      delivery.id,
+      deliveryState.DEAD,
+      {
+        incrementAttempt: true,
+        requireInFlight: true,
+        expectedAttemptCount: delivery.attemptCount,
+      }
+    );
+
+    if (!updated) {
+      logger.warn('Stale worker attempt rejected: delivery is no longer IN_FLIGHT or lease expired', {
+        deliveryId: delivery.id,
+        endpointId: endpoint.id,
+        attemptCount,
+      });
+      return null;
+    }
     
     // Update circuit breaker
     const circuitUpdate = await thresholdCircuitBreaker.recordResult(
@@ -125,14 +173,28 @@ export async function handleOutcome(
     return updated;
   }
 
-  // Schedule retry
+  // Schedule retry with atomic attempt increment, stale worker protection, and attempt-level fencing
   const nextAttemptAt = new Date(now + delay).toISOString();
   const updated = await deliveryRepository.releaseLease(
     delivery.id,
     deliveryState.RETRYING,
     nextAttemptAt,
-    attempt.error || 'Retryable failure'
+    attempt.error || 'Retryable failure',
+    {
+      incrementAttempt: true,
+      requireInFlight: true,
+      expectedAttemptCount: delivery.attemptCount,
+    }
   );
+
+  if (!updated) {
+    logger.warn('Stale worker attempt rejected: delivery is no longer IN_FLIGHT or lease expired', {
+      deliveryId: delivery.id,
+      endpointId: endpoint.id,
+      attemptCount,
+    });
+    return null;
+  }
 
   // Update circuit breaker
   const circuitUpdate = await thresholdCircuitBreaker.recordResult(

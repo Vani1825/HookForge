@@ -23,10 +23,14 @@ export async function getDeliveriesByEvent(eventId, tenantId) {
  * @param {string} state - Delivery state string
  * @param {string} tenantId - Tenant UUID for access control
  * @param {number} limit - Max results
+ * @param {Object} [options] - Additional pagination/filtering options
  * @returns {Promise<Array>} Array of delivery objects
  */
-export async function getDeliveriesByState(state, tenantId, limit = 100) {
+export async function getDeliveriesByState(state, tenantId, limit = 100, options = null) {
   const deliveryStateEnum = deliveryState.fromString(state);
+  if (options && Object.keys(options).length > 0) {
+    return await deliveryRepository.findByState(deliveryStateEnum, tenantId, limit, options);
+  }
   return await deliveryRepository.findByState(deliveryStateEnum, tenantId, limit);
 }
 
@@ -67,17 +71,49 @@ export async function replayDelivery(deliveryId, tenantId) {
     endpointId: delivery.endpointId,
   });
 
-  return updated;
+  const replayed = { ...updated };
+  if (delivery.endpointUrl !== undefined || updated?.endpointUrl !== undefined) {
+    replayed.endpointUrl = updated?.endpointUrl || delivery.endpointUrl || null;
+  }
+  if (delivery.lastStatusCode !== undefined || updated?.lastStatusCode !== undefined) {
+    replayed.lastStatusCode = updated?.lastStatusCode !== undefined ? updated.lastStatusCode : (delivery.lastStatusCode ?? null);
+  }
+
+  return replayed;
 }
 
 /**
  * Get all deliveries for a tenant across states.
  * @param {string} tenantId - Tenant UUID for access control
  * @param {number} limit - Max results
+ * @param {Object} [options] - Additional pagination/filtering options
  * @returns {Promise<Array>} Array of delivery objects
  */
-export async function getAllDeliveries(tenantId, limit = 100) {
+export async function getAllDeliveries(tenantId, limit = 100, options = null) {
+  if (options && Object.keys(options).length > 0) {
+    return await deliveryRepository.findAllByTenant(tenantId, limit, options);
+  }
   return await deliveryRepository.findAllByTenant(tenantId, limit);
+}
+
+/**
+ * Get deliveries with flexible filtering, pagination, and sorting (tenant-scoped).
+ * @param {string} tenantId - Tenant UUID
+ * @param {Object} [options]
+ * @returns {Promise<Array>}
+ */
+export async function getDeliveries(tenantId, options = {}) {
+  return await deliveryRepository.findDeliveries(tenantId, options);
+}
+
+/**
+ * Count deliveries matching criteria (tenant-scoped).
+ * @param {string} tenantId - Tenant UUID
+ * @param {Object} [options]
+ * @returns {Promise<number>}
+ */
+export async function countDeliveries(tenantId, options = {}) {
+  return await deliveryRepository.countDeliveries(tenantId, options);
 }
 
 /**
@@ -169,6 +205,8 @@ export default {
   getDeliveriesByEvent,
   getDeliveriesByState,
   getAllDeliveries,
+  getDeliveries,
+  countDeliveries,
   queryDeliveries,
   getDeliveryById,
   replayDelivery,

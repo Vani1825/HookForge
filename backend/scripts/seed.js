@@ -23,7 +23,8 @@ export async function initDevTenant(options = {}) {
   // 7. Refuse to run in production
   const isProduction =
     (process.env.NODE_ENV && process.env.NODE_ENV.toLowerCase() === 'production') ||
-    (config.nodeEnv && config.nodeEnv.toLowerCase() === 'production');
+    (config.nodeEnv && config.nodeEnv.toLowerCase() === 'production') ||
+    (process.env.APP_ENV && process.env.APP_ENV.toLowerCase() === 'production');
 
   if (isProduction && !options.skipEnvCheck) {
     console.error('\n[Security Error] Refusing to initialize development tenant in production environment.');

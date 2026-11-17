@@ -3,7 +3,7 @@
  * This is an integration test that should be run with a test database.
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
 

@@ -45,6 +45,21 @@ export class ValidationError extends ApiError {
   }
 }
 
+export class PayloadTooLargeError extends ApiError {
+  constructor(message = 'Payload too large') {
+    super('payload_too_large', message, 413);
+    this.name = 'PayloadTooLargeError';
+  }
+}
+
+export class RateLimitError extends ApiError {
+  constructor(message = 'Too many requests', retryAfterSeconds = 1) {
+    super('rate_limit_exceeded', message, 429);
+    this.name = 'RateLimitError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 /**
  * Error handler middleware
  */
@@ -57,11 +72,23 @@ export function errorHandler(err, req, res, next) {
     method: req.method,
   });
 
-  // Determine status code
-  const statusCode = err.statusCode || 500;
+  // Determine status code (support err.statusCode or err.status e.g. from body-parser)
+  const statusCode = err.statusCode || err.status || 500;
 
   // Determine error type
-  const type = err.type || 'internal_error';
+  let type = err.type;
+  if (statusCode === 413 || err.type === 'entity.too.large') {
+    type = 'payload_too_large';
+  } else if (statusCode === 429 || err.type === 'rate_limit_exceeded') {
+    type = 'rate_limit_exceeded';
+  } else if (!type) {
+    type = statusCode === 500 ? 'internal_error' : 'error';
+  }
+
+  // Set Retry-After header for 429 if present
+  if (statusCode === 429 && err.retryAfterSeconds && typeof res.setHeader === 'function') {
+    res.setHeader('Retry-After', String(err.retryAfterSeconds));
+  }
 
   // Determine message (don't expose internal errors in production)
   const isDevelopment = process.env.NODE_ENV === 'development';

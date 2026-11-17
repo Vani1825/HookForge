@@ -2,7 +2,7 @@
  * Tests for TokenBucketRateLimiter.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { tryAcquire, clear } from '../../../src/services/resilience/tokenBucketRateLimiter.js';
 import clock from '../../../src/utils/clock.js';
 

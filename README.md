@@ -1,138 +1,509 @@
-# HookForge
+# 🔗 HookForge 2.0
 
-Reliable, event-driven webhook delivery platform built with Node.js, Express, and PostgreSQL.
+CI • React • Vite • Tailwind CSS • Node.js • Express • PostgreSQL • Docker • Redis • RabbitMQ
 
-HookForge serves as a robust webhook delivery middleware providing durable queueing, atomic queue claiming, guaranteed per-endpoint sequence ordering, HMAC-SHA256 request signing, exponential backoff with full jitter, circuit breakers, per-endpoint rate limiting, and lease-based worker crash recovery.
+**A scalable, secure, and fault-tolerant webhook delivery platform designed for reliable asynchronous event processing, intelligent traffic management, and real-time system monitoring.**
+
+**Build • Innovate • Deliver**
 
 ---
 
-## Architecture Overview
+## Table of Contents
 
-HookForge utilizes **PostgreSQL as the durable queue**, avoiding external brokers like Kafka, RabbitMQ, or Redis.
+1. Overview
+2. The Problem HookForge Solves
+3. System Architecture
+4. End-to-End System Lifecycle
+5. Features
+6. Delivery Queue & Reliability Strategy
+7. Tech Stack
+8. Project Structure
+9. Getting Started
+10. Prerequisites
+11. Local Development Setup
+12. Environment Configuration
+13. Example: Webhook Event Delivery
+14. Deployment & CI/CD
+15. Testing
+16. Operational Resilience
+17. Security & Limitations
+18. Development Roadmap
+19. Team Contributions
+20. License
 
+---
+
+## Overview
+
+HookForge is a full-stack, event-driven webhook delivery platform that enables applications to reliably send events to external services through asynchronous processing.
+
+It provides a centralized system for event ingestion, endpoint management, persistent delivery scheduling, concurrent processing, automatic retries, failure recovery, and delivery monitoring.
+
+HookForge is designed around three primary layers:
+
+- **React Frontend:** Developer dashboard for managing events, endpoints, deliveries, analytics, and dead-letter records.
+- **Express Backend:** REST APIs, authentication, event ingestion, delivery scheduling, worker orchestration, retry management, and endpoint communication.
+- **Data & Processing Layer:** PostgreSQL for durable queue management, with Redis for distributed rate limiting and optional RabbitMQ for message transport as the platform evolves.
+
+The primary objective is to provide dependable webhook delivery while controlling outbound traffic, handling failures, and maintaining system observability.
+
+## The Problem HookForge Solves
+
+Traditional webhook implementations often face reliability and scalability challenges when communicating with external services.
+
+| Problem | How HookForge solves it |
+|---|---|
+| Failed webhook requests | Automatic retries with exponential backoff and jitter |
+| Duplicate event ingestion | Idempotency keys and transactional event processing |
+| Unavailable subscriber endpoints | Circuit breaker and failure recovery |
+| Excessive outbound traffic | Per-endpoint rate limiting |
+| Worker crashes | Lease-based recovery of unfinished deliveries |
+| Lost delivery records | Persistent PostgreSQL-backed queue |
+| Permanently failed deliveries | Dead Letter Queue (DLQ) and manual replay |
+| Difficult delivery tracking | Dashboard, delivery history, and analytics |
+| High processing volume | Bounded worker concurrency and backpressure management |
+
+## System Architecture
+
+HookForge follows an asynchronous, queue-driven architecture in which PostgreSQL acts as the durable source of truth for event and delivery state.
+
+### Architecture Components
+
+| Component | Responsibility |
+|---|---|
+| React Frontend | Dashboard, endpoint management, event inspection, delivery monitoring and analytics |
+| Express API | REST endpoints, authentication, validation and event ingestion |
+| Authentication | Tenant isolation and API key verification |
+| Event Ingestion | Validates incoming events and performs transactional fan-out |
+| PostgreSQL | Stores tenants, endpoints, events, deliveries and delivery attempts |
+| Dispatcher | Claims queued deliveries and schedules asynchronous processing |
+| Worker Pool | Executes outbound HTTP requests concurrently |
+| Retry Engine | Calculates retry schedules using exponential backoff and jitter |
+| Rate Limiter | Controls outbound request frequency |
+| Circuit Breaker | Prevents repeated requests to unhealthy endpoints |
+| Dead Letter Queue | Stores deliveries that exceed retry limits |
+| Redis | Planned distributed rate limiting and shared state |
+| RabbitMQ | Optional future message transport |
+| Monitoring | Prometheus metrics and Grafana dashboards |
+
+### High-Level Architecture Flow
+
+```text
+              Client Application
+                      |
+                      |
+                POST /events
+                      |
+                      v
+              Express REST API
+                      |
+              Authentication
+              & Validation
+                      |
+                      v
+             Event Ingestion
+                      |
+             Transactional Fan-out
+                      |
+                      v
+              PostgreSQL
+          (Durable Delivery Queue)
+                      |
+                      v
+              Dispatcher
+                      |
+              Atomic Claiming
+                      |
+                      v
+                Worker Pool
+                      |
+          +-----------+-----------+
+          |           |           |
+          v           v           v
+      Rate Limit   Circuit     Retry Engine
+                   Breaker
+          |           |           |
+          +-----------+-----------+
+                      |
+                      v
+             Outbound HTTP POST
+                + HMAC-SHA256
+                      |
+                      v
+              External Endpoint
+                      |
+                HTTP Response
+                      |
+          +-----------+-----------+
+          |                       |
+          v                       v
+       SUCCESS                 FAILURE
+          |                       |
+          v                       v
+      PostgreSQL            Retry Scheduling
+                                  |
+                          Maximum Attempts?
+                                  |
+                            +-----+-----+
+                            |           |
+                           YES          NO
+                            |           |
+                            v           v
+                           DLQ       Retry Queue
 ```
-                           +----------------------+
-                           |  Client Application  |
-                           +----------+-----------+
-                                      |
-                      POST /events    | (Bearer <api-key>)
-                                      v
-                        +-------------+------------+
-                        |  Express HTTP API Layer  |
-                        +-------------+------------+
-                                      |
-                           Atomic fan-out & sequence
-                                      v
-                     +----------------+----------------+
-                     |    PostgreSQL Storage & Queue   |
-                     |  - events (idempotency key uq)  |
-                     |  - endpoints (circuit state)    |
-                     |  - deliveries (FOR UPDATE SKIP) |
-                     |  - delivery_attempts (audit log)|
-                     +----------------+----------------+
-                                      ^
-               Atomic Claim           |  Status & Lease
-            (FOR UPDATE SKIP LOCKED)  |  Management
-                                      v
-                     +----------------+----------------+
-                     |    Asynchronous Dispatcher      |
-                     |  - Rate Limiter (Token Bucket)  |
-                     |  - Circuit Breaker (Threshold)  |
-                     |  - Lease Reaper (Crash Recovery)|
-                     +----------------+----------------+
-                                      |
-                    HTTP POST + HMAC  |
-                    X-Webhook-Signature
-                                      v
-                        +-------------+------------+
-                        |    Webhook Receiver      |
-                        +--------------------------+
+
+## End-to-End System Lifecycle
+
+### Phase 0: Server Initialization
+
+- Loads environment configuration.
+- Initializes the Express application.
+- Establishes PostgreSQL database connectivity.
+- Configures middleware, CORS and request validation.
+- Initializes the dispatcher and background processing components.
+- Starts health-check endpoints.
+- Configures graceful shutdown.
+
+### Phase 1: Authentication and Event Ingestion
+
+- Client authenticates using an API key.
+- API validates the tenant and request payload.
+- Idempotency keys prevent duplicate event creation.
+- Event records are persisted in PostgreSQL.
+- Active endpoints are identified.
+- Delivery records are created transactionally.
+- Sequence numbers are allocated per endpoint.
+
+### Phase 2: Delivery Scheduling and Queue Processing
+
+- Dispatcher polls the PostgreSQL delivery queue.
+- Workers claim eligible deliveries atomically.
+- `FOR UPDATE SKIP LOCKED` prevents multiple workers from claiming the same delivery.
+- Lease deadlines are assigned to claimed records.
+- Endpoint ordering is maintained.
+- Outbound HTTP requests are executed asynchronously.
+
+### Phase 3: Request Signing and Delivery
+
+- Generates an HMAC-SHA256 signature.
+- Attaches delivery identifiers and timestamp headers.
+- Sends the event payload to the registered endpoint.
+- Captures the HTTP response and delivery latency.
+- Updates delivery status in PostgreSQL.
+
+### Phase 4: Failure Detection and Recovery
+
+- Classifies HTTP responses.
+- Retries temporary failures.
+- Applies exponential backoff with full jitter.
+- Activates circuit breakers after repeated failures.
+- Recovers expired worker leases.
+- Moves permanently failed deliveries to the DLQ.
+
+### Phase 5: Advanced Delivery Management
+
+Planned enhancements include:
+
+- Scheduled webhook execution.
+- Configurable retry policies.
+- Bulk delivery replay.
+- Endpoint connectivity testing.
+- Delivery diagnostics.
+- Event templates.
+- Advanced delivery inspection.
+
+### Phase 6: Distributed Processing
+
+- Redis-based distributed rate limiting.
+- Shared rate-limit state across workers.
+- Optional RabbitMQ message transport.
+- Improved worker pool management.
+- Backpressure control.
+- Load and throughput benchmarking.
+
+### Phase 7: Monitoring and Administration
+
+- Delivery success and failure analytics.
+- Queue depth monitoring.
+- Worker health monitoring.
+- Prometheus metrics.
+- Grafana dashboards.
+- API key management.
+- Role-based access control.
+- Audit logs and security alerts.
+
+### Phase 8: Deployment and Production Readiness
+
+- Production Docker configuration.
+- GitHub Actions CI/CD pipeline.
+- Database backup and recovery.
+- Automated performance testing.
+- Deployment verification.
+- Final documentation and project demonstration.
+
+## Features
+
+### Event Management
+
+- Event ingestion through REST APIs.
+- JSON payload validation.
+- Tenant-scoped idempotency.
+- Atomic transactional fan-out.
+- Event and delivery association.
+- Event inspection and tracking.
+
+### Endpoint Management
+
+- Register webhook endpoints.
+- Configure endpoint-level rate limits.
+- Activate and deactivate endpoints.
+- Generate webhook signing secrets.
+- Track endpoint circuit breaker status.
+- Inspect endpoint delivery performance.
+
+### Delivery Management
+
+- Asynchronous delivery execution.
+- Bounded concurrent worker processing.
+- Per-endpoint FIFO sequence ordering.
+- Delivery status tracking.
+- HTTP response classification.
+- Complete delivery attempt history.
+
+### Retry Management
+
+- Exponential backoff with full jitter.
+- Configurable maximum attempts.
+- Automatic retry scheduling.
+- Manual replay of failed deliveries.
+- Lease-based crash recovery.
+
+### Dead Letter Queue
+
+- Permanently failed delivery storage.
+- Failure reason tracking.
+- Delivery attempt inspection.
+- Manual replay functionality.
+- Planned bulk replay and advanced filtering.
+
+### Security
+
+- Bearer token authentication.
+- SHA-256 hashed API keys.
+- HMAC-SHA256 request signing.
+- Timestamp-based signature verification.
+- Tenant-level data isolation.
+- Planned SSRF protection and secret rotation enhancements.
+
+## Delivery Queue & Reliability Strategy
+
+PostgreSQL is the durable queue and source of truth for delivery state.
+
+### 1. Atomic Queue Claiming
+
+Workers use PostgreSQL transactions and `SELECT ... FOR UPDATE SKIP LOCKED` to claim available deliveries without competing for the same record.
+
+### 2. Idempotency
+
+A unique tenant-scoped idempotency key prevents duplicate event creation when clients retry ingestion requests.
+
+### 3. Exponential Backoff with Jitter
+
+Failed requests are rescheduled using:
+
+```text
+delay = random(0, min(cap, base * 2^(attempts - 1)))
 ```
 
-### Core Architecture Components
+This avoids synchronized retry spikes and reduces unnecessary pressure on external services.
 
-1. **Transactional Ingestion (`EventIngestService`):**
-   - Atomically records the event with `(tenant_id, idempotency_key)` uniqueness.
-   - Fans out delivery records to all active endpoints registered to the authenticated tenant.
-   - Allocates monotonically increasing sequence numbers (`seq`) per endpoint.
+### 4. Circuit Breaker
 
-2. **Durable Delivery Queue (`JdbcDeliveryRepository`):**
-   - PostgreSQL `deliveries` table serves as the queue.
-   - Workers claim work using `SELECT ... FOR UPDATE SKIP LOCKED` inside transactions.
-   - Enforces per-endpoint FIFO ordering: a delivery is only claimed if no earlier sequence delivery for that endpoint is non-terminal (`PENDING`, `RETRYING`, or `IN_FLIGHT`).
-   - Assigns a lease deadline (`lease_until`) to every claimed delivery.
+HookForge implements three circuit states:
 
-3. **Resilience & Fault Tolerance:**
-   - **Exponential Jitter Retry Policy:** `delay = random(0, min(cap, base * 2^(attempts-1)))` with full jitter up to 8 attempts.
-   - **Threshold Circuit Breaker:** Trips to `OPEN` after 5 consecutive failures; enters `HALF_OPEN` probe after 1 minute cooldown; resets to `CLOSED` on success. Circuit state is persisted in PostgreSQL on the `endpoints` row.
-   - **Token Bucket Rate Limiter:** Per-endpoint rate limiting adhering to configured `rate_limit_rps`.
-   - **Lease Reaper:** Background process recovering expired `IN_FLIGHT` leases caused by ungraceful worker termination.
+| State | Behaviour |
+|---|---|
+| CLOSED | Requests are allowed normally |
+| OPEN | Requests are temporarily stopped |
+| HALF_OPEN | Limited recovery requests are permitted |
 
-4. **Security & Authentication:**
-   - Authenticates tenants via `Authorization: Bearer <api-key>`.
-   - Raw API keys are never stored; only SHA-256 hashes are persisted and looked up.
-   - Cryptographic signatures generated using HMAC-SHA256 with timestamp in the header `X-Webhook-Signature: t=<unix>,v1=<hex>`.
-   - Stable `X-Webhook-Id` header sent with each delivery attempt.
+The existing implementation opens the circuit after five consecutive failures and permits a recovery probe after a one-minute cooldown.
 
----
+### 5. Lease-Based Recovery
 
-## Technology Stack
+Every claimed delivery receives a lease deadline.
 
-- **Runtime:** Node.js (>= 20)
-- **Framework:** Express 5
-- **Database:** PostgreSQL 16 (using `pg` pool and explicit parameterized SQL)
-- **Test Suite:** Vitest 3 + Supertest
-- **Containerization:** Docker Compose
+If a worker terminates unexpectedly, the lease reaper identifies expired in-flight records and makes them eligible for recovery.
 
----
+### 6. Dead Letter Queue
 
-## Key Features Implemented
+Deliveries that exhaust their retry attempts are marked as permanently failed and become available for inspection and manual replay.
 
-- [x] Multi-tenant isolation for all routes and operations.
-- [x] API Key Bearer authentication (SHA-256 hashed).
-- [x] Endpoint management (create, list, update).
-- [x] Webhook signing secret generation (`whsec_...`).
-- [x] Event ingestion with tenant-scoped idempotency keys.
-- [x] Atomic transactional fan-out to active endpoints.
-- [x] Monotonic per-endpoint sequence allocation.
-- [x] Atomic queue claiming with `FOR UPDATE SKIP LOCKED`.
-- [x] Strict per-endpoint FIFO ordering (guaranteed single in-flight per endpoint).
-- [x] HMAC-SHA256 signature generation (`X-Webhook-Signature`).
-- [x] Stable delivery identifier header (`X-Webhook-Id`).
-- [x] Exponential backoff with full jitter and maximum attempt ceiling.
-- [x] Response classification (2xx success, 410 dead, 429 rate limited, 5xx/network retry).
-- [x] Token bucket rate limiter.
-- [x] Three-state circuit breaker (CLOSED, OPEN, HALF_OPEN) with persistence.
-- [x] Lease-based crash recovery reaper for orphaned in-flight deliveries.
-- [x] Dead-letter queue (DLQ) querying (`GET /deliveries?state=DEAD`).
-- [x] Manual replay API (`POST /deliveries/:id/replay`) with attempt count reset.
-- [x] Comprehensive delivery attempt history logging.
+### 7. Distributed Rate Limiting
 
----
+Redis is planned to maintain shared rate-limit state across multiple worker processes.
 
-## Prerequisites
+### 8. Optional Message Broker
+
+RabbitMQ may be introduced as a dispatch transport while PostgreSQL continues to maintain durable delivery records and final delivery state.
+
+## Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| Frontend | React, Vite, React Router, Tailwind CSS |
+| Backend | Node.js, Express.js |
+| Database | PostgreSQL 16 |
+| Database Client | Node PostgreSQL (`pg`) |
+| Validation | Zod |
+| Authentication | API Key Bearer Authentication, SHA-256 |
+| Webhook Security | HMAC-SHA256 |
+| Queue Management | PostgreSQL, `FOR UPDATE SKIP LOCKED` |
+| Rate Limiting | Token Bucket, Redis (planned) |
+| Message Broker | RabbitMQ (optional planned integration) |
+| Testing | Vitest, Supertest |
+| Performance Testing | k6 (planned) |
+| Monitoring | Prometheus and Grafana (planned) |
+| Containerization | Docker, Docker Compose |
+| CI/CD | GitHub Actions |
+
+**Core Database Entities:** Tenant, Endpoint, Event, Delivery, Delivery Attempt.
+
+## Project Structure
+
+```text
+HookForge/
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml
+│
+├── backend/
+│   ├── src/
+│   │   ├── app.js
+│   │   ├── config/
+│   │   ├── controllers/
+│   │   ├── middleware/
+│   │   ├── routes/
+│   │   ├── services/
+│   │   ├── repositories/
+│   │   ├── workers/
+│   │   └── utils/
+│   │
+│   ├── migrations/
+│   ├── tests/
+│   └── package.json
+│
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── layouts/
+│   │   ├── services/
+│   │   ├── hooks/
+│   │   └── context/
+│   │
+│   ├── public/
+│   ├── package.json
+│   └── vite.config.js
+│
+├── docker-compose.yml
+├── .env.example
+├── package.json
+├── .gitignore
+└── README.md
+```
+
+*Note: This represents the logical target structure. Adjust directory names to match the actual repository as new modules are introduced.*
+
+## Getting Started
+
+### Prerequisites
 
 - Node.js >= 20.x
-- Docker & Docker Compose (or local PostgreSQL 16)
+- npm
+- Docker Desktop
+- Docker Compose
+- PostgreSQL 16 (if running without Docker)
+- Git
 
----
+### Option A: Local Development Setup
+
+#### 1. Clone the repository
+
+```bash
+git clone https://github.com/Vani1825/HookForge.git
+cd HookForge
+```
+
+#### 2. Start Docker Desktop
+
+Ensure Docker Desktop is running before starting the containers.
+
+#### 3. Start PostgreSQL and backend services
+
+```powershell
+docker compose up -d
+```
+
+Verify containers:
+
+```powershell
+docker ps --filter "name=hookforge"
+```
+
+#### 4. Install dependencies
+
+```powershell
+npm install
+npm install --prefix backend
+npm install --prefix frontend
+```
+
+#### 5. Run database migrations
+
+```powershell
+npm run db:migrate
+```
+
+#### 6. Initialize a development tenant
+
+```powershell
+npm run tenant:init
+```
+
+Save the generated API key securely. It cannot be recovered as plaintext because only its SHA-256 hash is stored.
+
+#### 7. Start the frontend
+
+```powershell
+npm run dev:frontend
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+#### 8. Verify backend health
+
+```powershell
+curl.exe http://localhost:8081/health
+```
+
+The backend should return a successful health response.
 
 ## Environment Configuration
 
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Default verified configuration:
+Create the backend environment file using `.env.example`:
 
 ```env
 # Server
 PORT=8081
 NODE_ENV=development
 
-# Database (HookForge PostgreSQL container mapped to host port 5434)
+# PostgreSQL
 DATABASE_HOST=localhost
 DATABASE_PORT=5434
 DATABASE_USER=webhooks
@@ -164,381 +535,357 @@ HTTP_READ_TIMEOUT=10s
 INGEST_MAX_PAYLOAD_BYTES=262144
 ```
 
----
+Frontend configuration:
 
-## Getting Started (Local Setup & PowerShell Commands)
-
-### 1. Start Docker Desktop and HookForge Services
-
-To avoid conflicts with existing services running on default PostgreSQL ports (5432 or 5433), HookForge maps PostgreSQL to host port `5434` and the Express backend to host port `8081`:
-
-```powershell
-# Start HookForge PostgreSQL and Backend containers
-docker compose up -d
+```env
+VITE_API_BASE_URL=http://localhost:8081
 ```
 
-Verify the containers are healthy and running:
-```powershell
-docker ps --filter "name=hookforge"
+| Variable | Purpose |
+|---|---|
+| PORT | Backend server port |
+| DATABASE_HOST | PostgreSQL hostname |
+| DATABASE_PORT | PostgreSQL host port |
+| DATABASE_USER | Database username |
+| DATABASE_PASSWORD | Database password |
+| DATABASE_NAME | Database name |
+| RETRY_MAX_ATTEMPTS | Maximum delivery attempts |
+| DISPATCHER_BATCH_SIZE | Number of deliveries claimed per batch |
+| DISPATCHER_WORKER_CONCURRENCY | Worker concurrency limit |
+| CIRCUIT_FAILURE_THRESHOLD | Consecutive failures before opening circuit |
+| INGEST_MAX_PAYLOAD_BYTES | Maximum accepted event payload |
+| VITE_API_BASE_URL | Frontend API base URL |
+
+Never commit `.env` files, API keys, or signing secrets to source control.
+
+## Example: Webhook Event Delivery
+
+Suppose an e-commerce application generates an order event.
+
+**Step 1: Register an endpoint**
+
+```http
+POST /endpoints
+Authorization: Bearer <api-key>
+Content-Type: application/json
 ```
 
-### 2. Install Dependencies
-
-Install root and workspace dependencies:
-
-```powershell
-# Root monorepo
-npm install
-
-# Backend dependencies
-npm install --prefix backend
-
-# Frontend dependencies
-npm install --prefix frontend
+```json
+{
+  "url": "https://example.com/webhook",
+  "rateLimitRps": 20
+}
 ```
 
-### 3. Run Database Migrations
+**Step 2: Ingest an event**
 
-Apply the database schema from `backend/migrations/V1__init.sql` to your local PostgreSQL instance:
-
-```powershell
-npm run db:migrate
+```http
+POST /events
+Authorization: Bearer <api-key>
+Idempotency-Key: order_event_001
+Content-Type: application/json
 ```
 
-### 4. Initialize a Local Development Tenant
-
-Generate your own cryptographically secure development API key and register a local tenant in PostgreSQL:
-
-```powershell
-npm run tenant:init
+```json
+{
+  "event": "order.created",
+  "orderId": "ORD123",
+  "amount": 4999
+}
 ```
 
-Output:
-```text
-=============================================================================
-           HookForge Development Tenant Initialized Successfully
-=============================================================================
-Tenant Name:  Default Dev Tenant
-Tenant ID:    <generated-uuid>
-Created At:   ...
------------------------------------------------------------------------------
-Development API Key:  whkey_<48-character-random-hex>
------------------------------------------------------------------------------
-IMPORTANT:
-1. Copy and save this API key now. HookForge stores only the SHA-256 hash
-   in PostgreSQL and cannot recover the plaintext key later.
-2. This key was NOT written to any file or committed to source control.
+**Step 3: Event processing**
+
+- The event is validated.
+- PostgreSQL stores the event.
+- Delivery records are created for active endpoints.
+- The dispatcher claims eligible deliveries.
+- A worker sends the webhook request.
+
+**Step 4: Request signing**
+
+Outgoing webhook requests contain:
+
+```http
+X-Webhook-Id: <delivery-uuid>
+X-Webhook-Timestamp: <unix-timestamp>
+X-Webhook-Signature: t=<timestamp>,v1=<hmac-sha256>
 ```
 
-> **Security & Idempotency Notes:**
-> - The command generates a cryptographically random 192-bit key (`whkey_...`).
-> - Only the SHA-256 hash is persisted into `tenants.api_key_hash`.
-> - The script refuses to run if `NODE_ENV=production`.
-> - If run again, existing tenant data is preserved without creating accidental duplicate tenants.
+The signature is generated using the endpoint's signing secret and the timestamp-prefixed raw payload.
 
-### 5. Configure the Development API Key in Frontend Settings
+**Step 5: Delivery status**
 
-1. Open HookForge in your browser at [http://localhost:5173](http://localhost:5173).
-2. Click **Settings** (or Platform Settings) in the sidebar.
-3. Under **Backend API Configuration**:
-   - **Backend Base URL:** `http://localhost:8081`
-   - **Tenant API Key (X-Api-Key):** `<paste your generated whkey_... key>`
-4. Click **Save API Preferences**.
-5. Click **Test Health** to confirm the `200 OK` connection to `/health`.
-6. Under **Environment Operation Mode**, click **Live API Mode**.
-7. Navigate to the **Dashboard** — your live metrics, endpoints, and deliveries will load immediately without authentication errors.
+The platform records the response and updates the delivery state.
 
-### 6. Start the Frontend Development Server
+Possible outcomes:
 
-If not already running:
+- `SUCCESS`: Delivery completed successfully.
+- `RETRYING`: Temporary failure; another attempt is scheduled.
+- `DEAD`: Maximum attempts reached; delivery enters the DLQ.
 
-```powershell
-npm run dev:frontend
-# Or: cd frontend; npm run dev
-```
+## Deployment & CI/CD
 
-Visit [http://localhost:5173](http://localhost:5173) in your browser.
+### Local Deployment
 
-### 7. Verify Authentication & Submit a Test Event (PowerShell)
+| Component | Address |
+|---|---|
+| Frontend | http://localhost:5173 |
+| Backend | http://localhost:8081 |
+| PostgreSQL | localhost:5434 |
+| Mock Webhook Receiver | localhost:9000 |
 
-You can verify the complete pipeline using PowerShell:
+### CI/CD Pipeline
 
-```powershell
-# Set your development key in PowerShell session
-$API_KEY = "whkey_<your-generated-key>"
+GitHub Actions is planned to automate:
 
-# 1. Check Backend Health (public route)
-curl.exe -s http://localhost:8081/health
+- Backend dependency installation.
+- Automated unit and integration tests.
+- Frontend dependency installation.
+- Frontend production build.
+- Docker build verification.
+- Deployment checks.
 
-# 2. Verify Authentication (protected route returns empty array or registered endpoints)
-curl.exe -s -H "Authorization: Bearer $API_KEY" http://localhost:8081/endpoints
+### Production Deployment
 
-# 3. Register a Webhook Endpoint
-curl.exe -s -X POST http://localhost:8081/endpoints `
-  -H "Authorization: Bearer $API_KEY" `
-  -H "Content-Type: application/json" `
-  -d '{\"url\":\"http://host.docker.internal:9000/hook\",\"rateLimitRps\":20}'
+Production deployment will include:
 
-# 4. Ingest an Event with an Idempotency Key
-curl.exe -s -X POST http://localhost:8081/events `
-  -H "Authorization: Bearer $API_KEY" `
-  -H "Idempotency-Key: evt_ps_test_001" `
-  -H "Content-Type: application/json" `
-  -d '{\"event\":\"order.completed\",\"orderId\":\"ord_9901\",\"amount\":4999}'
+- Dockerized frontend and backend.
+- PostgreSQL persistence and backups.
+- Environment-specific configuration.
+- Secure secrets management.
+- Health checks.
+- Automated deployment pipeline.
+- Recovery and restart verification.
 
-# 5. Retrieve Deliveries Status
-curl.exe -s "http://localhost:8081/deliveries?state=ALL" `
-  -H "Authorization: Bearer $API_KEY"
-```
+## Testing
 
----
+HookForge includes unit, integration, and end-to-end testing.
 
-## Troubleshooting Guide
+### Existing Automated Tests
 
-### 1. `401 Unauthorized` / "Backend Connection Failed — Unauthorized"
-
-| Symptom | Cause | Solution |
-|---|---|---|
-| `{"error":"Unauthorized","message":"Missing Authorization header"}` | The client did not send an `Authorization` header. | In the frontend Settings page, paste your API key and click **Save API Preferences**. Ensure `Authorization: Bearer <key>` is sent. |
-| `{"error":"Unauthorized","message":"Invalid API key"}` | The API key sent does not match any tenant in PostgreSQL (`SELECT id FROM tenants WHERE api_key_hash = SHA256(key)`). | Run `npm run tenant:init` to create a dev tenant. Copy the generated `whkey_...` key and paste it into Settings. |
-| `{"error":"Unauthorized","message":"Authorization header must use Bearer scheme"}` | The header scheme is not `Bearer <key>` (e.g., `Basic` or missing prefix). | Provide the header in format: `Authorization: Bearer whkey_...`. |
-| Dashboard shows "Backend Connection Failed — Unauthorized" | Frontend is in **Live API Mode** but `localStorage` or `VITE_API_KEY` is empty or invalid. | Go to `http://localhost:5173/settings`, enter your development API key, click **Save API Preferences**, and reload Dashboard. |
-
-### 2. Database Connection Failures (`ECONNREFUSED` / Database Down)
-
-- **Port Mapping:** HookForge's PostgreSQL container binds to host port `5434` (mapped to container `5432`). Ensure `.env` and `backend/.env` have `DATABASE_PORT=5434`.
-- **Existing Postgres Instances:** If port 5432 or 5433 is in use by another local PostgreSQL or Docker project, HookForge avoids them by using `5434`. Do NOT change `DATABASE_PORT` to 5432 unless you are certain your HookForge container is mapped to 5432.
-- **Restart Container:** Run `docker compose restart postgres` and verify status with `docker compose ps`.
-
-### 3. Port Conflicts
-
-- **Port 8081 (Backend):** HookForge Express server is exposed on host port `8081`. If another service occupies 8081, update the host port in `docker-compose.yml` (`"8082:8080"`) and update `VITE_API_BASE_URL` in `frontend/.env`.
-- **Port 5173 (Frontend):** Vite runs on `5173`. If occupied, Vite automatically chooses `5174`. Check terminal output when running `npm run dev:frontend`.
-- **Webhook Target URLs:** When running HookForge in Docker, `http://localhost:<port>` from within the backend container refers to the container itself. Use `http://host.docker.internal:<port>` to reach services running on the host machine.
-
----
-
-## Automated Tests
-
-### Unit & Integration Test Suite
-
-Execute the 19 test suites containing 131 tests:
+Run the test suite:
 
 ```bash
 npm test
 ```
 
-Current test status:
-- **Test Files:** 19 passed (100%)
-- **Tests:** 131 passed (100%)
+The existing documented test baseline contains:
 
-### End-to-End Acceptance Verification
+| Metric | Result |
+|---|---:|
+| Test Files | 19 |
+| Tests | 131 |
+| Passing Tests | 131 |
+| Pass Rate | 100% |
 
-Execute the end-to-end acceptance suite testing all 8 core scenarios against live PostgreSQL and a controlled mock HTTP receiver:
+### End-to-End Acceptance Tests
 
 ```bash
 npm run test:e2e
 ```
 
-Current E2E status:
-- `Test 1: Successful signed delivery` — **PASS**
-- `Test 2: Idempotency` — **PASS**
-- `Test 3: Ordering` — **PASS**
-- `Test 4: Retry` — **PASS**
-- `Test 5: Dead-letter replay` — **PASS**
-- `Test 6: Lease recovery` — **PASS**
-- `Test 7: Circuit breaker` — **PASS**
-- `Test 8: Tenant isolation` — **PASS**
+The existing acceptance suite covers:
+
+| Test Scenario | Expected Behaviour |
+|---|---|
+| Successful signed delivery | Valid webhook reaches receiver |
+| Idempotency | Duplicate event is not created |
+| Ordering | Per-endpoint sequence is maintained |
+| Retry | Temporary failure is retried |
+| Dead-letter replay | Failed delivery can be replayed |
+| Lease recovery | Expired worker lease is recovered |
+| Circuit breaker | Repeated failures open circuit |
+| Tenant isolation | Tenants cannot access each other's records |
+
+### Planned Performance Testing
+
+Using k6, the platform will be tested for:
+
+- High-volume event ingestion.
+- Concurrent delivery processing.
+- Slow subscriber responses.
+- Multiple endpoint workloads.
+- Queue backlog growth.
+- Worker shutdown and recovery.
+
+Performance metrics:
+
+- Events per second.
+- Deliveries per second.
+- p95 and p99 latency.
+- Queue wait time.
+- Database query latency.
+- Worker utilization.
+
+## Operational Resilience
+
+**Graceful failure recovery:** Expired worker leases are detected and recovered.
+
+**Durable persistence:** PostgreSQL maintains event and delivery records.
+
+**Retry scheduling:** Exponential backoff with full jitter prevents aggressive retry behaviour.
+
+**Circuit breaking:** Repeated endpoint failures temporarily stop further requests.
+
+**Traffic control:** Token bucket rate limiting controls outbound request frequency.
+
+**Delivery audit trail:** Every delivery attempt is recorded for inspection.
+
+**Tenant isolation:** Database operations are scoped to authenticated tenants.
+
+**Bounded concurrency:** Workers process a controlled number of deliveries to avoid unbounded resource consumption.
+
+**Future observability:** Prometheus and Grafana will provide system-wide performance visibility.
+
+## Security & Limitations
+
+### Security Measures
+
+- API keys are stored as SHA-256 hashes.
+- HMAC-SHA256 protects webhook payload integrity.
+- Timestamp headers support replay detection at receivers.
+- Parameterized SQL queries help prevent SQL injection.
+- Tenant-scoped operations enforce data isolation.
+- Endpoint signing secrets are not returned by ordinary listing APIs.
+
+### Current Limitations
+
+- PostgreSQL is the durable queue and can become a throughput bottleneck under high write contention.
+- Token bucket rate limiting currently uses single-process memory and is not shared across multiple instances.
+- Strict FIFO delivery introduces head-of-line blocking for individual endpoints.
+- At-least-once delivery can result in duplicate requests; receivers should deduplicate using `X-Webhook-Id`.
+- Replaying a permanently failed delivery does not preserve its original sequence position relative to newer deliveries.
+- Full private-network egress filtering and comprehensive SSRF protection remain planned security enhancements.
+- RabbitMQ is an optional extension, not a current requirement.
+- Redis-based distributed rate limiting and Prometheus/Grafana integration are planned enhancements.
+
+## Development Roadmap
+
+HookForge 2.0 is being developed through six phases over an estimated ten-week schedule.
+
+| Phase | Timeline | Focus |
+|---|---|---|
+| Phase 0 | Week 1 | Stabilization & Audit Closure |
+| Phase 1 | Weeks 2–3 | Frontend Redesign |
+| Phase 2 | Weeks 4–5 | Advanced Webhook Management |
+| Phase 3 | Weeks 6–7 | Distributed Systems Enhancements |
+| Phase 4 | Weeks 8–9 | Security & Observability |
+| Phase 5 | Week 10 | Deployment & Performance |
+
+### Phase 0 – Stabilization & Audit Closure
+
+- Verify backend test suites and APIs.
+- Fix authentication and CORS issues.
+- Align Docker and environment configurations.
+- Resolve analytics and metrics inconsistencies.
+- Review security issues, SSRF and secrets.
+- Improve request limits and optimize database queries.
+- Verify frontend-backend integration.
+- Set up CI workflow.
+
+### Phase 1 – Frontend Redesign
+
+- Modernize the UI layout.
+- Improve dashboard and charts.
+- Add search and filters.
+- Enhance event and delivery pages.
+- Improve error and loading states.
+- Make the application responsive.
+- Add notifications and confirmation dialogs.
+
+### Phase 2 – Advanced Webhook Management
+
+- Implement scheduled webhook delivery.
+- Support bulk replay.
+- Add endpoint connectivity testing.
+- Introduce custom retry policies.
+- Add webhook templates.
+- Improve filtering and delivery inspection.
+
+### Phase 3 – Distributed Systems Enhancements
+
+- Integrate Redis for caching and distributed rate limiting.
+- Evaluate optional RabbitMQ integration.
+- Improve worker pool management.
+- Implement backpressure control.
+- Monitor worker health.
+- Introduce queue metrics.
+- Benchmark system performance.
+
+### Phase 4 – Security & Observability
+
+- Implement role-based access control.
+- Improve API key management.
+- Introduce audit logs and security alerts.
+- Integrate Prometheus metrics.
+- Build Grafana monitoring dashboards.
+- Implement SSRF protection.
+- Support signing secret rotation.
+
+### Phase 5 – Deployment & Performance
+
+- Configure production Docker deployment.
+- Perform load testing using k6.
+- Build the GitHub Actions deployment pipeline.
+- Implement backup and recovery procedures.
+- Complete final UI improvements.
+- Prepare documentation and project demonstration.
+
+## Team Contributions
+
+HookForge 2.0 is developed collaboratively by three members, with responsibilities distributed across the six development phases.
+
+| Member | Primary Responsibility | Focus |
+|---|---|---|
+| Mannat | Backend & Infrastructure | API reliability, database, Redis, security and deployment |
+| Vani | Frontend & Integration | UI redesign, delivery management, analytics and observability |
+| Tanvi | Advanced Features & Production Readiness | Endpoint security, worker monitoring, scheduled delivery and deployment support |
+
+### Mannat – Backend & Infrastructure
+
+- Backend API stabilization.
+- Authentication and CORS corrections.
+- Docker and environment configuration.
+- Analytics and database query optimization.
+- Scheduled delivery and bulk replay.
+- Redis integration.
+- RBAC and API key management.
+- Production Docker configuration.
+- Load testing with k6.
+
+### Vani – Frontend & Integration
+
+- Security review and request limit improvements.
+- Dashboard and frontend redesign.
+- Event and delivery management pages.
+- Advanced filtering and delivery logs.
+- Optional RabbitMQ integration.
+- Worker pool and backpressure improvements.
+- Prometheus metrics.
+- Grafana dashboards.
+- CI/CD pipeline and backup recovery.
+
+### Tanvi – Advanced Features & Production Readiness
+
+- Frontend-backend integration verification.
+- Pagination and filtering.
+- CI workflow setup.
+- Responsive UI and notifications.
+- Delivery inspector and resend flow.
+- Worker health and queue metrics.
+- SSRF protection and signing secret rotation.
+- Final UI polish and documentation.
+- Project demonstration setup.
 
 ---
 
-## API Documentation
+## License
 
-All protected endpoints require an `Authorization: Bearer <api-key>` header.
-
-### 1. Register Endpoint
-`POST /endpoints`
-
-**Request:**
-```bash
-curl -X POST http://localhost:8081/endpoints \
-  -H "Authorization: Bearer <api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "url": "https://example.com/webhook",
-    "rateLimitRps": 20
-  }'
-```
-
-**Response (201 Created):**
-```json
-{
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "url": "https://example.com/webhook",
-  "secret": "whsec_abc123...",
-  "active": true,
-  "rateLimitRps": 20,
-  "circuitState": "CLOSED",
-  "createdAt": "2026-10-26T18:30:00.000Z"
-}
-```
-*Note: The `secret` is displayed only upon endpoint creation and never returned in listing APIs.*
-
-### 2. List Endpoints
-`GET /endpoints`
-
-**Request:**
-```bash
-curl -X GET http://localhost:8081/endpoints \
-  -H "Authorization: Bearer <api-key>"
-```
-
-### 3. Update Endpoint
-`PATCH /endpoints/:id`
-
-**Request:**
-```bash
-curl -X PATCH http://localhost:8081/endpoints/123e4567-e89b-12d3-a456-426614174000 \
-  -H "Authorization: Bearer <api-key>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rateLimitRps": 50,
-    "active": true
-  }'
-```
-
-### 4. Ingest Event
-`POST /events`
-
-**Headers:**
-- `Authorization: Bearer <api-key>`
-- `Idempotency-Key: <unique-client-key>`
-- `Content-Type: application/json`
-
-**Request:**
-```bash
-curl -X POST http://localhost:8081/events \
-  -H "Authorization: Bearer <api-key>" \
-  -H "Idempotency-Key: evt_idemp_991823" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "event": "payment.succeeded",
-    "customerId": "cust_882",
-    "amount": 4900
-  }'
-```
-
-**Response for New Event (202 Accepted):**
-```json
-{
-  "id": "987e6543-e89b-12d3-a456-426614174999",
-  "idempotencyKey": "evt_idemp_991823",
-  "createdAt": "2026-10-26T18:30:00.000Z",
-  "deliveriesEnqueued": 1
-}
-```
-
-**Response for Duplicate Event (200 OK):**
-```json
-{
-  "id": "987e6543-e89b-12d3-a456-426614174999",
-  "idempotencyKey": "evt_idemp_991823",
-  "createdAt": "2026-10-26T18:30:00.000Z",
-  "deliveriesEnqueued": 0
-}
-```
-
-### 5. Get Deliveries for an Event
-`GET /events/:id/deliveries`
-
-**Request:**
-```bash
-curl -X GET http://localhost:8081/events/987e6543-e89b-12d3-a456-426614174999/deliveries \
-  -H "Authorization: Bearer <api-key>"
-```
-
-### 6. List Dead Deliveries (DLQ)
-`GET /deliveries?state=DEAD`
-
-**Request:**
-```bash
-curl -X GET "http://localhost:8081/deliveries?state=DEAD&limit=50" \
-  -H "Authorization: Bearer <api-key>"
-```
-
-### 7. Replay Dead Delivery
-`POST /deliveries/:id/replay`
-
-**Request:**
-```bash
-curl -X POST http://localhost:8081/deliveries/123e4567-e89b-12d3-a456-426614174000/replay \
-  -H "Authorization: Bearer <api-key>"
-```
-
-**Response (200 OK):**
-```json
-{
-  "id": "123e4567-e89b-12d3-a456-426614174000",
-  "eventId": "987e6543-e89b-12d3-a456-426614174999",
-  "endpointId": "456e7890-e89b-12d3-a456-426614174111",
-  "seq": 1,
-  "state": "PENDING",
-  "attemptCount": 0,
-  "nextAttemptAt": "2026-10-26T18:31:00.000Z",
-  "lastError": null
-}
-```
+This project is developed for educational and engineering purposes. See the repository license for applicable terms.
 
 ---
 
-## Webhook Signature Verification
+**Built with ❤️ by Team HookForge.**
 
-HookForge attaches the following headers to outgoing webhooks:
-- `X-Webhook-Signature`: `t=<unix_timestamp>,v1=<hmac_sha256_hex>`
-- `X-Webhook-Timestamp`: `<unix_timestamp>`
-- `X-Webhook-Id`: `<stable_delivery_uuid>`
-
-### Receiver Verification Example (Node.js)
-
-```javascript
-import crypto from 'crypto';
-
-function verifyWebhook(secret, rawBody, signatureHeader) {
-  const match = signatureHeader.match(/^t=(\d+),v1=([a-f0-9]+)$/);
-  if (!match) return false;
-
-  const [_, timestamp, signature] = match;
-  const signedPayload = `${timestamp}.${rawBody}`;
-  const expectedSignature = crypto
-    .createHmac('sha256', secret)
-    .update(signedPayload)
-    .digest('hex');
-
-  return crypto.timingSafeEqual(
-    Buffer.from(signature, 'hex'),
-    Buffer.from(expectedSignature, 'hex')
-  );
-}
-```
-
----
-
-## Delivery Guarantees & Honest Limitations
-
-1. **At-Least-Once Delivery:**
-   HookForge guarantees at-least-once delivery. Network anomalies, timeouts, and receiver crashes may result in retries even after the receiver processed an attempt. Receivers **must** perform deduplication using the stable `X-Webhook-Id` header.
-
-2. **Head-of-Line Blocking under Strict Ordering:**
-   To guarantee strict FIFO sequence order (`seq = 1, 2, 3...`), deliveries to a single endpoint are processed sequentially. If delivery `seq = 1` repeatedly fails or is delayed, subsequent deliveries for that endpoint are blocked until delivery 1 succeeds, times out, or reaches its maximum attempts (`DEAD`).
-
-3. **Replay Breaks Original Sequence Ordering:**
-   When a `DEAD` delivery is manually replayed via `POST /deliveries/:id/replay`, it is re-queued into `PENDING` state. Because subsequent events may have already progressed or succeeded, replaying a dead-letter delivery is **not** order-preserving relative to newer events.
-
-4. **Single-Node In-Memory Resilience State:**
-   The token-bucket rate limiter currently tracks tokens in single-node memory. While circuit breaker states are persisted to PostgreSQL on the `endpoints` table, high-concurrency multi-node rate limiting is not distributed across separate processes without shared memory or database-level token accounting.
-
-5. **Throughput Bounds:**
-   Ingestion and sequence allocation rely on PostgreSQL row-level locks and transactions (`UPDATE endpoints SET next_seq = next_seq + 1`). This provides strict consistency and correctness at the trade-off of vertical database write limits.
-
-6. **SSRF Defensive Scope:**
-   Endpoint URLs are validated for protocol (`http`, `https`) and standard URL formatting. Full private network / RFC 1918 egress filtering is documented as an infrastructure-level responsibility (or future proxy enhancement).
+*Building reliable webhooks, one delivery at a time.*

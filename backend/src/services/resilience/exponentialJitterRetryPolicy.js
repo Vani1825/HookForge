@@ -5,10 +5,11 @@
 
 import { deliveryOutcome } from '../../domain/deliveryOutcome.js';
 import randomGenerator from '../../utils/random.js';
+import config from '../../config/index.js';
 
-const BASE_DELAY_MS = 5000; // 5 seconds
-const MAX_DELAY_MS = 3600000; // 1 hour
-const MAX_ATTEMPTS = 8;
+const BASE_DELAY_MS = config?.retry?.baseDelayMs ?? 5000;
+const MAX_DELAY_MS = config?.retry?.maxDelayMs ?? 3600000;
+const MAX_ATTEMPTS = config?.retry?.maxAttempts ?? 8;
 const RETRY_LIMITED_MAX_ATTEMPTS = 3;
 
 /**

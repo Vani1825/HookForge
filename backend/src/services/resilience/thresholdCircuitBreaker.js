@@ -5,9 +5,10 @@
 
 import { circuitState } from '../../domain/circuitState.js';
 import { deliveryOutcome } from '../../domain/deliveryOutcome.js';
+import config from '../../config/index.js';
 
-const FAILURE_THRESHOLD = 5;
-const OPEN_DURATION_MS = 60000; // 1 minute
+const FAILURE_THRESHOLD = config?.circuit?.failureThreshold ?? 5;
+const OPEN_DURATION_MS = config?.circuit?.openDurationMs ?? 60000; // 1 minute
 
 /**
  * Should attempt delivery based on circuit state.

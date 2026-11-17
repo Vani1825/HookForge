@@ -5,11 +5,11 @@
  */
 
 import express from 'express';
-import { body, query, param, validationResult } from 'express-validator';
+import { query, param, validationResult } from 'express-validator';
+import { TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
 import deliveryService from '../services/delivery/deliveryService.js';
 import { deliveryState } from '../domain/deliveryState.js';
 import { IllegalStateTransitionError } from '../domain/errors/illegalStateTransitionError.js';
-import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -44,6 +44,10 @@ router.get(
       .optional()
       .isUUID()
       .withMessage('endpoint_id must be a valid UUID'),
+    query('endpointId')
+      .optional()
+      .isUUID()
+      .withMessage('endpointId must be a valid UUID'),
     query('event_id')
       .optional()
       .isUUID()
@@ -70,6 +74,10 @@ router.get(
       .optional()
       .isString()
       .trim(),
+    query('search')
+      .optional()
+      .isString()
+      .trim(),
   ],
   async (req, res, next) => {
     try {
@@ -82,7 +90,7 @@ router.get(
         });
       }
 
-      const tenantId = req.tenantId;
+      const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
       const stateQuery = req.query.state;
       const state = stateQuery || 'DEAD';
 
@@ -113,11 +121,11 @@ router.get(
 
       const filters = {
         state,
-        endpoint_id: req.query.endpoint_id,
-        event_id: req.query.event_id,
-        created_after: req.query.created_after,
-        created_before: req.query.created_before,
-        q: req.query.q,
+        endpoint_id: req.query.endpoint_id || req.query.endpointId || null,
+        event_id: req.query.event_id || null,
+        created_after: req.query.created_after || null,
+        created_before: req.query.created_before || null,
+        q: req.query.q || req.query.search || null,
       };
 
       const pagination = {
@@ -139,6 +147,8 @@ router.get(
         event_id: d.eventId,
         endpointId: d.endpointId,
         endpoint_id: d.endpointId,
+        endpointUrl: d.endpointUrl || null,
+        endpoint_url: d.endpointUrl || null,
         seq: d.seq,
         state: d.state.toString(),
         attemptCount: d.attemptCount,
@@ -147,6 +157,8 @@ router.get(
         next_attempt_at: d.nextAttemptAt,
         lastError: d.lastError,
         last_error: d.lastError,
+        lastStatusCode: d.lastStatusCode ?? null,
+        last_status_code: d.lastStatusCode ?? null,
         createdAt: d.createdAt,
         created_at: d.createdAt,
         updatedAt: d.updatedAt,
@@ -197,6 +209,8 @@ router.get(
         event_id: delivery.eventId,
         endpointId: delivery.endpointId,
         endpoint_id: delivery.endpointId,
+        endpointUrl: delivery.endpointUrl || null,
+        endpoint_url: delivery.endpointUrl || null,
         seq: delivery.seq,
         state: delivery.state.toString(),
         attemptCount: delivery.attemptCount,
@@ -205,6 +219,8 @@ router.get(
         next_attempt_at: delivery.nextAttemptAt,
         lastError: delivery.lastError,
         last_error: delivery.lastError,
+        lastStatusCode: delivery.lastStatusCode ?? null,
+        last_status_code: delivery.lastStatusCode ?? null,
         createdAt: delivery.createdAt,
         created_at: delivery.createdAt,
         updatedAt: delivery.updatedAt,
@@ -236,24 +252,35 @@ router.post(
 
       const delivery = await deliveryService.replayDelivery(deliveryId, tenantId);
 
-      const deliveryData = {
+      const deliveryPayload = {
         id: delivery.id,
         eventId: delivery.eventId,
+        event_id: delivery.eventId,
         endpointId: delivery.endpointId,
+        endpoint_id: delivery.endpointId,
+        endpointUrl: delivery.endpointUrl || null,
+        endpoint_url: delivery.endpointUrl || null,
         seq: delivery.seq,
         state: delivery.state.toString(),
         attemptCount: delivery.attemptCount,
+        attempt_count: delivery.attemptCount,
         nextAttemptAt: delivery.nextAttemptAt,
+        next_attempt_at: delivery.nextAttemptAt,
         lastError: delivery.lastError,
+        last_error: delivery.lastError,
+        lastStatusCode: delivery.lastStatusCode ?? null,
+        last_status_code: delivery.lastStatusCode ?? null,
         createdAt: delivery.createdAt,
+        created_at: delivery.createdAt,
         updatedAt: delivery.updatedAt,
+        updated_at: delivery.updatedAt,
       };
 
       res.json({
         success: true,
-        message: 'Delivery re-enqueued as PENDING',
-        ...deliveryData,
-        delivery: deliveryData,
+        message: 'Delivery replayed successfully',
+        ...deliveryPayload,
+        delivery: deliveryPayload,
       });
     } catch (error) {
       if (error instanceof IllegalStateTransitionError || error.name === 'IllegalStateTransitionError') {

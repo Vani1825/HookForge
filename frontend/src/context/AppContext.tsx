@@ -12,6 +12,7 @@ import type {
   OverviewMetrics,
   TimeSeriesDataPoint,
   StatusDistribution,
+  WorkerHealth,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -35,6 +36,13 @@ interface AppContextValue {
     status: 'checking' | 'up' | 'down'
     error?: string
     timestamp?: string
+    checks?: {
+      database?: {
+        status: 'up' | 'down'
+        error?: string
+      }
+      worker?: WorkerHealth
+    }
   }
   checkHealth: () => Promise<void>
   toasts: ToastMessage[]
@@ -47,6 +55,7 @@ interface AppContextValue {
     createEndpoint: (data: endpointsApi.CreateEndpointInput) => Promise<Endpoint>
     updateEndpoint: (id: string, data: endpointsApi.UpdateEndpointInput) => Promise<Endpoint>
     toggleEndpoint: (id: string, active: boolean) => Promise<Endpoint>
+    deleteEndpoint: (id: string) => Promise<{ success: boolean }>
     getEvents: (filter?: eventsApi.EventQueryParams) => Promise<deliveriesApi.PaginatedList<WebhookEvent>>
     getEventById: (id: string) => Promise<WebhookEvent | undefined>
     ingestEvent: (data: eventsApi.IngestEventInput) => Promise<{ duplicate: boolean; deliveriesEnqueued: number; eventId?: string }>
@@ -54,9 +63,9 @@ interface AppContextValue {
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
-    getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<OverviewMetrics>
-    getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<TimeSeriesDataPoint[]>
-    getStatusDistribution: (filter?: metricsApi.MetricsQueryParams) => Promise<StatusDistribution[]>
+    getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<OverviewMetrics>
+    getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<TimeSeriesDataPoint[]>
+    getStatusDistribution: (filter?: metricsApi.MetricsQueryParams | string) => Promise<StatusDistribution[]>
   }
 }
 
@@ -76,17 +85,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   })
 
   const [baseUrl, setBaseUrlState] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_BASE_URL) || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
+    const saved = localStorage.getItem(STORAGE_KEY_BASE_URL)
+    if (saved && saved.trim()) return saved.trim()
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
   })
 
   const [apiKey, setApiKeyState] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_API_KEY) || import.meta.env.VITE_API_KEY || ''
+    const saved = localStorage.getItem(STORAGE_KEY_API_KEY)
+    if (saved && saved.trim()) return saved.trim()
+    return import.meta.env.VITE_API_KEY || ''
   })
 
   const [backendHealth, setBackendHealth] = useState<{
     status: 'checking' | 'up' | 'down'
     error?: string
     timestamp?: string
+    checks?: {
+      database?: {
+        status: 'up' | 'down'
+        error?: string
+      }
+      worker?: WorkerHealth
+    }
   }>({ status: 'checking' })
 
   const [toasts, setToasts] = useState<ToastMessage[]>([])
@@ -127,16 +147,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [])
 
   const checkHealth = useCallback(async () => {
+    if (mode === 'demo') {
+      try {
+        const res = await checkBackendHealth()
+        if (res.status === 'up') {
+          setBackendHealth({
+            status: 'up',
+            timestamp: res.timestamp,
+            checks: res.checks,
+          })
+          return
+        }
+      } catch {
+        // Fall back to demo mode simulated worker health
+      }
+      setBackendHealth({
+        status: 'up',
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: { status: 'up' },
+          worker: {
+            status: 'up',
+            activeWorkers: 50,
+            currentlyProcessing: 0,
+            lastHeartbeat: new Date().toISOString(),
+          },
+        },
+      })
+      return
+    }
+
     try {
-      setBackendHealth({ status: 'checking' })
+      setBackendHealth((prev) => ({
+        ...prev,
+        status: prev.status === 'checking' ? 'checking' : prev.status,
+      }))
       const res = await checkBackendHealth()
       if (res.status === 'up') {
-        setBackendHealth({ status: 'up', timestamp: res.timestamp })
+        setBackendHealth({
+          status: 'up',
+          timestamp: res.timestamp,
+          checks: res.checks,
+        })
       } else {
         setBackendHealth({
           status: 'down',
-          error: res.checks?.database?.error || 'Backend reported unhealthy status',
+          error: res.checks?.database?.error || res.checks?.worker?.error || 'Backend reported unhealthy status',
           timestamp: res.timestamp,
+          checks: res.checks,
         })
       }
     } catch (err: unknown) {
@@ -145,9 +203,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: 'down',
         error: errorMsg,
         timestamp: new Date().toISOString(),
+        checks: {
+          database: { status: 'down', error: errorMsg },
+          worker: { status: 'unavailable', error: errorMsg },
+        },
       })
     }
-  }, [])
+  }, [mode])
 
   // Probe health on mount and every 30 seconds
   useEffect(() => {
@@ -190,6 +252,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return toggled
       }
       return endpointsApi.toggleEndpointActive(id, active)
+    },
+
+    deleteEndpoint: async (id: string): Promise<{ success: boolean }> => {
+      if (mode === 'demo') {
+        const deleted = mockStore.deleteEndpoint(id)
+        if (!deleted) throw new Error('Endpoint not found in mock store')
+        return { success: true }
+      }
+      return endpointsApi.deleteEndpoint(id)
     },
 
     getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {
@@ -241,25 +312,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return deliveriesApi.replayDelivery(id)
     },
 
-    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<OverviewMetrics> => {
+    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<OverviewMetrics> => {
+      const normalized = typeof filter === 'string' ? { range: filter } : filter
       if (mode === 'demo') {
-        return mockStore.getOverviewMetrics(filter)
+        return mockStore.getOverviewMetrics(normalized)
       }
-      return metricsApi.fetchSystemMetrics(filter)
+      return metricsApi.fetchOverviewMetrics(normalized)
     },
 
-    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<TimeSeriesDataPoint[]> => {
+    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<TimeSeriesDataPoint[]> => {
+      const normalized = typeof filter === 'string' ? { range: filter } : filter
       if (mode === 'demo') {
-        return mockStore.getTimeSeriesMetrics(filter)
+        return mockStore.getTimeSeriesMetrics(normalized)
       }
-      return metricsApi.fetchTimeSeriesMetrics(filter)
+      return metricsApi.fetchTimeSeriesMetrics(normalized)
     },
 
-    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams): Promise<StatusDistribution[]> => {
+    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams | string): Promise<StatusDistribution[]> => {
+      const normalized = typeof filter === 'string' ? { range: filter } : filter
       if (mode === 'demo') {
-        return mockStore.getStatusDistribution(filter)
+        return mockStore.getStatusDistribution(normalized)
       }
-      return metricsApi.fetchStatusDistribution(filter)
+      return metricsApi.fetchStatusDistribution(normalized)
     },
   }
 
