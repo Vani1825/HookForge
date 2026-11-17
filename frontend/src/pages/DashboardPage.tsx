@@ -35,6 +35,7 @@ import {
 } from 'recharts'
 import { NavLink } from 'react-router-dom'
 import { WorkerHealthCard } from '../components/WorkerHealthCard'
+import { QueueMetricsSection } from '../components/QueueMetricsSection'
 
 export const DashboardPage: React.FC = () => {
   const { service, mode, toggleMode, backendHealth, checkHealth } = useApp()
@@ -229,6 +230,14 @@ export const DashboardPage: React.FC = () => {
       <WorkerHealthCard
         health={backendHealth}
         onRefresh={checkHealth}
+        isLoading={isLoading}
+      />
+
+      {/* Queue Metrics Dashboard Section */}
+      <QueueMetricsSection
+        metrics={metrics}
+        statusDistribution={statusDistribution}
+        timeSeries={timeSeries}
         isLoading={isLoading}
       />
 

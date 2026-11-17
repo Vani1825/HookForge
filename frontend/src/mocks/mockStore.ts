@@ -347,9 +347,10 @@ class MockStore {
     const totalDeliveries = dels.length
     const succeeded = dels.filter((d) => d.state === 'SUCCEEDED').length
     const failed = dels.filter((d) => d.state === 'DEAD').length
-    const pending = dels.filter(
-      (d) => d.state === 'PENDING' || d.state === 'IN_FLIGHT' || d.state === 'RETRYING'
-    ).length
+    const pendingOnly = dels.filter((d) => d.state === 'PENDING').length
+    const inFlight = dels.filter((d) => d.state === 'IN_FLIGHT').length
+    const retrying = dels.filter((d) => d.state === 'RETRYING').length
+    const pending = pendingOnly + inFlight + retrying
 
     const successRate = totalDeliveries > 0 ? (succeeded / totalDeliveries) * 100 : 100
     const activeEndpoints = this.endpoints.filter((e) => e.active).length
@@ -361,6 +362,12 @@ class MockStore {
       succeededDeliveries: succeeded,
       failedDeliveries: failed,
       pendingDeliveries: pending,
+      pendingCount: pendingOnly,
+      inFlightCount: inFlight,
+      retryingCount: retrying,
+      queueBacklog: pendingOnly + retrying,
+      currentlyProcessing: inFlight,
+      deadLetterCount: failed,
       successRate: Math.round(successRate * 10) / 10,
       averageLatencyMs: totalDeliveries > 0 ? 68 : 0,
       activeEndpoints,

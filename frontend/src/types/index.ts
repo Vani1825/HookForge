@@ -123,6 +123,12 @@ export interface OverviewMetrics {
   succeededDeliveries: number
   failedDeliveries: number
   pendingDeliveries: number
+  pendingCount?: number
+  inFlightCount?: number
+  retryingCount?: number
+  queueBacklog?: number
+  currentlyProcessing?: number
+  deadLetterCount?: number
   successRate: number
   averageLatencyMs: number
   activeEndpoints: number

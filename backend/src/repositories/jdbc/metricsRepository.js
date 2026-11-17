@@ -55,7 +55,10 @@ export async function getOverview(tenantId, filters = {}) {
          count(*)::int AS total,
          count(CASE WHEN d.state = 'SUCCEEDED' THEN 1 END)::int AS succeeded,
          count(CASE WHEN d.state = 'DEAD' THEN 1 END)::int AS failed,
-         count(CASE WHEN d.state IN ('PENDING', 'IN_FLIGHT', 'RETRYING') THEN 1 END)::int AS pending
+         count(CASE WHEN d.state IN ('PENDING', 'IN_FLIGHT', 'RETRYING') THEN 1 END)::int AS pending,
+         count(CASE WHEN d.state = 'PENDING' THEN 1 END)::int AS pending_only,
+         count(CASE WHEN d.state = 'IN_FLIGHT' THEN 1 END)::int AS in_flight,
+         count(CASE WHEN d.state = 'RETRYING' THEN 1 END)::int AS retrying
        FROM deliveries d
        JOIN endpoints ep ON d.endpoint_id = ep.id
        WHERE ${delConditions.join(' AND ')}`,
@@ -66,6 +69,11 @@ export async function getOverview(tenantId, filters = {}) {
     const succeededDeliveries = delRow.succeeded || 0;
     const failedDeliveries = delRow.failed || 0;
     const pendingDeliveries = delRow.pending || 0;
+    const pendingCount = delRow.pending_only !== undefined ? delRow.pending_only : pendingDeliveries;
+    const inFlightCount = delRow.in_flight !== undefined ? delRow.in_flight : 0;
+    const retryingCount = delRow.retrying !== undefined ? delRow.retrying : 0;
+    const queueBacklog = pendingCount + retryingCount;
+    const currentlyProcessing = inFlightCount;
     const successRate = totalDeliveries > 0
       ? Math.round((succeededDeliveries / totalDeliveries) * 1000) / 10
       : 100;
@@ -114,6 +122,12 @@ export async function getOverview(tenantId, filters = {}) {
       succeededDeliveries,
       failedDeliveries,
       pendingDeliveries,
+      pendingCount,
+      inFlightCount,
+      retryingCount,
+      queueBacklog,
+      currentlyProcessing,
+      deadLetterCount: failedDeliveries,
       successRate,
       averageLatencyMs,
       activeEndpoints,
