@@ -12,6 +12,7 @@ import type {
   OverviewMetrics,
   TimeSeriesDataPoint,
   StatusDistribution,
+  WorkerHealth,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -35,6 +36,13 @@ interface AppContextValue {
     status: 'checking' | 'up' | 'down'
     error?: string
     timestamp?: string
+    checks?: {
+      database?: {
+        status: 'up' | 'down'
+        error?: string
+      }
+      worker?: WorkerHealth
+    }
   }
   checkHealth: () => Promise<void>
   toasts: ToastMessage[]
@@ -92,6 +100,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     status: 'checking' | 'up' | 'down'
     error?: string
     timestamp?: string
+    checks?: {
+      database?: {
+        status: 'up' | 'down'
+        error?: string
+      }
+      worker?: WorkerHealth
+    }
   }>({ status: 'checking' })
 
   const [toasts, setToasts] = useState<ToastMessage[]>([])
@@ -132,16 +147,54 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [])
 
   const checkHealth = useCallback(async () => {
+    if (mode === 'demo') {
+      try {
+        const res = await checkBackendHealth()
+        if (res.status === 'up') {
+          setBackendHealth({
+            status: 'up',
+            timestamp: res.timestamp,
+            checks: res.checks,
+          })
+          return
+        }
+      } catch {
+        // Fall back to demo mode simulated worker health
+      }
+      setBackendHealth({
+        status: 'up',
+        timestamp: new Date().toISOString(),
+        checks: {
+          database: { status: 'up' },
+          worker: {
+            status: 'up',
+            activeWorkers: 50,
+            currentlyProcessing: 0,
+            lastHeartbeat: new Date().toISOString(),
+          },
+        },
+      })
+      return
+    }
+
     try {
-      setBackendHealth({ status: 'checking' })
+      setBackendHealth((prev) => ({
+        ...prev,
+        status: prev.status === 'checking' ? 'checking' : prev.status,
+      }))
       const res = await checkBackendHealth()
       if (res.status === 'up') {
-        setBackendHealth({ status: 'up', timestamp: res.timestamp })
+        setBackendHealth({
+          status: 'up',
+          timestamp: res.timestamp,
+          checks: res.checks,
+        })
       } else {
         setBackendHealth({
           status: 'down',
-          error: res.checks?.database?.error || 'Backend reported unhealthy status',
+          error: res.checks?.database?.error || res.checks?.worker?.error || 'Backend reported unhealthy status',
           timestamp: res.timestamp,
+          checks: res.checks,
         })
       }
     } catch (err: unknown) {
@@ -150,9 +203,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         status: 'down',
         error: errorMsg,
         timestamp: new Date().toISOString(),
+        checks: {
+          database: { status: 'down', error: errorMsg },
+          worker: { status: 'unavailable', error: errorMsg },
+        },
       })
     }
-  }, [])
+  }, [mode])
 
   // Probe health on mount and every 30 seconds
   useEffect(() => {

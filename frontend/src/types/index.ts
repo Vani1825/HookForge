@@ -97,6 +97,14 @@ export interface IngestResult {
   eventId?: string
 }
 
+export interface WorkerHealth {
+  status: 'up' | 'down' | 'degraded' | 'unavailable' | 'unknown'
+  activeWorkers?: number | null
+  currentlyProcessing?: number | null
+  lastHeartbeat?: string | null
+  error?: string
+}
+
 export interface HealthResponse {
   status: 'up' | 'down'
   timestamp: string
@@ -105,6 +113,7 @@ export interface HealthResponse {
       status: 'up' | 'down'
       error?: string
     }
+    worker?: WorkerHealth
   }
 }
 

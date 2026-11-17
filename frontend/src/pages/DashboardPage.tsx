@@ -34,9 +34,10 @@ import {
   ResponsiveContainer,
 } from 'recharts'
 import { NavLink } from 'react-router-dom'
+import { WorkerHealthCard } from '../components/WorkerHealthCard'
 
 export const DashboardPage: React.FC = () => {
-  const { service, mode, toggleMode, backendHealth } = useApp()
+  const { service, mode, toggleMode, backendHealth, checkHealth } = useApp()
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -59,6 +60,7 @@ export const DashboardPage: React.FC = () => {
         service.getStatusDistribution(),
         service.getDeliveries({ limit: 6 }),
         service.getEndpoints(),
+        checkHealth(),
       ])
       setMetrics(m)
       setTimeSeries(ts)
@@ -222,6 +224,13 @@ export const DashboardPage: React.FC = () => {
           />
         </div>
       )}
+
+      {/* Worker Health Monitoring Section */}
+      <WorkerHealthCard
+        health={backendHealth}
+        onRefresh={checkHealth}
+        isLoading={isLoading}
+      />
 
       {/* Visual Analytics / Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

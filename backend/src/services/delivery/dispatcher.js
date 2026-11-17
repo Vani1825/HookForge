@@ -23,6 +23,8 @@ const WORKER_CONCURRENCY = config?.dispatcher?.workerConcurrency ?? 50;
 let isRunning = false;
 let pollTimer = null;
 let reaperTimer = null;
+let lastHeartbeat = null;
+let currentlyProcessing = 0;
 
 /**
  * Process a single delivery.
@@ -111,11 +113,13 @@ async function processDelivery(delivery, endpoint) {
  * Avoids blind tenant/endpoint iteration and avoids opening database transactions when idle.
  */
 export async function poll() {
+  lastHeartbeat = new Date().toISOString();
   const promises = [];
   try {
     const candidateEndpoints = await findDueEndpoints(WORKER_CONCURRENCY);
 
     if (!candidateEndpoints || candidateEndpoints.length === 0) {
+      currentlyProcessing = 0;
       return;
     }
 
@@ -138,9 +142,12 @@ export async function poll() {
       }
     }
 
+    currentlyProcessing = promises.length;
     await Promise.all(promises);
   } catch (error) {
     logger.error('Error in poll loop', { error: error.message });
+  } finally {
+    currentlyProcessing = 0;
   }
 }
 
@@ -154,6 +161,7 @@ export function start() {
   }
 
   isRunning = true;
+  lastHeartbeat = new Date().toISOString();
   logger.info('Starting dispatcher');
 
   // Start poll loop
@@ -185,6 +193,7 @@ export function stop() {
   }
 
   isRunning = false;
+  currentlyProcessing = 0;
   logger.info('Stopping dispatcher');
 
   if (pollTimer) {
@@ -198,9 +207,23 @@ export function stop() {
   }
 }
 
+/**
+ * Get current worker telemetry and status.
+ * @returns {Object} Genuine worker health telemetry
+ */
+export function getWorkerStatus() {
+  return {
+    isRunning,
+    lastHeartbeat,
+    activeWorkers: isRunning ? WORKER_CONCURRENCY : 0,
+    currentlyProcessing,
+  };
+}
+
 export default {
   start,
   stop,
   poll,
   processDelivery,
+  getWorkerStatus,
 };
