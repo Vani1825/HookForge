@@ -150,3 +150,32 @@ export interface PaginatedResponse<T> {
   data: T[]
   pagination: PaginationMeta
 }
+
+export type NotificationSeverity = 'success' | 'warning' | 'error' | 'info'
+
+export type NotificationCategory =
+  | 'delivery_success'
+  | 'delivery_failed'
+  | 'delivery_retry'
+  | 'dead_letter'
+  | 'system_health'
+
+export interface AppNotification {
+  id: string
+  title: string
+  description: string
+  timestamp: string
+  severity: NotificationSeverity
+  category: NotificationCategory
+  read: boolean
+  entityId?: string
+  link?: string
+  metadata?: {
+    endpointUrl?: string
+    statusCode?: number | null
+    attemptCount?: number
+    error?: string | null
+    [key: string]: unknown
+  }
+}
+

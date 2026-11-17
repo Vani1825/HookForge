@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import { Menu, Plus, Send, Search, MoreVertical } from 'lucide-react'
+import { Menu, Plus, Send, Search, MoreVertical, Bell } from 'lucide-react'
 import { ModeToggle } from '../components/ModeToggle'
 import { Button } from '../components/ui/Button'
 import { useLocation } from 'react-router-dom'
+import { useNotifications } from '../context/NotificationContext'
+import { NotificationPanel } from '../components/NotificationPanel'
 
 interface HeaderProps {
   onOpenMobileMenu: () => void
@@ -18,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
 }) => {
   const location = useLocation()
+  const { unreadCount, isPanelOpen, setIsPanelOpen, togglePanel } = useNotifications()
   const [mobileOverflowOpen, setMobileOverflowOpen] = useState(false)
 
   // Close mobile overflow menu on Escape key press
@@ -133,6 +136,23 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="h-4 w-px bg-[#E7E8EC] mx-0.5" />
 
+        {/* In-App Notifications Bell */}
+        <button
+          type="button"
+          onClick={togglePanel}
+          className="relative p-2 text-[#64748B] hover:text-[#202938] hover:bg-[#F7F6F2] rounded-lg transition-colors cursor-pointer"
+          aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+          aria-expanded={isPanelOpen}
+          title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+        >
+          <Bell className="w-4 h-4 text-[#64748B]" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 flex items-center justify-center min-w-[16px] h-4 px-1 text-4xs font-bold text-white bg-[#E76B64] rounded-full shadow-2xs border-2 border-white leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
+
         {/* Live / Demo Mode Switcher */}
         <ModeToggle />
 
@@ -178,6 +198,23 @@ export const Header: React.FC<HeaderProps> = ({
             <Send className="w-4 h-4" />
           </button>
         )}
+
+        {/* Mobile Notification Bell */}
+        <button
+          type="button"
+          onClick={togglePanel}
+          className="relative p-2 text-[#64748B] hover:text-[#202938] hover:bg-[#F7F6F2] rounded-lg transition-colors cursor-pointer"
+          aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+          aria-expanded={isPanelOpen}
+          title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+        >
+          <Bell className="w-4 h-4 text-[#64748B]" />
+          {unreadCount > 0 && (
+            <span className="absolute top-1 right-1 flex items-center justify-center min-w-[16px] h-4 px-1 text-4xs font-bold text-white bg-[#E76B64] rounded-full shadow-2xs border-2 border-white leading-none">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
+          )}
+        </button>
 
         <div className="relative">
           <button
@@ -229,6 +266,24 @@ export const Header: React.FC<HeaderProps> = ({
                     type="button"
                     onClick={() => {
                       setMobileOverflowOpen(false)
+                      togglePanel()
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg hover:bg-[#F7F6F2] text-[#202938] font-medium transition-colors cursor-pointer text-left"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-3.5 h-3.5 text-[#5277D9] shrink-0" />
+                      <span>Notifications</span>
+                    </div>
+                    {unreadCount > 0 && (
+                      <span className="px-1.5 py-0.5 rounded-full text-4xs font-bold bg-[#E76B64] text-white">
+                        {unreadCount}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileOverflowOpen(false)
                       onOpenSendEvent()
                     }}
                     className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-[#F7F6F2] text-[#202938] font-medium transition-colors cursor-pointer text-left"
@@ -253,6 +308,9 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
       </div>
+
+      {/* In-App Notification Panel Dropdown */}
+      {isPanelOpen && <NotificationPanel onClose={() => setIsPanelOpen(false)} />}
     </header>
   )
 }
