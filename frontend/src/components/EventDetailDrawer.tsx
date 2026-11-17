@@ -24,6 +24,7 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
 }) => {
   const [copiedId, setCopiedId] = useState(false)
   const [copiedKey, setCopiedKey] = useState(false)
+  const [copiedPayload, setCopiedPayload] = useState(false)
 
   if (!event) return null
 
@@ -43,7 +44,20 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
     }
   }
 
+  const handleCopyPayload = async () => {
+    const ok = await copyToClipboard(JSON.stringify(event.payload, null, 2))
+    if (ok) {
+      setCopiedPayload(true)
+      setTimeout(() => setCopiedPayload(false), 2000)
+    }
+  }
+
   const relatedDeliveries = deliveries.filter((d) => d.event_id === event.id)
+  const succeeded = relatedDeliveries.filter((d) => d.state === 'SUCCEEDED').length
+  const failed = relatedDeliveries.filter((d) => d.state === 'DEAD').length
+  const inProgress = relatedDeliveries.filter(
+    (d) => d.state === 'PENDING' || d.state === 'IN_FLIGHT' || d.state === 'RETRYING'
+  ).length
 
   return (
     <Drawer
@@ -75,6 +89,8 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
             <button
               onClick={handleCopyId}
               className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer"
+              title="Copy Event ID"
+              aria-label={`Copy event ID ${event.id}`}
             >
               <span>{truncateId(event.id, 12)}</span>
               {copiedId ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
@@ -86,19 +102,54 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
             <button
               onClick={handleCopyKey}
               className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer truncate max-w-[200px] sm:max-w-none"
+              title="Copy Idempotency Key"
+              aria-label={`Copy idempotency key ${event.idempotency_key}`}
             >
               <span className="truncate">{event.idempotency_key}</span>
               {copiedKey ? <Check className="w-3 h-3 text-[#159B78] shrink-0" /> : <Copy className="w-3 h-3 text-[#64748B] shrink-0" />}
             </button>
           </div>
         </div>
+
+        {/* Outcome summary bar */}
+        <div className="pt-2 border-t border-[#E7E8EC] flex flex-wrap items-center gap-1.5 text-2xs">
+          <span className="text-[#64748B] font-semibold">Delivery Outcomes:</span>
+          <span className="font-semibold text-[#202938]">{relatedDeliveries.length} total</span>
+          {succeeded > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#159B78]/10 text-[#159B78] border border-[#159B78]/25 font-semibold">
+              {succeeded} succeeded
+            </span>
+          )}
+          {failed > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#E76B64]/10 text-[#E76B64] border border-[#E76B64]/25 font-semibold">
+              {failed} dead
+            </span>
+          )}
+          {inProgress > 0 && (
+            <span className="px-1.5 py-0.5 rounded bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] font-semibold">
+              {inProgress} active
+            </span>
+          )}
+        </div>
       </div>
 
       {/* JSON Payload */}
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
-          Event Body (JSON Payload)
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
+            Event Body (JSON Payload)
+          </h4>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleCopyPayload}
+            className="text-2xs h-7 px-2"
+            leftIcon={copiedPayload ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3" />}
+          >
+            {copiedPayload ? 'Copied' : 'Copy JSON'}
+          </Button>
+        </div>
         <JsonViewer data={event.payload} maxHeight="max-h-80" />
       </div>
 
