@@ -15,10 +15,10 @@ import config from '../../config/index.js';
 import clock from '../../utils/clock.js';
 import logger from '../../utils/logger.js';
 
-const LEASE_DURATION_MS = config?.dispatcher?.leaseMarginMs ?? 30000;
-const POLL_INTERVAL_MS = config?.dispatcher?.pollIntervalMs ?? 1000;
-const LEASE_REAPER_INTERVAL_MS = config?.dispatcher?.reaperIntervalMs ?? 60000;
-const WORKER_CONCURRENCY = config?.dispatcher?.workerConcurrency ?? 50;
+export const LEASE_DURATION_MS = config?.dispatcher?.leaseMarginMs ?? 30000;
+export const POLL_INTERVAL_MS = config?.dispatcher?.pollIntervalMs ?? 1000;
+export const LEASE_REAPER_INTERVAL_MS = config?.dispatcher?.reaperIntervalMs ?? 60000;
+export const WORKER_CONCURRENCY = config?.dispatcher?.workerConcurrency ?? 50;
 
 let isRunning = false;
 let pollTimer = null;
@@ -226,4 +226,8 @@ export default {
   poll,
   processDelivery,
   getWorkerStatus,
+  POLL_INTERVAL_MS,
+  LEASE_REAPER_INTERVAL_MS,
+  LEASE_DURATION_MS,
+  WORKER_CONCURRENCY,
 };
