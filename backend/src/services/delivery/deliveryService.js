@@ -205,12 +205,9 @@ export default {
   getDeliveriesByEvent,
   getDeliveriesByState,
   getAllDeliveries,
-<<<<<<< HEAD
   getDeliveries,
   countDeliveries,
-=======
   queryDeliveries,
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   getDeliveryById,
   replayDelivery,
 };

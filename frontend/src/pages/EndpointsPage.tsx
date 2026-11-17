@@ -6,15 +6,18 @@ import {
   RefreshCw,
   Power,
   ExternalLink,
+  X,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
 import { Input } from '../components/ui/Input'
 import { CircuitBadge } from '../components/CircuitBadge'
 import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
 import { CreateEndpointModal } from '../components/CreateEndpointModal'
 import { useApp } from '../context/AppContext'
+import { formatErrorMessage } from '../api/client'
 import { formatDateTime, truncateId } from '../utils/formatters'
 import type { Endpoint } from '../types'
 
@@ -38,7 +41,7 @@ export const EndpointsPage: React.FC = () => {
       const data = await service.getEndpoints()
       setEndpoints(data)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch endpoints'
+      const msg = formatErrorMessage(err)
       setError(msg)
     } finally {
       setIsLoading(false)
@@ -71,13 +74,22 @@ export const EndpointsPage: React.FC = () => {
     }
   }
 
+  const hasActiveFilters =
+    Boolean(searchQuery.trim()) || stateFilter !== 'ALL' || circuitFilter !== 'ALL'
+
+  const handleClearAllFilters = () => {
+    setSearchQuery('')
+    setStateFilter('ALL')
+    setCircuitFilter('ALL')
+  }
+
   const filteredEndpoints = endpoints.filter((ep) => {
     if (stateFilter === 'ACTIVE' && !ep.active) return false
     if (stateFilter === 'INACTIVE' && ep.active) return false
     if (circuitFilter !== 'ALL' && ep.circuit_state !== circuitFilter) return false
 
     if (searchQuery) {
-      const q = searchQuery.toLowerCase()
+      const q = searchQuery.toLowerCase().trim()
       return (
         ep.url.toLowerCase().includes(q) ||
         (ep.description && ep.description.toLowerCase().includes(q)) ||
@@ -90,44 +102,41 @@ export const EndpointsPage: React.FC = () => {
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Webhook Endpoints</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Registered subscriber URLs, rate limits, and circuit breaker states.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadEndpoints}
-            isLoading={isLoading}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setCreateModalOpen(true)}
-            leftIcon={<Plus className="w-3.5 h-3.5" />}
-          >
-            Add Endpoint
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="Webhook Endpoints"
+        description="Registered subscriber URLs, rate limits, and circuit breaker states."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadEndpoints}
+              isLoading={isLoading}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            >
+              Refresh
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setCreateModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Add Endpoint
+            </Button>
+          </>
+        }
+      />
 
       {/* Filter / Search Bar */}
-      <Card className="p-4 bg-white">
+      <Card className="p-4 bg-white space-y-3">
         <div className="flex flex-col sm:flex-row items-center gap-3">
           <div className="flex-1 w-full">
             <Input
               placeholder="Search by URL, ID, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+              leftIcon={<Search className="w-4 h-4 text-[#64748B]" />}
             />
           </div>
 
@@ -136,7 +145,7 @@ export const EndpointsPage: React.FC = () => {
             <select
               value={stateFilter}
               onChange={(e) => setStateFilter(e.target.value as 'ALL' | 'ACTIVE' | 'INACTIVE')}
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+              className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
             >
               <option value="ALL">All States</option>
               <option value="ACTIVE">Active Only</option>
@@ -149,7 +158,7 @@ export const EndpointsPage: React.FC = () => {
               onChange={(e) =>
                 setCircuitFilter(e.target.value as 'ALL' | 'CLOSED' | 'OPEN' | 'HALF_OPEN')
               }
-              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+              className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
             >
               <option value="ALL">All Circuits</option>
               <option value="CLOSED">Closed (Healthy)</option>
@@ -158,6 +167,67 @@ export const EndpointsPage: React.FC = () => {
             </select>
           </div>
         </div>
+
+        {/* Active Filter Pills Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#E7E8EC] text-xs">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[#64748B] text-2xs font-semibold uppercase tracking-wider">
+              Showing {filteredEndpoints.length} of {endpoints.length} endpoints
+            </span>
+
+            {searchQuery && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-2xs font-medium">
+                Query: <strong className="font-semibold truncate max-w-[120px]">{searchQuery}</strong>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear query filter"
+                  className="hover:text-[#4366C4] cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {stateFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-2xs font-medium">
+                State: <strong className="font-semibold">{stateFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => setStateFilter('ALL')}
+                  aria-label="Clear state filter"
+                  className="hover:text-[#4366C4] cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {circuitFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-2xs font-medium">
+                Circuit: <strong className="font-semibold">{circuitFilter}</strong>
+                <button
+                  type="button"
+                  onClick={() => setCircuitFilter('ALL')}
+                  aria-label="Clear circuit filter"
+                  className="hover:text-[#4366C4] cursor-pointer"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearAllFilters}
+              className="text-xs text-[#E76B64] hover:text-[#D9564F] font-semibold underline cursor-pointer"
+            >
+              Reset filters
+            </button>
+          )}
+        </div>
       </Card>
 
       {/* Main Endpoints Table */}
@@ -165,111 +235,124 @@ export const EndpointsPage: React.FC = () => {
         {isLoading ? (
           <TableSkeleton rows={5} cols={6} />
         ) : error && mode === 'live' ? (
-          <div className="p-8 text-center text-xs text-rose-600 space-y-2">
+          <div className="p-8 text-center text-xs text-[#E76B64] space-y-2">
             <p className="font-semibold">Failed to fetch endpoints from backend API.</p>
-            <p className="text-slate-500 font-mono">{error}</p>
+            <p className="text-[#64748B] font-mono">{error}</p>
           </div>
         ) : filteredEndpoints.length === 0 ? (
           <EmptyState
-            icon={<Globe2 className="w-6 h-6 text-slate-400" />}
-            title="No Endpoints Found"
+            icon={<Globe2 className="w-6 h-6 text-[#5277D9]" />}
+            title={hasActiveFilters ? 'No Matching Endpoints' : 'No Endpoints Found'}
             description={
-              searchQuery
+              hasActiveFilters
                 ? 'No webhook endpoints matched your current search filters.'
                 : 'Get started by creating your first webhook endpoint.'
             }
             action={
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setCreateModalOpen(true)}
-                leftIcon={<Plus className="w-3.5 h-3.5" />}
-              >
-                Add Endpoint
-              </Button>
+              hasActiveFilters ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearAllFilters}
+                >
+                  Reset Filters
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setCreateModalOpen(true)}
+                  leftIcon={<Plus className="w-3.5 h-3.5" />}
+                >
+                  Add Endpoint
+                </Button>
+              )
             }
           />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 font-medium">
+              <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
-                  <th className="py-3 px-4">Endpoint Destination</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Circuit Breaker</th>
-                  <th className="py-3 px-4">Rate Limit</th>
-                  <th className="py-3 px-4">Next Sequence</th>
-                  <th className="py-3 px-4">Created</th>
-                  <th className="py-3 px-4 text-right">Toggle Active</th>
+                  <th className="py-3 px-4 min-w-[280px]">Endpoint Destination</th>
+                  <th className="py-3 px-4 w-32">Status</th>
+                  <th className="py-3 px-4 w-40">Circuit Breaker</th>
+                  <th className="py-3 px-4 w-28">Rate Limit</th>
+                  <th className="py-3 px-4 w-28">Next Sequence</th>
+                  <th className="py-3 px-4 w-36">Created</th>
+                  <th className="py-3 px-4 w-32 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E7E8EC]">
                 {filteredEndpoints.map((ep) => (
-                  <tr key={ep.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col">
-                        <div className="flex items-center gap-1.5 font-mono font-semibold text-slate-900 break-all">
-                          <span>{ep.url}</span>
+                  <tr key={ep.id} className="hover:bg-[#F7F6F2]/70 transition-colors">
+                    <td className="py-3.5 px-4 min-w-[280px]">
+                      <div className="flex flex-col space-y-0.5">
+                        <div className="flex items-center gap-1.5 font-mono font-medium text-[#202938]">
+                          <span className="truncate max-w-xs">{ep.url}</span>
                           <a
                             href={ep.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-slate-400 hover:text-slate-600"
+                            className="text-[#64748B] hover:text-[#5277D9] shrink-0"
+                            title="Open URL in new tab"
                           >
                             <ExternalLink className="w-3 h-3" />
                           </a>
                         </div>
                         {ep.description && (
-                          <span className="text-2xs text-slate-500 mt-0.5">{ep.description}</span>
+                          <span className="text-2xs text-[#64748B] truncate max-w-xs">
+                            {ep.description}
+                          </span>
                         )}
-                        <span className="text-2xs font-mono text-slate-400 mt-0.5">
+                        <span className="text-3xs font-mono text-[#64748B]">
                           ID: {truncateId(ep.id, 8)}
                         </span>
                       </div>
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4 w-32">
                       {ep.active ? (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-[#159B78]/10 text-[#159B78] border border-[#159B78]/25">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#159B78]" />
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-2xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-[#F7F6F2] text-[#64748B] border border-[#E7E8EC]">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#64748B]" />
                           Paused
                         </span>
                       )}
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td className="py-3.5 px-4 w-40">
                       <CircuitBadge
                         state={ep.circuit_state}
                         consecutiveFailures={ep.consecutive_failures}
                       />
                     </td>
 
-                    <td className="py-3 px-4 text-slate-700 font-medium">
+                    <td className="py-3.5 px-4 w-28 text-[#202938] font-semibold">
                       {ep.rate_limit_rps} RPS
                     </td>
 
-                    <td className="py-3 px-4 font-mono text-slate-600">
+                    <td className="py-3.5 px-4 w-28 font-mono text-[#64748B]">
                       #{ep.next_seq ?? 1}
                     </td>
 
-                    <td className="py-3 px-4 text-slate-500">
+                    <td className="py-3.5 px-4 w-36 text-[#64748B]">
                       {formatDateTime(ep.created_at)}
                     </td>
 
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3.5 px-4 w-32 text-right">
                       <button
                         onClick={() => handleToggle(ep)}
                         disabled={togglingId === ep.id}
                         title={ep.active ? 'Pause delivery dispatches' : 'Resume delivery dispatches'}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-2xs font-medium border transition-colors cursor-pointer ${
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer ${
                           ep.active
-                            ? 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            ? 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25 hover:bg-[#E76B64]/20'
+                            : 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25 hover:bg-[#159B78]/20'
                         }`}
                       >
                         <Power className="w-3 h-3" />

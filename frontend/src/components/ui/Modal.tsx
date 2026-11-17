@@ -60,22 +60,22 @@ export const Modal: React.FC<ModalProps> = ({
         aria-modal="true"
         aria-labelledby="modal-title"
         className={cn(
-          'relative w-full bg-white rounded-xl shadow-xl border border-slate-200 z-10 flex flex-col max-h-[90vh] overflow-hidden',
+          'relative w-full bg-white rounded-xl shadow-xl border border-[#E7E8EC] z-10 flex flex-col max-h-[90vh] overflow-hidden',
           maxWidthClasses[maxWidth]
         )}
       >
         {/* Header */}
-        <div className="p-5 pb-4 border-b border-slate-100 flex items-start justify-between">
+        <div className="p-5 pb-4 border-b border-[#E7E8EC] flex items-start justify-between">
           <div>
-            <h2 id="modal-title" className="text-base font-semibold text-slate-900">
+            <h2 id="modal-title" className="text-base font-semibold text-[#202938]">
               {title}
             </h2>
-            {description && <p className="text-xs text-slate-500 mt-1">{description}</p>}
+            {description && <p className="text-xs text-[#64748B] mt-1">{description}</p>}
           </div>
           <button
             onClick={onClose}
             aria-label="Close modal"
-            className="text-slate-400 hover:text-slate-600 rounded-lg p-1 hover:bg-slate-100 transition-colors cursor-pointer"
+            className="text-[#64748B] hover:text-[#202938] rounded-lg p-1 hover:bg-[#F7F6F2] transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -86,7 +86,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Footer */}
         {footer && (
-          <div className="p-4 px-5 bg-slate-50/80 border-t border-slate-100 flex items-center justify-end gap-2">
+          <div className="p-4 px-5 bg-[#F7F6F2] border-t border-[#E7E8EC] flex items-center justify-end gap-2">
             {footer}
           </div>
         )}

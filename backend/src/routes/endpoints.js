@@ -127,7 +127,10 @@ router.get(
       const tenantId = req[TENANT_ID_ATTRIBUTE];
       const { id } = req.params;
 
-      const endpoint = await endpointService.getById(tenantId, id);
+      const endpoint =
+        (await endpointService.getById?.(tenantId, id)) ||
+        (await endpointService.get?.(tenantId, id)) ||
+        null;
 
       if (!endpoint) {
         return res.status(404).json({
@@ -218,41 +221,6 @@ router.patch(
   }
 );
 
-/**
- * GET /endpoints/:id
- * Retrieve a single endpoint for the authenticated tenant.
- */
-router.get(
-  '/:id',
-  apiKeyAuth,
-  param('id').isUUID().withMessage('Invalid endpoint ID'),
-  async (req, res, next) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validation Error',
-          message: errors.array().map((e) => e.msg).join(', '),
-        });
-      }
-
-      const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
-      const { id } = req.params;
-
-      const endpoint = await endpointService.get(tenantId, id);
-      if (!endpoint) {
-        return res.status(404).json({
-          error: 'Not Found',
-          message: 'Endpoint not found',
-        });
-      }
-
-      res.status(200).json(endpoint);
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
 /**
  * DELETE /endpoints/:id

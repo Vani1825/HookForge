@@ -7,20 +7,12 @@
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-<<<<<<< HEAD
-=======
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load environment variables with fallback search paths:
 // 1. Current working directory .env
 dotenv.config();
-<<<<<<< HEAD
 // 2. backend/.env (if executed from project root)
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 // 3. Root .env (if executed from backend directory)
@@ -75,9 +67,6 @@ function parseTrustProxy(val) {
   if (Number.isInteger(num) && num >= 0) return num;
   return String(val).trim();
 }
-=======
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
 
 /**
  * Parse duration string (ISO-8601 format like "PT5S", "PT1H") to milliseconds.
@@ -115,7 +104,7 @@ const config = {
   // Server
   port: parseInt(process.env.PORT || '8080', 10),
   host: process.env.HOST || '0.0.0.0',
-  nodeEnv: process.env.NODE_ENV || 'development',
+  nodeEnv: process.env.NODE_ENV || process.env.APP_ENV || 'development',
 
   // Database
   database: {

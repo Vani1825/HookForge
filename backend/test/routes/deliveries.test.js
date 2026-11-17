@@ -46,30 +46,14 @@ describe('Delivery Routes', () => {
     app = createApp();
   });
 
-<<<<<<< HEAD
-  describe('GET /deliveries?state=DEAD', () => {
-    it('should return deliveries by state', async () => {
-      const mockDeliveries = [
-        {
-          id: 'delivery-1',
-          eventId: 'event-1',
-          endpointId: 'endpoint-1',
-          endpointUrl: 'https://example.com/webhook',
-          lastStatusCode: 504,
-          seq: 1,
-          state: deliveryState.DEAD,
-          attemptCount: 3,
-          nextAttemptAt: null,
-          lastError: 'Max retries exceeded',
-          createdAt: '2024-01-01T00:00:00Z',
-          updatedAt: '2024-01-01T00:05:00Z',
-=======
   describe('GET /deliveries', () => {
     const mockDeliveries = [
       {
         id: mockDeliveryId,
         eventId: mockEventId,
         endpointId: mockEndpointId,
+        endpointUrl: 'https://example.com/webhook',
+        lastStatusCode: 504,
         seq: 1,
         state: deliveryState.DEAD,
         attemptCount: 3,
@@ -90,7 +74,6 @@ describe('Delivery Routes', () => {
           totalPages: 1,
           hasNext: false,
           hasPrev: false,
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
         },
       });
 
@@ -100,13 +83,10 @@ describe('Delivery Routes', () => {
       expect(response.body.state).toBe('DEAD');
       expect(response.body.data).toHaveLength(1);
       expect(response.body.deliveries).toHaveLength(1);
-<<<<<<< HEAD
       expect(response.body.deliveries[0].endpoint_url).toBe('https://example.com/webhook');
       expect(response.body.deliveries[0].endpointUrl).toBe('https://example.com/webhook');
       expect(response.body.deliveries[0].last_status_code).toBe(504);
       expect(response.body.deliveries[0].lastStatusCode).toBe(504);
-      expect(deliveryService.getDeliveriesByState).toHaveBeenCalledWith('DEAD', 'tenant-1', 100);
-=======
       expect(response.body.pagination).toEqual({
         page: 1,
         pageSize: 20,
@@ -120,7 +100,6 @@ describe('Delivery Routes', () => {
         expect.objectContaining({ state: 'DEAD' }),
         { page: 1, pageSize: 20 }
       );
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
     });
 
     it('should support page and pageSize pagination parameters', async () => {
@@ -305,35 +284,44 @@ describe('Delivery Routes', () => {
     });
 
     it('should pass pagination and filtering options to deliveryService', async () => {
-      deliveryService.getDeliveriesByState.mockResolvedValue([]);
+      deliveryService.queryDeliveries.mockResolvedValue({
+        deliveries: [],
+        pagination: { page: 3, pageSize: 25, totalRecords: 0, totalPages: 0, hasNext: false, hasPrev: false },
+      });
 
-      await request(app).get('/deliveries?state=RETRYING&limit=25&offset=50&endpoint_id=11111111-1111-1111-1111-111111111111&search=timeout');
+      await request(app).get(`/deliveries?state=RETRYING&limit=25&offset=50&endpoint_id=${mockEndpointId}&search=timeout`);
 
-      expect(deliveryService.getDeliveriesByState).toHaveBeenCalledWith(
-        'RETRYING',
-        'tenant-1',
-        25,
-        {
+      expect(deliveryService.queryDeliveries).toHaveBeenCalledWith(
+        mockTenantId,
+        expect.objectContaining({
+          state: 'RETRYING',
+          endpoint_id: mockEndpointId,
+          q: 'timeout',
+        }),
+        expect.objectContaining({
+          limit: 25,
           offset: 50,
-          endpointId: '11111111-1111-1111-1111-111111111111',
-          search: 'timeout',
-        }
+        })
       );
     });
 
     it('should pass options to getAllDeliveries when state is ALL', async () => {
-      deliveryService.getAllDeliveries.mockResolvedValue([]);
+      deliveryService.queryDeliveries.mockResolvedValue({
+        deliveries: [],
+        pagination: { page: 1, pageSize: 50, totalRecords: 0, totalPages: 0, hasNext: false, hasPrev: false },
+      });
 
       await request(app).get('/deliveries?state=ALL&limit=50&offset=10');
 
-      expect(deliveryService.getAllDeliveries).toHaveBeenCalledWith(
-        'tenant-1',
-        50,
-        {
+      expect(deliveryService.queryDeliveries).toHaveBeenCalledWith(
+        mockTenantId,
+        expect.objectContaining({
+          state: 'ALL',
+        }),
+        expect.objectContaining({
+          limit: 50,
           offset: 10,
-          endpointId: null,
-          search: null,
-        }
+        })
       );
     });
 
@@ -463,17 +451,11 @@ describe('Delivery Routes', () => {
   describe('POST /deliveries/:id/replay', () => {
     it('should replay a DEAD delivery', async () => {
       const mockDelivery = {
-<<<<<<< HEAD
-        id: 'delivery-1',
-        eventId: 'event-1',
-        endpointId: 'endpoint-1',
-        endpointUrl: 'https://example.com/webhook',
-        lastStatusCode: 500,
-=======
         id: mockDeliveryId,
         eventId: mockEventId,
         endpointId: mockEndpointId,
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+        endpointUrl: 'https://example.com/webhook',
+        lastStatusCode: 500,
         seq: 1,
         state: deliveryState.PENDING,
         attemptCount: 0,
@@ -488,18 +470,13 @@ describe('Delivery Routes', () => {
       const response = await request(app).post(`/deliveries/${mockDeliveryId}/replay`);
 
       expect(response.status).toBe(200);
-<<<<<<< HEAD
       expect(response.body.success).toBe(true);
       expect(response.body.message).toBe('Delivery replayed successfully');
       expect(response.body.delivery).toBeDefined();
-      expect(response.body.delivery.id).toBe('delivery-1');
+      expect(response.body.delivery.id).toBe(mockDeliveryId);
       expect(response.body.delivery.endpoint_url).toBe('https://example.com/webhook');
-      expect(response.body.id).toBe('delivery-1');
-=======
       expect(response.body.id).toBe(mockDeliveryId);
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       expect(response.body.state).toBe('PENDING');
-      expect(response.body.success).toBe(true);
       expect(deliveryService.replayDelivery).toHaveBeenCalledWith(mockDeliveryId, mockTenantId);
     });
 

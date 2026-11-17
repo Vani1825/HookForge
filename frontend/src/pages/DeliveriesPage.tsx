@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
 import { Input } from '../components/ui/Input'
 import { StatusBadge } from '../components/StatusBadge'
 import { TableSkeleton } from '../components/ui/LoadingSkeleton'
@@ -20,6 +21,7 @@ import { Pagination } from '../components/ui/Pagination'
 import { DeliveryDetailDrawer } from '../components/DeliveryDetailDrawer'
 import { ReplayModal } from '../components/ReplayModal'
 import { useApp } from '../context/AppContext'
+import { formatErrorMessage } from '../api/client'
 import { formatRelativeTime, truncateId, formatStatusCode, copyToClipboard } from '../utils/formatters'
 import type { Delivery, Endpoint, PaginationMeta } from '../types'
 
@@ -132,7 +134,7 @@ export const DeliveriesPage: React.FC = () => {
         }
       } catch (err: unknown) {
         if (reqId !== latestRequestIdRef.current) return
-        const msg = err instanceof Error ? err.message : 'Failed to fetch deliveries'
+        const msg = formatErrorMessage(err)
         setError(msg)
       } finally {
         if (reqId === latestRequestIdRef.current) {
@@ -254,15 +256,10 @@ export const DeliveriesPage: React.FC = () => {
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Delivery Pipeline Monitor</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Durable PostgreSQL work queue with server-side pagination, per-endpoint ordering, and lease expiration.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Delivery Pipeline Monitor"
+        description="Durable PostgreSQL work queue with server-side pagination, per-endpoint ordering, and lease expiration."
+        actions={
           <Button
             type="button"
             variant="outline"
@@ -273,8 +270,8 @@ export const DeliveriesPage: React.FC = () => {
           >
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Filter / Search Card */}
       <Card className="p-4 bg-white space-y-3">
@@ -286,20 +283,20 @@ export const DeliveriesPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => applyFilterUpdate({ q: e.target.value })}
               aria-label="Search deliveries"
-              leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+              leftIcon={<Search className="w-4 h-4 text-[#64748B]" />}
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             {/* State filter */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-semibold">
               <Filter className="w-3.5 h-3.5" />
               <span>State:</span>
               <select
                 value={stateFilter}
                 onChange={(e) => applyFilterUpdate({ state: e.target.value })}
                 aria-label="Filter deliveries by state"
-                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 cursor-pointer"
+                className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-2.5 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] cursor-pointer"
               >
                 <option value="ALL">All States</option>
                 <option value="SUCCEEDED">Succeeded</option>
@@ -311,13 +308,13 @@ export const DeliveriesPage: React.FC = () => {
             </div>
 
             {/* Endpoint filter dropdown */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+            <div className="flex items-center gap-1.5 text-xs text-[#64748B] font-semibold">
               <span>Endpoint:</span>
               <select
                 value={endpointFilter}
                 onChange={(e) => applyFilterUpdate({ endpoint_id: e.target.value })}
                 aria-label="Filter deliveries by destination endpoint"
-                className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900 max-w-[180px] truncate cursor-pointer"
+                className="text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-2.5 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9] max-w-[180px] truncate cursor-pointer"
               >
                 <option value="">All Endpoints</option>
                 {endpoints.map((ep) => (
@@ -345,9 +342,9 @@ export const DeliveriesPage: React.FC = () => {
 
         {/* Collapsible Advanced Filters (Event ID, Date Range) */}
         {showAdvancedFilters && (
-          <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="pt-3 border-t border-[#E7E8EC] grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label htmlFor="event-filter-input" className="block text-2xs font-medium text-slate-600 mb-1">
+              <label htmlFor="event-filter-input" className="block text-2xs font-semibold text-[#64748B] mb-1">
                 Event UUID
               </label>
               <Input
@@ -360,7 +357,7 @@ export const DeliveriesPage: React.FC = () => {
             </div>
 
             <div>
-              <label htmlFor="created-after-input" className="block text-2xs font-medium text-slate-600 mb-1">
+              <label htmlFor="created-after-input" className="block text-2xs font-semibold text-[#64748B] mb-1">
                 Created After
               </label>
               <input
@@ -369,12 +366,12 @@ export const DeliveriesPage: React.FC = () => {
                 value={createdAfterFilter}
                 onChange={(e) => applyFilterUpdate({ created_after: e.target.value })}
                 aria-label="Filter deliveries created after date"
-                className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9]"
               />
             </div>
 
             <div>
-              <label htmlFor="created-before-input" className="block text-2xs font-medium text-slate-600 mb-1">
+              <label htmlFor="created-before-input" className="block text-2xs font-semibold text-[#64748B] mb-1">
                 Created Before
               </label>
               <input
@@ -383,7 +380,7 @@ export const DeliveriesPage: React.FC = () => {
                 value={createdBeforeFilter}
                 onChange={(e) => applyFilterUpdate({ created_before: e.target.value })}
                 aria-label="Filter deliveries created before date"
-                className="w-full text-xs bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                className="w-full text-xs bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg px-3 py-2 text-[#202938] focus:outline-none focus:ring-1 focus:ring-[#5277D9]"
               />
             </div>
           </div>
@@ -391,19 +388,19 @@ export const DeliveriesPage: React.FC = () => {
 
         {/* Active Filters Bar */}
         {hasActiveFilters && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100 text-xs">
-            <span className="text-2xs font-semibold text-slate-400 uppercase tracking-wider">
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E7E8EC] text-xs">
+            <span className="text-2xs font-semibold text-[#64748B] uppercase tracking-wider">
               Active Filters:
             </span>
 
             {stateFilter !== 'ALL' && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-xs font-semibold">
                 State: <strong className="font-semibold">{stateFilter}</strong>
                 <button
                   type="button"
                   onClick={() => applyFilterUpdate({ state: 'ALL' })}
                   aria-label="Clear state filter"
-                  className="hover:text-slate-900 cursor-pointer"
+                  className="hover:text-[#4366C4] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -411,13 +408,13 @@ export const DeliveriesPage: React.FC = () => {
             )}
 
             {searchQuery && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-xs font-semibold">
                 Search: <strong className="font-semibold truncate max-w-[120px]">{searchQuery}</strong>
                 <button
                   type="button"
                   onClick={() => applyFilterUpdate({ q: '' })}
                   aria-label="Clear search query"
-                  className="hover:text-slate-900 cursor-pointer"
+                  className="hover:text-[#4366C4] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -425,13 +422,13 @@ export const DeliveriesPage: React.FC = () => {
             )}
 
             {endpointFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-xs font-semibold">
                 Endpoint: <strong className="font-semibold truncate max-w-[120px]">{endpointFilter}</strong>
                 <button
                   type="button"
                   onClick={() => applyFilterUpdate({ endpoint_id: '' })}
                   aria-label="Clear endpoint filter"
-                  className="hover:text-slate-900 cursor-pointer"
+                  className="hover:text-[#4366C4] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -439,13 +436,13 @@ export const DeliveriesPage: React.FC = () => {
             )}
 
             {eventFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-xs font-semibold">
                 Event: <strong className="font-semibold truncate max-w-[120px]">{eventFilter}</strong>
                 <button
                   type="button"
                   onClick={() => applyFilterUpdate({ event_id: '' })}
                   aria-label="Clear event filter"
-                  className="hover:text-slate-900 cursor-pointer"
+                  className="hover:text-[#4366C4] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -453,13 +450,13 @@ export const DeliveriesPage: React.FC = () => {
             )}
 
             {createdAfterFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-xs font-semibold">
                 After: <strong className="font-semibold">{createdAfterFilter}</strong>
                 <button
                   type="button"
                   onClick={() => applyFilterUpdate({ created_after: '' })}
                   aria-label="Clear created after filter"
-                  className="hover:text-slate-900 cursor-pointer"
+                  className="hover:text-[#4366C4] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -467,13 +464,13 @@ export const DeliveriesPage: React.FC = () => {
             )}
 
             {createdBeforeFilter && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-xs">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] text-xs font-semibold">
                 Before: <strong className="font-semibold">{createdBeforeFilter}</strong>
                 <button
                   type="button"
                   onClick={() => applyFilterUpdate({ created_before: '' })}
                   aria-label="Clear created before filter"
-                  className="hover:text-slate-900 cursor-pointer"
+                  className="hover:text-[#4366C4] cursor-pointer"
                 >
                   <X className="w-3 h-3" />
                 </button>
@@ -483,7 +480,7 @@ export const DeliveriesPage: React.FC = () => {
             <button
               type="button"
               onClick={handleClearAllFilters}
-              className="text-xs text-rose-600 hover:text-rose-700 font-medium underline ml-auto cursor-pointer"
+              className="text-xs text-[#E76B64] hover:text-[#D9564F] font-semibold underline ml-auto cursor-pointer"
             >
               Clear all filters
             </button>
@@ -496,9 +493,9 @@ export const DeliveriesPage: React.FC = () => {
         {isLoading ? (
           <TableSkeleton rows={6} cols={7} />
         ) : error && mode === 'live' ? (
-          <div className="p-8 text-center text-xs text-rose-600 space-y-3">
+          <div className="p-8 text-center text-xs text-[#E76B64] space-y-3">
             <p className="font-semibold text-sm">Failed to load deliveries from backend API.</p>
-            <p className="text-slate-500 font-mono">{error}</p>
+            <p className="text-[#64748B] font-mono">{error}</p>
             <Button
               type="button"
               variant="outline"
@@ -511,7 +508,7 @@ export const DeliveriesPage: React.FC = () => {
           </div>
         ) : deliveries.length === 0 ? (
           <EmptyState
-            icon={<Send className="w-6 h-6 text-slate-400" />}
+            icon={<Send className="w-6 h-6 text-[#5277D9]" />}
             title="No Deliveries Found"
             description={
               hasActiveFilters
@@ -534,7 +531,7 @@ export const DeliveriesPage: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 font-medium">
+              <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Delivery ID</th>
                   <th className="py-3 px-4">Destination Endpoint</th>
@@ -546,27 +543,27 @@ export const DeliveriesPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E7E8EC]">
                 {deliveries.map((del) => {
                   const statusInfo = formatStatusCode(del.last_status_code)
                   return (
                     <tr
                       key={del.id}
                       onClick={() => handleInspect(del)}
-                      className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      className="hover:bg-[#F7F6F2]/70 transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 font-mono font-medium text-slate-800">
+                        <div className="flex items-center gap-1.5 font-mono font-semibold text-[#202938]">
                           <span>{truncateId(del.id, 8)}</span>
                           <button
                             type="button"
                             onClick={(e) => handleCopy(del.id, e)}
-                            className="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                            className="text-[#64748B] hover:text-[#202938] p-0.5 rounded cursor-pointer"
                             title="Copy Delivery ID"
                             aria-label={`Copy delivery ID ${del.id}`}
                           >
                             {copiedId === del.id ? (
-                              <Check className="w-3 h-3 text-emerald-600" />
+                              <Check className="w-3 h-3 text-[#159B78]" />
                             ) : (
                               <Copy className="w-3 h-3" />
                             )}
@@ -574,7 +571,7 @@ export const DeliveriesPage: React.FC = () => {
                         </div>
                       </td>
 
-                      <td className="py-3 px-4 text-slate-600 font-mono max-w-xs truncate">
+                      <td className="py-3 px-4 text-[#64748B] font-mono max-w-xs truncate">
                         {del.endpoint_url || del.endpoint_id}
                       </td>
 
@@ -584,42 +581,42 @@ export const DeliveriesPage: React.FC = () => {
 
                       <td className="py-3 px-4">
                         <span
-                          className={`px-1.5 py-0.5 rounded text-2xs font-semibold ${
+                          className={`px-2 py-0.5 rounded text-2xs font-semibold border ${
                             statusInfo.category === 'success'
-                              ? 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25'
                               : statusInfo.category === 'client-error'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-rose-100 text-rose-800'
+                              ? 'bg-[#E5B34B]/15 text-[#B8871E] border-[#E5B34B]/30'
+                              : 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25'
                           }`}
                         >
                           {del.last_status_code ?? 'None'}
                         </span>
                       </td>
 
-                      <td className="py-3 px-4 font-mono text-slate-700">
+                      <td className="py-3 px-4 font-mono text-[#202938] font-semibold">
                         #{del.seq}
                       </td>
 
-                      <td className="py-3 px-4 text-slate-700 font-medium">
+                      <td className="py-3 px-4 text-[#202938] font-medium">
                         #{del.attempt_count}
                       </td>
 
-                      <td className="py-3 px-4 text-slate-500">
+                      <td className="py-3 px-4 text-[#64748B]">
                         {del.state === 'RETRYING' ? (
-                          <span className="text-amber-700 font-medium">
+                          <span className="text-[#B8871E] font-semibold">
                             Due {formatRelativeTime(del.next_attempt_at)}
                           </span>
                         ) : del.state === 'IN_FLIGHT' ? (
-                          <span className="text-indigo-700 font-medium">Processing...</span>
+                          <span className="text-[#5277D9] font-semibold">Processing...</span>
                         ) : (
                           formatRelativeTime(del.updated_at)
                         )}
                       </td>
 
                       <td className="py-3 px-4 text-right">
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#5277D9] hover:text-[#4366C4]">
                           <span>Inspect</span>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+                          <ChevronRight className="w-3.5 h-3.5 text-[#5277D9]" />
                         </span>
                       </td>
                     </tr>

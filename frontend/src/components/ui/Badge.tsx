@@ -14,22 +14,22 @@ export const Badge: React.FC<BadgeProps> = ({
   ...props
 }) => {
   const variantStyles = {
-    default: 'bg-slate-100 text-slate-700 border-slate-200',
-    slate: 'bg-slate-100 text-slate-800 border-slate-300',
-    success: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    warning: 'bg-amber-50 text-amber-700 border-amber-200',
-    danger: 'bg-rose-50 text-rose-700 border-rose-200',
-    info: 'bg-sky-50 text-sky-700 border-sky-200',
+    default: 'bg-[#F7F6F2] text-[#202938] border-[#E7E8EC]',
+    slate: 'bg-slate-100 text-[#202938] border-[#E7E8EC]',
+    success: 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25',
+    warning: 'bg-[#E5B34B]/15 text-[#B8871E] border-[#E5B34B]/30',
+    danger: 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25',
+    info: 'bg-[#EAF0FF] text-[#5277D9] border-[#DCE5FA]',
     purple: 'bg-purple-50 text-purple-700 border-purple-200',
   }
 
   const dotColors = {
-    default: 'bg-slate-500',
-    slate: 'bg-slate-600',
-    success: 'bg-emerald-500',
-    warning: 'bg-amber-500',
-    danger: 'bg-rose-500',
-    info: 'bg-sky-500',
+    default: 'bg-[#64748B]',
+    slate: 'bg-[#202938]',
+    success: 'bg-[#159B78]',
+    warning: 'bg-[#E5B34B]',
+    danger: 'bg-[#E76B64]',
+    info: 'bg-[#5277D9]',
     purple: 'bg-purple-500',
   }
 

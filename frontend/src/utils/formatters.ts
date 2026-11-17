@@ -70,7 +70,8 @@ export function formatStatusCode(code: number | undefined | null): { text: strin
   return { text: `${code}`, category: 'timeout' }
 }
 
-export function formatRate(rate: number | undefined | null): string {
+export function formatRate(rate: number | undefined | null, totalDeliveries?: number): string {
+  if (totalDeliveries !== undefined && totalDeliveries <= 0) return '—'
   if (rate === undefined || rate === null || isNaN(rate)) return '0.0%'
   return `${rate.toFixed(1)}%`
 }

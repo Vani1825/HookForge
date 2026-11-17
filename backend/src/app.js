@@ -53,18 +53,10 @@ const jsonParser = express.json({ limit: config.ingest.maxPayloadBytes });
 // 5. Route handlers: Business logic
 const apiChain = [authRateLimiter(), jsonParser, apiKeyAuth, tenantRateLimiter()];
 
-<<<<<<< HEAD
 app.use('/endpoints', apiChain, endpointsRouter);
 app.use('/events', apiChain, eventsRouter);
 app.use('/deliveries', apiChain, deliveriesRouter);
 app.use('/metrics', apiChain, metricsRouter);
-=======
-// API routes with authentication
-app.use('/endpoints', apiKeyAuth, endpointsRouter);
-app.use('/events', apiKeyAuth, eventsRouter);
-app.use('/deliveries', apiKeyAuth, deliveriesRouter);
-app.use('/metrics', apiKeyAuth, metricsRouter);
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
 
 // 404 handler
 app.use(notFoundHandler);

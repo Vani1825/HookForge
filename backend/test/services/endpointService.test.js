@@ -5,6 +5,22 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+vi.mock('dns', () => {
+  const mockLookup = vi.fn().mockImplementation(async (hostname) => {
+    return [{ address: '93.184.216.34', family: 4 }];
+  });
+  return {
+    default: {
+      promises: {
+        lookup: mockLookup,
+      },
+    },
+    promises: {
+      lookup: mockLookup,
+    },
+  };
+});
+
 vi.mock('../../src/repositories/jdbc/endpointRepository.js', () => ({
   default: {
     insert: vi.fn(),

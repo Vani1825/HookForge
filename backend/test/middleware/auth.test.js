@@ -80,6 +80,15 @@ describe('ApiKeyAuthFilter', () => {
       expect(next).toHaveBeenCalled();
       expect(res.status).not.toHaveBeenCalled();
     });
+
+    it('should not bypass authentication for prefix lookalikes like /actuator-fake', async () => {
+      req.path = '/actuator-fake';
+
+      await apiKeyAuth(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   describe('missing Authorization header', () => {

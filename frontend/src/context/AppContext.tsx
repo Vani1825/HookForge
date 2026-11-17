@@ -54,15 +54,9 @@ interface AppContextValue {
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
-<<<<<<< HEAD
-    getOverviewMetrics: (range?: string) => Promise<OverviewMetrics>
-    getTimeSeriesMetrics: (range?: string) => Promise<TimeSeriesDataPoint[]>
-    getStatusDistribution: (range?: string) => Promise<StatusDistribution[]>
-=======
-    getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<OverviewMetrics>
-    getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams) => Promise<TimeSeriesDataPoint[]>
-    getStatusDistribution: (filter?: metricsApi.MetricsQueryParams) => Promise<StatusDistribution[]>
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+    getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<OverviewMetrics>
+    getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<TimeSeriesDataPoint[]>
+    getStatusDistribution: (filter?: metricsApi.MetricsQueryParams | string) => Promise<StatusDistribution[]>
   }
 }
 
@@ -82,11 +76,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   })
 
   const [baseUrl, setBaseUrlState] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_BASE_URL) || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
+    const saved = localStorage.getItem(STORAGE_KEY_BASE_URL)
+    if (saved && saved.trim()) return saved.trim()
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:8081'
   })
 
   const [apiKey, setApiKeyState] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY_API_KEY) || import.meta.env.VITE_API_KEY || ''
+    const saved = localStorage.getItem(STORAGE_KEY_API_KEY)
+    if (saved && saved.trim()) return saved.trim()
+    return import.meta.env.VITE_API_KEY || ''
   })
 
   const [backendHealth, setBackendHealth] = useState<{
@@ -247,47 +245,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       return deliveriesApi.replayDelivery(id)
     },
 
-<<<<<<< HEAD
-    getOverviewMetrics: async (range?: string): Promise<OverviewMetrics> => {
+    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<OverviewMetrics> => {
+      const normalized = typeof filter === 'string' ? { range: filter } : filter
       if (mode === 'demo') {
-        return mockStore.getOverviewMetrics()
+        return mockStore.getOverviewMetrics(normalized)
       }
-      return metricsApi.fetchOverviewMetrics(range ? { range } : undefined)
+      return metricsApi.fetchOverviewMetrics(normalized)
     },
 
-    getTimeSeriesMetrics: async (range?: string): Promise<TimeSeriesDataPoint[]> => {
-=======
-    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<OverviewMetrics> => {
+    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<TimeSeriesDataPoint[]> => {
+      const normalized = typeof filter === 'string' ? { range: filter } : filter
       if (mode === 'demo') {
-        return mockStore.getOverviewMetrics(filter)
+        return mockStore.getTimeSeriesMetrics(normalized)
       }
-      return metricsApi.fetchSystemMetrics(filter)
+      return metricsApi.fetchTimeSeriesMetrics(normalized)
     },
 
-    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams): Promise<TimeSeriesDataPoint[]> => {
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams | string): Promise<StatusDistribution[]> => {
+      const normalized = typeof filter === 'string' ? { range: filter } : filter
       if (mode === 'demo') {
-        return mockStore.getTimeSeriesMetrics(filter)
+        return mockStore.getStatusDistribution(normalized)
       }
-<<<<<<< HEAD
-      return metricsApi.fetchTimeSeriesMetrics(range ? { range } : undefined)
-    },
-
-    getStatusDistribution: async (range?: string): Promise<StatusDistribution[]> => {
-=======
-      return metricsApi.fetchTimeSeriesMetrics(filter)
-    },
-
-    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams): Promise<StatusDistribution[]> => {
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
-      if (mode === 'demo') {
-        return mockStore.getStatusDistribution(filter)
-      }
-<<<<<<< HEAD
-      return metricsApi.fetchStatusDistribution(range ? { range } : undefined)
-=======
-      return metricsApi.fetchStatusDistribution(filter)
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+      return metricsApi.fetchStatusDistribution(normalized)
     },
   }
 

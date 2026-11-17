@@ -11,6 +11,7 @@ import eventRepository from '../../src/repositories/jdbc/eventRepository.js';
 import deliveryService from '../../src/services/delivery/deliveryService.js';
 import { deliveryState } from '../../src/domain/deliveryState.js';
 import { errorHandler, PayloadTooLargeError } from '../../src/middleware/errorHandler.js';
+import eventIngestService from '../../src/services/ingest/eventIngestService.js';
 
 // Mock services and repositories
 vi.mock('../../src/services/ingest/eventIngestService.js');
@@ -23,7 +24,9 @@ vi.mock('../../src/repositories/jdbc/eventRepository.js', () => ({
     insert: vi.fn(),
     findByTenantAndIdempotencyKey: vi.fn(),
     enqueue: vi.fn(),
+    enqueueBatch: vi.fn(),
   },
+  enqueueBatch: vi.fn(),
 }));
 
 vi.mock('../../src/middleware/auth.js', () => ({
@@ -36,26 +39,16 @@ vi.mock('../../src/middleware/auth.js', () => ({
 
 function createApp() {
   const app = express();
-<<<<<<< HEAD
   app.use(express.json({ limit: config.ingest.maxPayloadBytes }));
-  
-  // Mock auth middleware to set tenantId
-=======
-  app.use(express.json());
 
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+  // Mock auth middleware to set tenantId
   app.use((req, res, next) => {
     req.tenantId = '123e4567-e89b-12d3-a456-426614174000';
     next();
   });
 
   app.use('/events', eventsRouter);
-<<<<<<< HEAD
   app.use(errorHandler);
-  
-=======
-
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   return app;
 }
 
@@ -69,7 +62,6 @@ describe('Event Routes', () => {
     app = createApp();
   });
 
-<<<<<<< HEAD
   describe('POST /events', () => {
     it('should ingest new event and return 202 Accepted', async () => {
       eventIngestService.ingest.mockResolvedValue({
@@ -90,12 +82,14 @@ describe('Event Routes', () => {
       expect(response.status).toBe(202);
       expect(response.body).toEqual({
         id: 'event-new-1',
+        eventId: 'event-new-1',
         idempotencyKey: 'key-new',
         createdAt: '2024-01-01T00:00:00Z',
         deliveriesEnqueued: 2,
+        duplicate: false,
       });
       expect(eventIngestService.ingest).toHaveBeenCalledWith(
-        'tenant-1',
+        mockTenantId,
         'key-new',
         JSON.stringify({ message: 'hello' })
       );
@@ -120,9 +114,11 @@ describe('Event Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         id: 'event-dup-1',
+        eventId: 'event-dup-1',
         idempotencyKey: 'key-dup',
         createdAt: '2024-01-01T00:00:00Z',
         deliveriesEnqueued: 0,
+        duplicate: true,
       });
     });
 
@@ -299,7 +295,9 @@ describe('Event Routes', () => {
       } finally {
         config.ingest.maxPayloadBytes = originalLimit;
       }
-=======
+    });
+  });
+
   describe('GET /events', () => {
     const mockEvents = [
       {
@@ -539,7 +537,6 @@ describe('Event Routes', () => {
       const response = await request(app).get('/events/not-a-uuid');
 
       expect(response.status).toBe(400);
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
     });
   });
 
@@ -579,13 +576,7 @@ describe('Event Routes', () => {
       expect(response.status).toBe(200);
       expect(response.body.eventId).toBe(mockEventId);
       expect(response.body.deliveries).toHaveLength(2);
-<<<<<<< HEAD
-      expect(response.body.deliveries[0].endpoint_url).toBe('https://example.com/hook1');
-      expect(response.body.deliveries[0].last_status_code).toBe(200);
-      expect(deliveryService.getDeliveriesByEvent).toHaveBeenCalledWith('event-1', 'tenant-1');
-=======
       expect(deliveryService.getDeliveriesByEvent).toHaveBeenCalledWith(mockEventId, mockTenantId);
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
     });
 
     it('should return empty array when no deliveries', async () => {

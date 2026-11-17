@@ -138,36 +138,16 @@ export async function fetchDeadLetterDeliveries(): Promise<Delivery[]> {
 
 export async function replayDelivery(id: string): Promise<{ success: boolean; message: string; delivery?: Delivery }> {
   const res = await apiClient.post<any>(`/deliveries/${id}/replay`)
-<<<<<<< HEAD
   if (res && typeof res === 'object') {
-    const rawDelivery = res.delivery || res
+    const rawDelivery = res.delivery || (res.id ? res : undefined)
     return {
       success: res.success !== undefined ? Boolean(res.success) : true,
       message: res.message || 'Delivery replayed successfully',
-      delivery: normalizeDelivery(rawDelivery),
+      delivery: rawDelivery ? normalizeDelivery(rawDelivery) : undefined,
     }
   }
   return {
     success: true,
     message: 'Delivery replayed successfully',
-=======
-  if (res && res.success !== undefined) {
-    return {
-      success: Boolean(res.success),
-      message: res.message || 'Delivery re-enqueued as PENDING',
-      delivery: res.delivery ? normalizeDelivery(res.delivery) : normalizeDelivery(res),
-    }
-  }
-  if (res && (res.id || res.state === 'PENDING')) {
-    return {
-      success: true,
-      message: 'Delivery re-enqueued as PENDING',
-      delivery: normalizeDelivery(res),
-    }
-  }
-  return {
-    success: false,
-    message: res?.message || 'Replay operation failed',
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   }
 }

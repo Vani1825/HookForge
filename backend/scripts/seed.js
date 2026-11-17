@@ -23,7 +23,8 @@ export async function initDevTenant(options = {}) {
   // 7. Refuse to run in production
   const isProduction =
     (process.env.NODE_ENV && process.env.NODE_ENV.toLowerCase() === 'production') ||
-    (config.nodeEnv && config.nodeEnv.toLowerCase() === 'production');
+    (config.nodeEnv && config.nodeEnv.toLowerCase() === 'production') ||
+    (process.env.APP_ENV && process.env.APP_ENV.toLowerCase() === 'production');
 
   if (isProduction && !options.skipEnvCheck) {
     console.error('\n[Security Error] Refusing to initialize development tenant in production environment.');
@@ -42,40 +43,9 @@ export async function initDevTenant(options = {}) {
     password: config.database.password,
   });
 
-<<<<<<< HEAD
-async function seedTenant(client, name, apiKey) {
-  const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
-  const existing = await client.query(
-    'SELECT id, name FROM tenants WHERE api_key_hash = $1',
-    [hash]
-  );
-  if (existing.rows.length > 0) {
-    console.log(`Development tenant already exists: ${existing.rows[0].name} (ID: ${existing.rows[0].id})`);
-    return existing.rows[0].id;
-  }
-  const res = await client.query(
-    'INSERT INTO tenants (name, api_key_hash) VALUES ($1, $2) RETURNING id, name',
-    [name, hash]
-  );
-  console.log(`Created development tenant: ${res.rows[0].name} (ID: ${res.rows[0].id})`);
-  return res.rows[0].id;
-}
-
-async function seed() {
-=======
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   const client = await pool.connect();
 
   try {
-<<<<<<< HEAD
-    console.log('Seeding development tenants...');
-
-    const devApiKey = process.env.DEV_API_KEY || 'wh_dev_test_key_001';
-    await seedTenant(client, 'Default Dev Tenant', devApiKey);
-
-    const devApiKeyBeta = process.env.DEV_API_KEY_BETA || 'wh_dev_test_key_beta_002';
-    await seedTenant(client, 'Beta Dev Tenant', devApiKeyBeta);
-=======
     const tenantName = process.env.DEV_TENANT_NAME || options.tenantName || 'Default Dev Tenant';
 
     // 5 & 6. Check if development tenant already exists (prevents duplicate and prevents overwrite)
@@ -106,7 +76,6 @@ async function seed() {
         tenant: existing,
       };
     }
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
 
     // 1. Generate a cryptographically random API key
     // Using a clear whkey_ prefix followed by 48 hex characters (192 bits of entropy)

@@ -1,42 +1,6 @@
 import { apiClient } from './client'
 import type { OverviewMetrics, TimeSeriesDataPoint, StatusDistribution } from '../types'
 
-<<<<<<< HEAD
-export interface MetricsFilterParams {
-  [key: string]: string | number | boolean | undefined | null
-  range?: '24h' | '7d' | '30d' | string
-  startDate?: string
-  endDate?: string
-  interval?: 'hour' | 'day'
-}
-
-/**
- * Fetch high-level overview KPI telemetry.
- */
-export async function fetchOverviewMetrics(params?: MetricsFilterParams): Promise<OverviewMetrics> {
-  return apiClient.get<OverviewMetrics>('/metrics', { params })
-}
-
-/**
- * Fetch bucketed time-series metrics for throughput and outcome trend charts.
- */
-export async function fetchTimeSeriesMetrics(params?: MetricsFilterParams): Promise<TimeSeriesDataPoint[]> {
-  return apiClient.get<TimeSeriesDataPoint[]>('/metrics/timeseries', { params })
-}
-
-/**
- * Fetch delivery state distribution for pie/donut charts.
- */
-export async function fetchStatusDistribution(params?: MetricsFilterParams): Promise<StatusDistribution[]> {
-  return apiClient.get<StatusDistribution[]>('/metrics/distribution', { params })
-}
-
-/**
- * Backward compatibility alias for fetchOverviewMetrics.
- */
-export async function fetchSystemMetrics(): Promise<OverviewMetrics> {
-  return fetchOverviewMetrics()
-=======
 export interface MetricsQueryParams {
   created_after?: string
   created_before?: string
@@ -44,9 +8,12 @@ export interface MetricsQueryParams {
   endDate?: string
   from?: string
   to?: string
-  range?: '24h' | '7d' | '30d'
+  range?: '24h' | '7d' | '30d' | string
+  interval?: 'hour' | 'day'
   [key: string]: string | number | boolean | null | undefined
 }
+
+export type MetricsFilterParams = MetricsQueryParams
 
 function toParams(params?: MetricsQueryParams): Record<string, string | number | boolean | null | undefined> | undefined {
   if (!params) return undefined
@@ -58,9 +25,13 @@ function toParams(params?: MetricsQueryParams): Record<string, string | number |
   if (params.from) queryParams.from = params.from
   if (params.to) queryParams.to = params.to
   if (params.range) queryParams.range = params.range
+  if (params.interval) queryParams.interval = params.interval
   return queryParams
 }
 
+/**
+ * Fetch high-level overview KPI telemetry.
+ */
 export async function fetchSystemMetrics(params?: MetricsQueryParams): Promise<OverviewMetrics> {
   const p = toParams(params)
   return p
@@ -68,6 +39,11 @@ export async function fetchSystemMetrics(params?: MetricsQueryParams): Promise<O
     : apiClient.get<OverviewMetrics>('/metrics')
 }
 
+export const fetchOverviewMetrics = fetchSystemMetrics
+
+/**
+ * Fetch bucketed time-series metrics for throughput and outcome trend charts.
+ */
 export async function fetchTimeSeriesMetrics(params?: MetricsQueryParams): Promise<TimeSeriesDataPoint[]> {
   const p = toParams(params)
   const res = p
@@ -76,11 +52,13 @@ export async function fetchTimeSeriesMetrics(params?: MetricsQueryParams): Promi
   return Array.isArray(res) ? res : res?.timeSeries || []
 }
 
+/**
+ * Fetch delivery state distribution for pie/donut charts.
+ */
 export async function fetchStatusDistribution(params?: MetricsQueryParams): Promise<StatusDistribution[]> {
   const p = toParams(params)
   const res = p
     ? await apiClient.get<any>('/metrics/distribution', { params: p })
     : await apiClient.get<any>('/metrics/distribution')
   return Array.isArray(res) ? res : res?.statusDistribution || []
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
 }

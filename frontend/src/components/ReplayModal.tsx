@@ -62,7 +62,7 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({
             Cancel
           </Button>
           <Button
-            variant="danger"
+            variant="primary"
             size="sm"
             onClick={handleReplay}
             isLoading={isLoading}
@@ -75,22 +75,22 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({
     >
       <div className="space-y-4 text-left">
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-xs text-rose-700">
-            <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+          <div className="p-3 bg-[#E76B64]/10 border border-[#E76B64]/25 rounded-lg flex items-center gap-2 text-xs text-[#E76B64]">
+            <AlertCircle className="w-4 h-4 shrink-0 text-[#E76B64]" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Ordering Warning notice */}
-        <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-          <div className="text-xs text-amber-900 space-y-1">
-            <p className="font-semibold">Ordering Guarantee Notice</p>
+        <div className="p-3.5 bg-[#E5B34B]/10 border border-[#E5B34B]/25 rounded-xl flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-[#B8871E] shrink-0 mt-0.5" />
+          <div className="text-xs text-[#202938] space-y-1">
+            <p className="font-semibold text-[#B8871E]">Ordering Guarantee Notice</p>
             <p>
               When this delivery became <strong>DEAD</strong>, it released the destination
               endpoint&apos;s head-of-line lock so subsequent events could proceed.
             </p>
-            <p className="font-medium text-amber-950">
+            <p className="font-medium text-[#B8871E]">
               Replaying it now is <u>not</u> order-preserving relative to newer deliveries to this
               endpoint.
             </p>
@@ -98,27 +98,27 @@ export const ReplayModal: React.FC<ReplayModalProps> = ({
         </div>
 
         {/* Delivery Details Summary */}
-        <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-2 text-xs">
+        <div className="p-3 bg-[#F7F6F2] border border-[#E7E8EC] rounded-lg space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Delivery ID:</span>
-            <span className="font-mono text-slate-900 font-semibold">{delivery.id}</span>
+            <span className="text-[#64748B]">Delivery ID:</span>
+            <span className="font-mono text-[#202938] font-semibold">{delivery.id}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Endpoint:</span>
-            <span className="font-mono text-slate-800 truncate max-w-xs">{delivery.endpoint_url || delivery.endpoint_id}</span>
+            <span className="text-[#64748B]">Endpoint:</span>
+            <span className="font-mono text-[#202938] truncate max-w-xs">{delivery.endpoint_url || delivery.endpoint_id}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Sequence:</span>
-            <span className="font-mono text-slate-800">#{delivery.seq}</span>
+            <span className="text-[#64748B]">Sequence:</span>
+            <span className="font-mono text-[#202938]">#{delivery.seq}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Attempts Exhausted:</span>
-            <span className="font-semibold text-rose-700">{delivery.attempt_count} attempts</span>
+            <span className="text-[#64748B]">Attempts Exhausted:</span>
+            <span className="font-semibold text-[#E76B64]">{delivery.attempt_count} attempts</span>
           </div>
           {delivery.last_error && (
-            <div className="pt-1 border-t border-slate-200">
-              <span className="text-slate-500 block mb-0.5">Last Error:</span>
-              <span className="font-mono text-2xs text-rose-600 break-all">{delivery.last_error}</span>
+            <div className="pt-1 border-t border-[#E7E8EC]">
+              <span className="text-[#64748B] block mb-0.5">Last Error:</span>
+              <span className="font-mono text-2xs text-[#E76B64] break-all">{delivery.last_error}</span>
             </div>
           )}
         </div>

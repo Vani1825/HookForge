@@ -8,12 +8,14 @@ import {
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
 import { Input } from '../components/ui/Input'
 import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
 import { DeliveryDetailDrawer } from '../components/DeliveryDetailDrawer'
 import { ReplayModal } from '../components/ReplayModal'
 import { useApp } from '../context/AppContext'
+import { formatErrorMessage } from '../api/client'
 import { formatRelativeTime, truncateId } from '../utils/formatters'
 import type { Delivery } from '../types'
 
@@ -38,7 +40,7 @@ export const DeadLettersPage: React.FC = () => {
       const data = await service.getDeadLetters()
       setDeadLetters(data)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to fetch dead letters'
+      const msg = formatErrorMessage(err)
       setError(msg)
     } finally {
       setIsLoading(false)
@@ -79,15 +81,10 @@ export const DeadLettersPage: React.FC = () => {
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900 tracking-tight">Dead Letter Queue (DLQ)</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Deliveries that have permanently failed after exhausting exponential retry policies.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title="Dead Letter Queue (DLQ)"
+        description="Deliveries that have permanently failed after exhausting exponential retry policies."
+        actions={
           <Button
             variant="outline"
             size="sm"
@@ -97,15 +94,15 @@ export const DeadLettersPage: React.FC = () => {
           >
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Head of line notice */}
-      <div className="p-4 bg-amber-50/80 border border-amber-200/90 rounded-xl flex items-start gap-3">
-        <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-        <div className="text-xs text-amber-900 space-y-1">
-          <p className="font-semibold">Head-of-Line Architecture Note</p>
-          <p className="text-slate-700">
+      <div className="p-4 bg-[#E5B34B]/10 border border-[#E5B34B]/25 rounded-xl flex items-start gap-3">
+        <ShieldAlert className="w-5 h-5 text-[#B8871E] shrink-0 mt-0.5" />
+        <div className="text-xs text-[#202938] space-y-1">
+          <p className="font-semibold text-[#B8871E]">Head-of-Line Architecture Note</p>
+          <p className="text-[#64748B]">
             A delivery entering <strong>DEAD</strong> status releases that endpoint&apos;s sequence lock so
             future events can proceed. Replaying a dead delivery is supported, but will <u>not</u> preserve
             strict FIFO sequence ordering relative to newer deliveries that have already succeeded.
@@ -119,7 +116,7 @@ export const DeadLettersPage: React.FC = () => {
           placeholder="Search dead letters by ID, URL, or error diagnostics..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          leftIcon={<Search className="w-4 h-4 text-slate-400" />}
+          leftIcon={<Search className="w-4 h-4 text-[#64748B]" />}
         />
       </Card>
 
@@ -128,13 +125,13 @@ export const DeadLettersPage: React.FC = () => {
         {isLoading ? (
           <TableSkeleton rows={4} cols={6} />
         ) : error && mode === 'live' ? (
-          <div className="p-8 text-center text-xs text-rose-600 space-y-2">
+          <div className="p-8 text-center text-xs text-[#E76B64] space-y-2">
             <p className="font-semibold">Failed to load dead letters from backend.</p>
-            <p className="text-slate-500 font-mono">{error}</p>
+            <p className="text-[#64748B] font-mono">{error}</p>
           </div>
         ) : filtered.length === 0 ? (
           <EmptyState
-            icon={<AlertOctagon className="w-6 h-6 text-emerald-500" />}
+            icon={<AlertOctagon className="w-6 h-6 text-[#159B78]" />}
             title="Dead Letter Queue Clean"
             description={
               searchQuery
@@ -145,7 +142,7 @@ export const DeadLettersPage: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/70 border-b border-slate-200 text-slate-500 font-medium">
+              <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
                   <th className="py-3 px-4">Delivery ID</th>
                   <th className="py-3 px-4">Destination Endpoint</th>
@@ -155,42 +152,42 @@ export const DeadLettersPage: React.FC = () => {
                   <th className="py-3 px-4 text-right">Replay Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#E7E8EC]">
                 {filtered.map((del) => (
                   <tr
                     key={del.id}
                     onClick={() => handleInspect(del)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    className="hover:bg-[#F7F6F2]/70 transition-colors cursor-pointer"
                   >
                     <td className="py-3 px-4">
                       <div className="flex flex-col">
-                        <span className="font-mono font-medium text-slate-800">{truncateId(del.id, 8)}</span>
-                        <span className="text-2xs font-mono text-slate-400 mt-0.5">Seq #{del.seq}</span>
+                        <span className="font-mono font-semibold text-[#202938]">{truncateId(del.id, 8)}</span>
+                        <span className="text-2xs font-mono text-[#64748B] mt-0.5">Seq #{del.seq}</span>
                       </div>
                     </td>
 
-                    <td className="py-3 px-4 text-slate-600 font-mono max-w-xs truncate">
+                    <td className="py-3 px-4 text-[#64748B] font-mono max-w-xs truncate">
                       {del.endpoint_url || del.endpoint_id}
                     </td>
 
                     <td className="py-3 px-4 max-w-md">
-                      <span className="font-mono text-2xs text-rose-700 bg-rose-50 px-2 py-1 rounded line-clamp-2 break-all border border-rose-100">
+                      <span className="font-mono text-2xs text-[#E76B64] bg-[#E76B64]/10 px-2 py-1 rounded line-clamp-2 break-all border border-[#E76B64]/20">
                         {del.last_error || 'Delivery timeout / network error'}
                       </span>
                     </td>
 
-                    <td className="py-3 px-4 font-semibold text-rose-700">
+                    <td className="py-3 px-4 font-semibold text-[#E76B64]">
                       {del.attempt_count} attempts
                     </td>
 
-                    <td className="py-3 px-4 text-slate-500">
+                    <td className="py-3 px-4 text-[#64748B]">
                       {formatRelativeTime(del.updated_at)}
                     </td>
 
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <Button
-                          variant="danger"
+                          variant="primary"
                           size="sm"
                           leftIcon={<RotateCw className="w-3 h-3" />}
                           onClick={(e) => handleOpenReplay(del, e)}

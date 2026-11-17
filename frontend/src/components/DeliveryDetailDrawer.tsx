@@ -66,27 +66,27 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
       }
     >
       {/* Status & Overview Bar */}
-      <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+      <div className="flex items-center justify-between p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC]">
         <div>
-          <span className="text-xs text-slate-500 font-medium block">Current State</span>
+          <span className="text-xs text-[#64748B] font-medium block">Current State</span>
           <div className="mt-1 flex items-center gap-2">
             <StatusBadge state={delivery.state} />
-            <span className="text-xs text-slate-500">Attempt {delivery.attempt_count}</span>
+            <span className="text-xs text-[#64748B]">Attempt {delivery.attempt_count}</span>
           </div>
         </div>
 
         <button
           onClick={handleCopyId}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 shadow-2xs cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#202938] bg-white border border-[#E7E8EC] rounded-lg hover:bg-[#F7F6F2] shadow-2xs cursor-pointer"
         >
           {copiedId ? (
             <>
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              <Check className="w-3.5 h-3.5 text-[#159B78]" />
               <span>Copied ID</span>
             </>
           ) : (
             <>
-              <Copy className="w-3.5 h-3.5 text-slate-400" />
+              <Copy className="w-3.5 h-3.5 text-[#64748B]" />
               <span>Copy Delivery ID</span>
             </>
           )}
@@ -95,45 +95,45 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
 
       {/* Target & Sequence Information */}
       <div className="space-y-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
           Target & Ordering
         </h4>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-          <div className="p-3 bg-white rounded-lg border border-slate-200">
-            <span className="text-slate-400 block mb-1">Destination Endpoint</span>
-            <div className="flex items-center gap-1 font-mono text-slate-800 break-all font-medium">
-              <ExternalLink className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <div className="p-3 bg-white rounded-lg border border-[#E7E8EC]">
+            <span className="text-[#64748B] block mb-1">Destination Endpoint</span>
+            <div className="flex items-center gap-1 font-mono text-[#202938] break-all font-semibold">
+              <ExternalLink className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
               <span>{delivery.endpoint_url || delivery.endpoint?.url || '—'}</span>
             </div>
           </div>
 
-          <div className="p-3 bg-white rounded-lg border border-slate-200">
-            <span className="text-slate-400 block mb-1">Per-Endpoint Sequence Number</span>
-            <span className="font-mono text-slate-800 font-bold text-sm">
+          <div className="p-3 bg-white rounded-lg border border-[#E7E8EC]">
+            <span className="text-[#64748B] block mb-1">Per-Endpoint Sequence Number</span>
+            <span className="font-mono text-[#202938] font-bold text-sm">
               #{delivery.seq}
             </span>
-            <p className="text-2xs text-slate-400 mt-0.5">Strict head-of-line ordering</p>
+            <p className="text-2xs text-[#64748B] mt-0.5">Strict head-of-line ordering</p>
           </div>
         </div>
       </div>
 
       {/* Timestamps & Scheduling */}
       <div className="space-y-3">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
           Timing & Leases
         </h4>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
-          <div className="p-2.5 bg-slate-50 rounded-lg">
-            <span className="text-slate-400 block">Created At</span>
-            <span className="font-medium text-slate-800">{formatDateTime(delivery.created_at)}</span>
+          <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
+            <span className="text-[#64748B] block">Created At</span>
+            <span className="font-medium text-[#202938]">{formatDateTime(delivery.created_at)}</span>
           </div>
-          <div className="p-2.5 bg-slate-50 rounded-lg">
-            <span className="text-slate-400 block">Last Updated</span>
-            <span className="font-medium text-slate-800">{formatRelativeTime(delivery.updated_at)}</span>
+          <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
+            <span className="text-[#64748B] block">Last Updated</span>
+            <span className="font-medium text-[#202938]">{formatRelativeTime(delivery.updated_at)}</span>
           </div>
-          <div className="p-2.5 bg-slate-50 rounded-lg">
-            <span className="text-slate-400 block">Next Attempt</span>
-            <span className="font-medium text-slate-800">
+          <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
+            <span className="text-[#64748B] block">Next Attempt</span>
+            <span className="font-medium text-[#202938]">
               {delivery.state === 'DEAD' || delivery.state === 'SUCCEEDED'
                 ? '—'
                 : formatDateTime(delivery.next_attempt_at)}
@@ -141,7 +141,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
           </div>
         </div>
         {delivery.lease_until && (
-          <div className="flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-200 rounded-lg text-xs text-indigo-700">
+          <div className="flex items-center gap-2 p-2 bg-[#EAF0FF] border border-[#DCE5FA] rounded-lg text-xs text-[#5277D9]">
             <Clock className="w-3.5 h-3.5 shrink-0" />
             <span>Active Worker Lease until: {formatDateTime(delivery.lease_until)}</span>
           </div>
@@ -150,58 +150,58 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
 
       {/* Last Error Message (if any) */}
       {delivery.last_error && (
-        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-left">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-800">
-            <AlertOctagon className="w-4 h-4 text-rose-600" />
+        <div className="p-3.5 bg-[#E76B64]/10 border border-[#E76B64]/25 rounded-xl space-y-1 text-left">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-[#E76B64]">
+            <AlertOctagon className="w-4 h-4 text-[#E76B64]" />
             <span>Failure Diagnostic</span>
           </div>
-          <p className="text-xs text-rose-700 font-mono break-all">{delivery.last_error}</p>
+          <p className="text-xs text-[#E76B64] font-mono break-all">{delivery.last_error}</p>
         </div>
       )}
 
       {/* Attempt History */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
             Delivery Attempts ({attempts.length})
           </h4>
-          <span className="text-2xs text-slate-400">Chronological execution order</span>
+          <span className="text-2xs text-[#64748B]">Chronological execution order</span>
         </div>
 
         {attempts.length === 0 ? (
-          <div className="text-center p-6 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-500">
+          <div className="text-center p-6 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] text-xs text-[#64748B]">
             No attempts executed yet. Delivery is currently {delivery.state}.
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
+          <div className="border border-[#E7E8EC] rounded-xl overflow-hidden divide-y divide-[#E7E8EC] bg-white">
             {attempts.map((att) => {
               const statusInfo = formatStatusCode(att.status_code)
               return (
                 <div key={att.id} className="p-3 text-xs flex flex-col gap-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-800">
+                    <span className="font-semibold text-[#202938]">
                       Attempt #{att.attempt_no}
                     </span>
-                    <span className="text-slate-400">{formatDateTime(att.started_at)}</span>
+                    <span className="text-[#64748B]">{formatDateTime(att.started_at)}</span>
                   </div>
 
                   <div className="flex items-center gap-3">
                     <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-2xs font-medium ${
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-2xs font-semibold border ${
                         statusInfo.category === 'success'
-                          ? 'bg-emerald-100 text-emerald-800'
+                          ? 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25'
                           : statusInfo.category === 'client-error'
-                          ? 'bg-amber-100 text-amber-800'
-                          : 'bg-rose-100 text-rose-800'
+                          ? 'bg-[#E5B34B]/15 text-[#B8871E] border-[#E5B34B]/30'
+                          : 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25'
                       }`}
                     >
                       {statusInfo.text}
                     </span>
-                    <span className="text-slate-500">Latency: {formatLatency(att.latency_ms)}</span>
+                    <span className="text-[#64748B]">Latency: {formatLatency(att.latency_ms)}</span>
                   </div>
 
                   {att.error && (
-                    <p className="text-2xs text-rose-600 font-mono bg-rose-50/60 p-1.5 rounded mt-0.5 break-all">
+                    <p className="text-2xs text-[#E76B64] font-mono bg-[#E76B64]/10 p-1.5 rounded mt-0.5 break-all">
                       {att.error}
                     </p>
                   )}

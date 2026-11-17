@@ -6,6 +6,7 @@
 
 import express from 'express';
 import { query, param, validationResult } from 'express-validator';
+import { TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
 import deliveryService from '../services/delivery/deliveryService.js';
 import { deliveryState } from '../domain/deliveryState.js';
 import { IllegalStateTransitionError } from '../domain/errors/illegalStateTransitionError.js';
@@ -18,17 +19,6 @@ const router = express.Router();
  */
 router.get(
   '/',
-<<<<<<< HEAD
-  query('state')
-    .optional()
-    .isIn([...deliveryState.values(), 'ALL'])
-    .withMessage('Invalid state'),
-  query('limit').optional().isInt({ min: 1, max: 1000 }).withMessage('Limit must be between 1 and 1000'),
-  query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be a non-negative integer'),
-  query('endpoint_id').optional().isUUID().withMessage('Invalid endpoint ID'),
-  query('endpointId').optional().isUUID().withMessage('Invalid endpoint ID'),
-  query('search').optional().isString().trim(),
-=======
   [
     query('state')
       .optional()
@@ -54,6 +44,10 @@ router.get(
       .optional()
       .isUUID()
       .withMessage('endpoint_id must be a valid UUID'),
+    query('endpointId')
+      .optional()
+      .isUUID()
+      .withMessage('endpointId must be a valid UUID'),
     query('event_id')
       .optional()
       .isUUID()
@@ -80,8 +74,11 @@ router.get(
       .optional()
       .isString()
       .trim(),
+    query('search')
+      .optional()
+      .isString()
+      .trim(),
   ],
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
@@ -93,35 +90,10 @@ router.get(
         });
       }
 
-<<<<<<< HEAD
-      const limit = parseInt(req.query.limit || '100', 10);
-      const offset = req.query.offset !== undefined ? parseInt(req.query.offset, 10) : 0;
-      const endpointId = req.query.endpoint_id || req.query.endpointId || null;
-      const search = req.query.search || null;
-=======
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
-      const tenantId = req.tenantId;
+      const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
       const stateQuery = req.query.state;
       const state = stateQuery || 'DEAD';
 
-<<<<<<< HEAD
-      let state = stateQuery || 'DEAD';
-      let deliveries;
-
-      if (offset > 0 || endpointId || search) {
-        const options = { offset, endpointId, search };
-        if (stateQuery === 'ALL') {
-          deliveries = await deliveryService.getAllDeliveries(tenantId, limit, options);
-        } else {
-          deliveries = await deliveryService.getDeliveriesByState(state, tenantId, limit, options);
-        }
-      } else {
-        if (stateQuery === 'ALL') {
-          deliveries = await deliveryService.getAllDeliveries(tenantId, limit);
-        } else {
-          deliveries = await deliveryService.getDeliveriesByState(state, tenantId, limit);
-        }
-=======
       // Resolve pagination respecting precedence: pageSize > limit, page > offset
       let pageSize = 20;
       let limit = 20;
@@ -133,7 +105,6 @@ router.get(
         limit = Math.min(1000, Math.max(1, parseInt(req.query.limit, 10)));
         pageSize = limit;
         isLimit = true;
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       }
 
       let page = 1;
@@ -150,36 +121,11 @@ router.get(
 
       const filters = {
         state,
-<<<<<<< HEAD
-        deliveries: deliveries.map((d) => ({
-          id: d.id,
-          eventId: d.eventId,
-          event_id: d.eventId,
-          endpointId: d.endpointId,
-          endpoint_id: d.endpointId,
-          endpointUrl: d.endpointUrl || null,
-          endpoint_url: d.endpointUrl || null,
-          seq: d.seq,
-          state: d.state.toString(),
-          attemptCount: d.attemptCount,
-          attempt_count: d.attemptCount,
-          nextAttemptAt: d.nextAttemptAt,
-          next_attempt_at: d.nextAttemptAt,
-          lastError: d.lastError,
-          last_error: d.lastError,
-          lastStatusCode: d.lastStatusCode ?? null,
-          last_status_code: d.lastStatusCode ?? null,
-          createdAt: d.createdAt,
-          created_at: d.createdAt,
-          updatedAt: d.updatedAt,
-          updated_at: d.updatedAt,
-        })),
-=======
-        endpoint_id: req.query.endpoint_id,
-        event_id: req.query.event_id,
-        created_after: req.query.created_after,
-        created_before: req.query.created_before,
-        q: req.query.q,
+        endpoint_id: req.query.endpoint_id || req.query.endpointId || null,
+        event_id: req.query.event_id || null,
+        created_after: req.query.created_after || null,
+        created_before: req.query.created_before || null,
+        q: req.query.q || req.query.search || null,
       };
 
       const pagination = {
@@ -201,6 +147,8 @@ router.get(
         event_id: d.eventId,
         endpointId: d.endpointId,
         endpoint_id: d.endpointId,
+        endpointUrl: d.endpointUrl || null,
+        endpoint_url: d.endpointUrl || null,
         seq: d.seq,
         state: d.state.toString(),
         attemptCount: d.attemptCount,
@@ -209,6 +157,8 @@ router.get(
         next_attempt_at: d.nextAttemptAt,
         lastError: d.lastError,
         last_error: d.lastError,
+        lastStatusCode: d.lastStatusCode ?? null,
+        last_status_code: d.lastStatusCode ?? null,
         createdAt: d.createdAt,
         created_at: d.createdAt,
         updatedAt: d.updatedAt,
@@ -220,7 +170,6 @@ router.get(
         deliveries: formattedDeliveries,
         state,
         pagination: result.pagination,
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       });
     } catch (error) {
       next(error);
@@ -303,11 +252,7 @@ router.post(
 
       const delivery = await deliveryService.replayDelivery(deliveryId, tenantId);
 
-<<<<<<< HEAD
       const deliveryPayload = {
-=======
-      const deliveryData = {
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
         id: delivery.id,
         eventId: delivery.eventId,
         event_id: delivery.eventId,
@@ -328,23 +273,14 @@ router.post(
         createdAt: delivery.createdAt,
         created_at: delivery.createdAt,
         updatedAt: delivery.updatedAt,
-<<<<<<< HEAD
         updated_at: delivery.updatedAt,
-=======
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
       };
 
       res.json({
         success: true,
-<<<<<<< HEAD
         message: 'Delivery replayed successfully',
-        delivery: deliveryPayload,
         ...deliveryPayload,
-=======
-        message: 'Delivery re-enqueued as PENDING',
-        ...deliveryData,
-        delivery: deliveryData,
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+        delivery: deliveryPayload,
       });
     } catch (error) {
       if (error instanceof IllegalStateTransitionError || error.name === 'IllegalStateTransitionError') {

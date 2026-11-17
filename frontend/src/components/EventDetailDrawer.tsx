@@ -61,34 +61,34 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
       }
     >
       {/* Event Header metadata */}
-      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+      <div className="p-4 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC] space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-800 font-mono">
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] font-mono">
             {event.event_type || 'custom.event'}
           </span>
-          <span className="text-xs text-slate-500">{formatDateTime(event.created_at)}</span>
+          <span className="text-xs text-[#64748B]">{formatDateTime(event.created_at)}</span>
         </div>
 
         <div className="space-y-1.5 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Event ID:</span>
+            <span className="text-[#64748B]">Event ID:</span>
             <button
               onClick={handleCopyId}
-              className="inline-flex items-center gap-1 font-mono text-slate-700 hover:text-slate-900 cursor-pointer"
+              className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer"
             >
               <span>{truncateId(event.id, 12)}</span>
-              {copiedId ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+              {copiedId ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
             </button>
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="text-slate-500">Idempotency Key:</span>
+            <span className="text-[#64748B]">Idempotency Key:</span>
             <button
               onClick={handleCopyKey}
-              className="inline-flex items-center gap-1 font-mono text-slate-700 hover:text-slate-900 cursor-pointer"
+              className="inline-flex items-center gap-1 font-mono text-[#202938] hover:text-[#5277D9] cursor-pointer"
             >
               <span>{event.idempotency_key}</span>
-              {copiedKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3 text-slate-400" />}
+              {copiedKey ? <Check className="w-3 h-3 text-[#159B78]" /> : <Copy className="w-3 h-3 text-[#64748B]" />}
             </button>
           </div>
         </div>
@@ -96,7 +96,7 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
 
       {/* JSON Payload */}
       <div className="space-y-2">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+        <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
           Event Body (JSON Payload)
         </h4>
         <JsonViewer data={event.payload} maxHeight="max-h-80" />
@@ -105,28 +105,28 @@ export const EventDetailDrawer: React.FC<EventDetailDrawerProps> = ({
       {/* Associated Fan-out Deliveries */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-[#64748B]">
             Enqueued Deliveries ({relatedDeliveries.length})
           </h4>
-          <span className="text-2xs text-slate-400">Atomic fan-out per endpoint</span>
+          <span className="text-2xs text-[#64748B]">Atomic fan-out per endpoint</span>
         </div>
 
         {relatedDeliveries.length === 0 ? (
-          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-500 text-center">
+          <div className="p-4 rounded-lg bg-[#F7F6F2] border border-[#E7E8EC] text-xs text-[#64748B] text-center">
             No active deliveries recorded for this event.
           </div>
         ) : (
-          <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 bg-white">
+          <div className="border border-[#E7E8EC] rounded-xl overflow-hidden divide-y divide-[#E7E8EC] bg-white">
             {relatedDeliveries.map((del) => (
               <div
                 key={del.id}
-                className="p-3 text-xs flex items-center justify-between hover:bg-slate-50 transition-colors"
+                className="p-3 text-xs flex items-center justify-between hover:bg-[#F7F6F2] transition-colors"
               >
                 <div className="min-w-0 pr-3">
-                  <div className="font-mono text-slate-800 truncate font-medium">
+                  <div className="font-mono text-[#202938] truncate font-semibold">
                     {del.endpoint_url || del.endpoint_id}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-2xs text-slate-400">
+                  <div className="flex items-center gap-2 mt-1 text-2xs text-[#64748B]">
                     <span>Seq #{del.seq}</span>
                     <span>•</span>
                     <span>Attempts: {del.attempt_count}</span>

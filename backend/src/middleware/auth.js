@@ -26,11 +26,20 @@ export const TENANT_ID_ATTRIBUTE = 'tenantId';
 /**
  * Paths that bypass authentication
  * /health is exact match only
- * /actuator and its subpaths are allowed (for metrics/health endpoints)
- * NOTE: Any route starting with /actuator will bypass auth (documented limitation)
+ * /actuator and /actuator/* are allowed (strictly delimited by slash to prevent prefix confusion)
  */
 const BYPASS_PATHS = ['/health'];
-const BYPASS_PREFIXES = ['/actuator'];
+
+/**
+ * Check whether a path matches an actuator endpoint (/actuator or /actuator/*)
+ * @param {string} pathStr
+ * @returns {boolean}
+ */
+function isActuatorPath(pathStr) {
+  if (!pathStr || typeof pathStr !== 'string') return false;
+  const cleanPath = pathStr.split('?')[0];
+  return cleanPath === '/actuator' || cleanPath.startsWith('/actuator/');
+}
 
 /**
  * Compute SHA-256 hash of API key (hex string)
@@ -62,10 +71,8 @@ export async function apiKeyAuth(req, res, next) {
     return next();
   }
 
-  // Prefix match for /actuator (allows /actuator/prometheus, /actuator/health, etc.)
-  if (
-    BYPASS_PREFIXES.some((prefix) => currentPath.startsWith(prefix) || originalPath.startsWith(prefix))
-  ) {
+  // Match for /actuator or /actuator/* (allows /actuator, /actuator/prometheus, /actuator/health, etc.)
+  if (isActuatorPath(currentPath) || isActuatorPath(originalPath)) {
     return next();
   }
 

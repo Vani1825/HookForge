@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
+import { PageHeader } from '../components/ui/PageHeader'
 import { Input } from '../components/ui/Input'
 import { useApp } from '../context/AppContext'
 import { MOCK_TENANT } from '../mocks/mockData'
@@ -60,43 +61,41 @@ export const SettingsPage: React.FC = () => {
   return (
     <div className="space-y-6 text-left max-w-4xl">
       {/* Page Header */}
-      <div>
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight">Platform Settings</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Configure backend API endpoints, authentication keys, tenant preferences, and inspect engine tunables.
-        </p>
-      </div>
+      <PageHeader
+        title="Platform Settings"
+        description="Configure backend API endpoints, authentication keys, tenant preferences, and inspect engine tunables."
+      />
 
       {/* Mode Configuration Card */}
       <Card>
-        <CardHeader>
+        <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5">
           <CardTitle>Environment Operation Mode</CardTitle>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[#64748B]">
             Switch between interactive simulated demo data and live backend API communication.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div
               onClick={() => setMode('demo')}
               className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
                 mode === 'demo'
-                  ? 'border-purple-600 bg-purple-50/50'
-                  : 'border-slate-200 hover:border-slate-300 bg-white'
+                  ? 'border-[#5277D9] bg-[#EAF0FF]/50'
+                  : 'border-[#E7E8EC] hover:border-[#D1D5DB] bg-white'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 font-semibold text-slate-900 text-sm">
-                  <Sparkles className="w-4 h-4 text-purple-600" />
+                <div className="flex items-center gap-2 font-semibold text-[#202938] text-sm">
+                  <Sparkles className="w-4 h-4 text-[#5277D9]" />
                   <span>Demo Mode</span>
                 </div>
                 {mode === 'demo' && (
-                  <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-purple-600 text-white">
+                  <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-[#5277D9] text-white">
                     Active
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-[#64748B]">
                 Uses in-memory reactive fixtures matching the database schema. Ideal for frontend exploration,
                 UI development, and demos when backend is offline.
               </p>
@@ -106,22 +105,22 @@ export const SettingsPage: React.FC = () => {
               onClick={() => setMode('live')}
               className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
                 mode === 'live'
-                  ? 'border-emerald-600 bg-emerald-50/50'
-                  : 'border-slate-200 hover:border-slate-300 bg-white'
+                  ? 'border-[#159B78] bg-[#159B78]/10'
+                  : 'border-[#E7E8EC] hover:border-[#D1D5DB] bg-white'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 font-semibold text-slate-900 text-sm">
-                  <Radio className="w-4 h-4 text-emerald-600" />
+                <div className="flex items-center gap-2 font-semibold text-[#202938] text-sm">
+                  <Radio className="w-4 h-4 text-[#159B78]" />
                   <span>Live API Mode</span>
                 </div>
                 {mode === 'live' && (
-                  <span className="text-2xs font-bold px-2 py-0.5 rounded-full bg-emerald-600 text-white">
+                  <span className="text-2xs font-semibold px-2 py-0.5 rounded-full bg-[#159B78] text-white">
                     Active
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-[#64748B]">
                 Connects directly to the HookForge backend server via HTTP. Communicates with live
                 controllers, PostgreSQL queues, and Actuator health probes.
               </p>
@@ -132,13 +131,13 @@ export const SettingsPage: React.FC = () => {
 
       {/* Backend API Connection Configuration */}
       <Card>
-        <CardHeader>
+        <CardHeader className="bg-[#F7F6F2] border-b border-[#E7E8EC] py-3.5">
           <CardTitle>Backend API Configuration</CardTitle>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[#64748B]">
             Configure the target server URL and credentials used for Live API requests.
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-5">
           <form onSubmit={handleSaveConnection} className="space-y-4">
             <Input
               label="Backend Base URL"
@@ -146,7 +145,7 @@ export const SettingsPage: React.FC = () => {
               value={inputBaseUrl}
               onChange={(e) => setInputBaseUrl(e.target.value)}
               helperText="The host and port where your Express server runs (default: http://localhost:8081)."
-              leftIcon={<Server className="w-4 h-4 text-slate-400" />}
+              leftIcon={<Server className="w-4 h-4 text-[#64748B]" />}
             />
 
             <Input
@@ -156,24 +155,24 @@ export const SettingsPage: React.FC = () => {
               value={inputApiKey}
               onChange={(e) => setInputApiKey(e.target.value)}
               helperText="Tenant authentication token sent in the Authorization: Bearer header (verified via SHA-256 hash)."
-              leftIcon={<Key className="w-4 h-4 text-slate-400" />}
+              leftIcon={<Key className="w-4 h-4 text-[#64748B]" />}
             />
 
             {/* Health status banner */}
             <div
               className={`p-3.5 rounded-xl border text-xs flex items-center justify-between ${
                 backendHealth.status === 'up'
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  ? 'bg-[#159B78]/10 border-[#159B78]/30 text-[#159B78]'
                   : backendHealth.status === 'down'
-                  ? 'bg-rose-50 border-rose-200 text-rose-900'
-                  : 'bg-slate-50 border-slate-200 text-slate-700'
+                  ? 'bg-[#E76B64]/10 border-[#E76B64]/30 text-[#E76B64]'
+                  : 'bg-[#F7F6F2] border-[#E7E8EC] text-[#64748B]'
               }`}
             >
               <div className="flex items-center gap-2">
                 {backendHealth.status === 'up' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-[#159B78] shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-[#E76B64] shrink-0" />
                 )}
                 <span>
                   <strong>Backend Status:</strong>{' '}
@@ -208,18 +207,18 @@ export const SettingsPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Tenant & Organization</CardTitle>
-          <p className="text-xs text-slate-500">Tenant identifier and registration metadata</p>
+          <p className="text-xs text-[#64748B]">Tenant identifier and registration metadata</p>
         </CardHeader>
         <CardContent className="space-y-3 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-slate-400 block mb-0.5">Tenant Name</span>
-              <span className="font-semibold text-slate-900">{MOCK_TENANT.name}</span>
+            <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]">
+              <span className="text-[#64748B] block mb-0.5">Tenant Name</span>
+              <span className="font-semibold text-[#202938]">{MOCK_TENANT.name}</span>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <span className="text-slate-400 block mb-0.5">Tenant UUID</span>
-              <span className="font-mono text-slate-800 break-all">{MOCK_TENANT.id}</span>
+            <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]">
+              <span className="text-[#64748B] block mb-0.5">Tenant UUID</span>
+              <span className="font-mono text-[#202938] break-all">{MOCK_TENANT.id}</span>
             </div>
           </div>
         </CardContent>
@@ -229,32 +228,32 @@ export const SettingsPage: React.FC = () => {
       <Card>
         <CardHeader>
           <CardTitle>Platform Engine Tunables</CardTitle>
-          <p className="text-xs text-slate-500">
-            Core architecture parameters defined in <code className="text-slate-700">src/config/index.js</code>
+          <p className="text-xs text-[#64748B]">
+            Core architecture parameters defined in <code className="text-[#202938] font-mono">src/config/index.js</code>
           </p>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-              <span className="font-semibold text-slate-800">Retry Policy</span>
-              <p className="text-2xs text-slate-500">Max attempts: 8</p>
-              <p className="text-2xs text-slate-500">Base delay: 5s (exponential)</p>
-              <p className="text-2xs text-slate-500">Max delay ceiling: 1 hour</p>
+            <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] space-y-1">
+              <span className="font-semibold text-[#202938]">Retry Policy</span>
+              <p className="text-2xs text-[#64748B]">Max attempts: 8</p>
+              <p className="text-2xs text-[#64748B]">Base delay: 5s (exponential)</p>
+              <p className="text-2xs text-[#64748B]">Max delay ceiling: 1 hour</p>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-              <span className="font-semibold text-slate-800">Dispatcher & Lease</span>
-              <p className="text-2xs text-slate-500">Poll interval: 500ms</p>
-              <p className="text-2xs text-slate-500">Batch size: 50 deliveries</p>
-              <p className="text-2xs text-slate-500">Worker concurrency: 50 slots</p>
-              <p className="text-2xs text-slate-500">Lease reaper interval: 15s</p>
+            <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] space-y-1">
+              <span className="font-semibold text-[#202938]">Dispatcher & Lease</span>
+              <p className="text-2xs text-[#64748B]">Poll interval: 500ms</p>
+              <p className="text-2xs text-[#64748B]">Batch size: 50 deliveries</p>
+              <p className="text-2xs text-[#64748B]">Worker concurrency: 50 slots</p>
+              <p className="text-2xs text-[#64748B]">Lease reaper interval: 15s</p>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
-              <span className="font-semibold text-slate-800">Circuit Breaker</span>
-              <p className="text-2xs text-slate-500">Failure threshold: 5 consecutive</p>
-              <p className="text-2xs text-slate-500">Open duration: 1 minute</p>
-              <p className="text-2xs text-slate-500">State: Persistent in PostgreSQL</p>
+            <div className="p-3 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC] space-y-1">
+              <span className="font-semibold text-[#202938]">Circuit Breaker</span>
+              <p className="text-2xs text-[#64748B]">Failure threshold: 5 consecutive</p>
+              <p className="text-2xs text-[#64748B]">Open duration: 1 minute</p>
+              <p className="text-2xs text-[#64748B]">State: Persistent in PostgreSQL</p>
             </div>
           </div>
         </CardContent>

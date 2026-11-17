@@ -1,34 +1,17 @@
 /**
-<<<<<<< HEAD
- * Metrics routes - Telemetry, delivery analytics, and KPI endpoints.
- *
- * GET /metrics - Overview KPIs (compatible with frontend OverviewMetrics)
- * GET /metrics/overview - Alias for /metrics
- * GET /metrics/timeseries - Bucketed time series data points
- * GET /metrics/distribution - Status distribution breakdown
- * GET /metrics/endpoints - Per-endpoint reliability breakdown
-=======
  * Metrics routes - REST API for system telemetry and operational metrics.
  * GET /metrics - Overview metrics with time-series and status distribution
+ * GET /metrics/overview - Alias for /metrics
  * GET /metrics/timeseries - Time-series throughput metrics
  * GET /metrics/distribution - Delivery status distribution
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+ * GET /metrics/endpoints - Per-endpoint breakdown
  */
 
 import express from 'express';
 import { query, validationResult } from 'express-validator';
-<<<<<<< HEAD
-import analyticsService from '../services/analytics/analyticsService.js';
-import { TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
-import logger from '../utils/logger.js';
-
-const router = express.Router();
-
-// Common date range validators
-const rangeValidators = [
-=======
 import { apiKeyAuth, TENANT_ID_ATTRIBUTE } from '../middleware/auth.js';
 import metricsService from '../services/metrics/metricsService.js';
+import analyticsService from '../services/analytics/analyticsService.js';
 
 const router = express.Router();
 
@@ -73,112 +56,10 @@ const metricsQueryValidators = [
     .optional()
     .isISO8601()
     .withMessage('to must be a valid ISO 8601 date'),
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
   query('range')
     .optional()
     .isIn(['24h', '7d', '30d'])
     .withMessage('range must be one of: 24h, 7d, 30d'),
-<<<<<<< HEAD
-  query('startDate')
-    .optional()
-    .isISO8601()
-    .withMessage('startDate must be a valid ISO 8601 date string'),
-  query('endDate')
-    .optional()
-    .isISO8601()
-    .withMessage('endDate must be a valid ISO 8601 date string'),
-];
-
-/**
- * GET /metrics & GET /metrics/overview
- * Overview metrics for dashboard and analytics page.
- */
-async function handleOverviewMetrics(req, res, next) {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        error: 'Validation Error',
-        message: errors.array().map((e) => e.msg).join(', '),
-      });
-    }
-
-    const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
-    const { range, startDate, endDate } = req.query;
-
-    const metrics = await analyticsService.getOverviewMetrics(tenantId, {
-      range,
-      startDate,
-      endDate,
-    });
-
-    res.json(metrics);
-  } catch (error) {
-    if (error.message.includes('startDate') || error.message.includes('Invalid')) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: error.message,
-      });
-    }
-    next(error);
-  }
-}
-
-router.get('/', rangeValidators, handleOverviewMetrics);
-router.get('/overview', rangeValidators, handleOverviewMetrics);
-
-/**
- * GET /metrics/timeseries
- * Bucketed time-series metrics for throughput and outcome charts.
- */
-router.get(
-  '/timeseries',
-  [
-    ...rangeValidators,
-    query('interval')
-      .optional()
-      .isIn(['hour', 'day'])
-      .withMessage('interval must be either "hour" or "day"'),
-  ],
-  async (req, res, next) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({
-          error: 'Validation Error',
-          message: errors.array().map((e) => e.msg).join(', '),
-        });
-      }
-
-      const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
-      const { range, startDate, endDate, interval } = req.query;
-
-      const data = await analyticsService.getTimeSeriesMetrics(tenantId, {
-        range,
-        startDate,
-        endDate,
-        interval,
-      });
-
-      res.json(data);
-    } catch (error) {
-      if (error.message.includes('startDate') || error.message.includes('Invalid')) {
-        return res.status(400).json({
-          error: 'Bad Request',
-          message: error.message,
-        });
-      }
-      next(error);
-    }
-  }
-);
-
-/**
- * GET /metrics/distribution
- * Delivery status breakdown for pie and donut charts.
- */
-router.get('/distribution', rangeValidators, async (req, res, next) => {
-=======
 ];
 
 /**
@@ -211,39 +92,16 @@ function extractDateFilters(req) {
 }
 
 /**
- * GET /metrics
+ * GET /metrics & GET /metrics/overview
  * System overview metrics for the authenticated tenant with consistent date boundaries.
  */
-router.get('/', apiKeyAuth, metricsQueryValidators, async (req, res, next) => {
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+async function handleOverview(req, res, next) {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({
         error: 'Validation Error',
         message: errors.array().map((e) => e.msg).join(', '),
-<<<<<<< HEAD
-      });
-    }
-
-    const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
-    const { range, startDate, endDate } = req.query;
-
-    const distribution = await analyticsService.getStatusDistribution(tenantId, {
-      range,
-      startDate,
-      endDate,
-    });
-
-    res.json(distribution);
-  } catch (error) {
-    if (error.message.includes('startDate') || error.message.includes('Invalid')) {
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: error.message,
-      });
-    }
-=======
         errors: errors.array(),
       });
     }
@@ -263,22 +121,14 @@ router.get('/', apiKeyAuth, metricsQueryValidators, async (req, res, next) => {
       statusDistribution,
     });
   } catch (error) {
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
     next(error);
   }
-});
+}
+
+router.get('/', apiKeyAuth, metricsQueryValidators, handleOverview);
+router.get('/overview', apiKeyAuth, metricsQueryValidators, handleOverview);
 
 /**
-<<<<<<< HEAD
- * GET /metrics/endpoints
- * Per-endpoint reliability breakdown.
- */
-router.get('/endpoints', async (req, res, next) => {
-  try {
-    const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
-    const endpoints = await analyticsService.getEndpointBreakdown(tenantId);
-    res.json(endpoints);
-=======
  * GET /metrics/timeseries
  * Time-series throughput metrics for the authenticated tenant.
  */
@@ -321,14 +171,25 @@ router.get('/distribution', apiKeyAuth, metricsQueryValidators, async (req, res,
     const filters = extractDateFilters(req);
     const distribution = await metricsService.getStatusDistribution(tenantId, filters);
     res.status(200).json(distribution);
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /metrics/endpoints
+ * Per-endpoint reliability breakdown.
+ */
+router.get('/endpoints', apiKeyAuth, async (req, res, next) => {
+  try {
+    const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+    const endpoints = typeof analyticsService?.getEndpointBreakdown === 'function'
+      ? await analyticsService.getEndpointBreakdown(tenantId).catch(() => [])
+      : [];
+    res.status(200).json(endpoints);
   } catch (error) {
     next(error);
   }
 });
 
 export default router;
-<<<<<<< HEAD
-
-=======
->>>>>>> a86c7832e5318df24b920b36e7ca39eb2b80ae92
