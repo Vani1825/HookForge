@@ -47,6 +47,7 @@ interface AppContextValue {
     createEndpoint: (data: endpointsApi.CreateEndpointInput) => Promise<Endpoint>
     updateEndpoint: (id: string, data: endpointsApi.UpdateEndpointInput) => Promise<Endpoint>
     toggleEndpoint: (id: string, active: boolean) => Promise<Endpoint>
+    deleteEndpoint: (id: string) => Promise<{ success: boolean }>
     getEvents: (filter?: eventsApi.EventQueryParams) => Promise<deliveriesApi.PaginatedList<WebhookEvent>>
     getEventById: (id: string) => Promise<WebhookEvent | undefined>
     ingestEvent: (data: eventsApi.IngestEventInput) => Promise<{ duplicate: boolean; deliveriesEnqueued: number; eventId?: string }>
@@ -194,6 +195,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return toggled
       }
       return endpointsApi.toggleEndpointActive(id, active)
+    },
+
+    deleteEndpoint: async (id: string): Promise<{ success: boolean }> => {
+      if (mode === 'demo') {
+        const deleted = mockStore.deleteEndpoint(id)
+        if (!deleted) throw new Error('Endpoint not found in mock store')
+        return { success: true }
+      }
+      return endpointsApi.deleteEndpoint(id)
     },
 
     getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {

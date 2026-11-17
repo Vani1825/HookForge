@@ -7,6 +7,7 @@ import {
   Power,
   ExternalLink,
   X,
+  Trash2,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -16,6 +17,7 @@ import { CircuitBadge } from '../components/CircuitBadge'
 import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
 import { CreateEndpointModal } from '../components/CreateEndpointModal'
+import { ConfirmationDialog } from '../components/ui/ConfirmationDialog'
 import { useApp } from '../context/AppContext'
 import { formatErrorMessage } from '../api/client'
 import { formatDateTime, truncateId } from '../utils/formatters'
@@ -33,6 +35,15 @@ export const EndpointsPage: React.FC = () => {
 
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [togglingId, setTogglingId] = useState<string | null>(null)
+
+  // Confirmation dialog state for deletion
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [endpointToDelete, setEndpointToDelete] = useState<Endpoint | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  // Confirmation dialog state for pausing active endpoint
+  const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false)
+  const [endpointToPause, setEndpointToPause] = useState<Endpoint | null>(null)
 
   const loadEndpoints = useCallback(async () => {
     setIsLoading(true)
@@ -52,7 +63,7 @@ export const EndpointsPage: React.FC = () => {
     loadEndpoints()
   }, [loadEndpoints, mode])
 
-  const handleToggle = async (endpoint: Endpoint) => {
+  const executeToggle = async (endpoint: Endpoint) => {
     setTogglingId(endpoint.id)
     try {
       const updated = await service.toggleEndpoint(endpoint.id, !endpoint.active)
@@ -71,6 +82,54 @@ export const EndpointsPage: React.FC = () => {
       })
     } finally {
       setTogglingId(null)
+    }
+  }
+
+  const handleToggleClick = (endpoint: Endpoint) => {
+    // If the endpoint is currently active, prompt confirmation before pausing
+    if (endpoint.active) {
+      setEndpointToPause(endpoint)
+      setPauseConfirmOpen(true)
+    } else {
+      executeToggle(endpoint)
+    }
+  }
+
+  const confirmPauseEndpoint = async () => {
+    if (!endpointToPause) return
+    await executeToggle(endpointToPause)
+    setPauseConfirmOpen(false)
+    setEndpointToPause(null)
+  }
+
+  const handleDeleteClick = (endpoint: Endpoint) => {
+    setEndpointToDelete(endpoint)
+    setDeleteConfirmOpen(true)
+  }
+
+  const confirmDeleteEndpoint = async () => {
+    if (!endpointToDelete) return
+    setDeletingId(endpointToDelete.id)
+    try {
+      await service.deleteEndpoint(endpointToDelete.id)
+      setEndpoints((prev) => prev.filter((e) => e.id !== endpointToDelete.id))
+      addToast({
+        title: 'Endpoint Deleted',
+        description: `Successfully removed endpoint ${endpointToDelete.url}.`,
+        type: 'success',
+      })
+      setDeleteConfirmOpen(false)
+      setEndpointToDelete(null)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete endpoint'
+      addToast({
+        title: 'Delete Failed',
+        description: msg,
+        type: 'error',
+      })
+      throw err // Re-throw so ConfirmationDialog displays the error state
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -280,7 +339,7 @@ export const EndpointsPage: React.FC = () => {
                   <th className="py-3 px-4 w-28">Rate Limit</th>
                   <th className="py-3 px-4 w-28">Next Sequence</th>
                   <th className="py-3 px-4 w-36">Created</th>
-                  <th className="py-3 px-4 w-32 text-right">Action</th>
+                  <th className="py-3 px-4 w-40 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E7E8EC]">
@@ -344,20 +403,32 @@ export const EndpointsPage: React.FC = () => {
                       {formatDateTime(ep.created_at)}
                     </td>
 
-                    <td className="py-3.5 px-4 w-32 text-right">
-                      <button
-                        onClick={() => handleToggle(ep)}
-                        disabled={togglingId === ep.id}
-                        title={ep.active ? 'Pause delivery dispatches' : 'Resume delivery dispatches'}
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer ${
-                          ep.active
-                            ? 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25 hover:bg-[#E76B64]/20'
-                            : 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25 hover:bg-[#159B78]/20'
-                        }`}
-                      >
-                        <Power className="w-3 h-3" />
-                        <span>{ep.active ? 'Pause' : 'Activate'}</span>
-                      </button>
+                    <td className="py-3.5 px-4 w-40 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleToggleClick(ep)}
+                          disabled={togglingId === ep.id || deletingId === ep.id}
+                          title={ep.active ? 'Pause delivery dispatches' : 'Resume delivery dispatches'}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer ${
+                            ep.active
+                              ? 'bg-[#E5B34B]/10 text-[#B48418] border-[#E5B34B]/30 hover:bg-[#E5B34B]/20'
+                              : 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25 hover:bg-[#159B78]/20'
+                          }`}
+                        >
+                          <Power className="w-3 h-3" />
+                          <span>{ep.active ? 'Pause' : 'Activate'}</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleDeleteClick(ep)}
+                          disabled={deletingId === ep.id || togglingId === ep.id}
+                          title="Delete endpoint"
+                          aria-label={`Delete endpoint ${ep.url}`}
+                          className="p-1.5 rounded text-[#64748B] hover:text-[#E76B64] hover:bg-[#FDF1F0] border border-transparent hover:border-[#E76B64]/20 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -374,6 +445,46 @@ export const EndpointsPage: React.FC = () => {
         onSuccess={(newEp) => {
           setEndpoints((prev) => [newEp, ...prev])
         }}
+      />
+
+      {/* Confirmation Dialog for Destructive Endpoint Deletion */}
+      <ConfirmationDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => {
+          setDeleteConfirmOpen(false)
+          setEndpointToDelete(null)
+        }}
+        onConfirm={confirmDeleteEndpoint}
+        title="Delete Webhook Endpoint?"
+        description={
+          endpointToDelete
+            ? `Are you sure you want to delete ${endpointToDelete.url}? This action is permanent and cannot be undone. Future events will no longer be dispatched to this destination.`
+            : 'Are you sure you want to delete this endpoint?'
+        }
+        confirmText="Delete Endpoint"
+        cancelText="Cancel"
+        variant="danger"
+        isLoading={Boolean(deletingId)}
+      />
+
+      {/* Confirmation Dialog for Pausing Active Endpoint */}
+      <ConfirmationDialog
+        isOpen={pauseConfirmOpen}
+        onClose={() => {
+          setPauseConfirmOpen(false)
+          setEndpointToPause(null)
+        }}
+        onConfirm={confirmPauseEndpoint}
+        title="Pause Webhook Deliveries?"
+        description={
+          endpointToPause
+            ? `Are you sure you want to pause ${endpointToPause.url}? Event deliveries to this destination will be temporarily suspended until reactivated.`
+            : 'Are you sure you want to pause this endpoint?'
+        }
+        confirmText="Pause Endpoint"
+        cancelText="Keep Active"
+        variant="warning"
+        isLoading={Boolean(togglingId)}
       />
     </div>
   )

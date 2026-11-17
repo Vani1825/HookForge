@@ -78,6 +78,13 @@ class MockStore {
     return this.updateEndpoint(id, { active: !endpoint.active })
   }
 
+  deleteEndpoint(id: string): boolean {
+    const idx = this.endpoints.findIndex((e) => e.id === id)
+    if (idx === -1) return false
+    this.endpoints.splice(idx, 1)
+    return true
+  }
+
   // --- Events ---
   getEvents(filter?: EventQueryParams): PaginatedList<WebhookEvent> {
     let result = [...this.events]

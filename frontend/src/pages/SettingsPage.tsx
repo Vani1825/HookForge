@@ -12,6 +12,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { PageHeader } from '../components/ui/PageHeader'
 import { Input } from '../components/ui/Input'
+import { ConfirmationDialog } from '../components/ui/ConfirmationDialog'
 import { useApp } from '../context/AppContext'
 import { MOCK_TENANT } from '../mocks/mockData'
 
@@ -31,6 +32,23 @@ export const SettingsPage: React.FC = () => {
   const [inputBaseUrl, setInputBaseUrl] = useState(baseUrl)
   const [inputApiKey, setInputApiKey] = useState(apiKey)
   const [isTesting, setIsTesting] = useState(false)
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false)
+
+  const handleResetSettings = () => {
+    const defaultUrl = 'http://localhost:8081'
+    const defaultKey = ''
+    setInputBaseUrl(defaultUrl)
+    setInputApiKey(defaultKey)
+    setBaseUrl(defaultUrl)
+    setApiKey(defaultKey)
+    addToast({
+      title: 'Settings Reset',
+      description: 'API base URL and authentication key restored to default values.',
+      type: 'info',
+    })
+    checkHealth()
+    setResetConfirmOpen(false)
+  }
 
   const handleSaveConnection = (e: React.FormEvent) => {
     e.preventDefault()
@@ -195,7 +213,16 @@ export const SettingsPage: React.FC = () => {
               </Button>
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setResetConfirmOpen(true)}
+                className="w-full sm:w-auto text-xs text-[#E76B64] hover:text-[#D9564F] hover:bg-[#FDF1F0] hover:border-[#E76B64]/30"
+              >
+                Reset to Defaults
+              </Button>
               <Button type="submit" variant="primary" size="sm" className="w-full sm:w-auto">
                 Save API Preferences
               </Button>
@@ -203,6 +230,18 @@ export const SettingsPage: React.FC = () => {
           </form>
         </CardContent>
       </Card>
+
+      {/* Confirmation Dialog for Resetting Settings to Defaults */}
+      <ConfirmationDialog
+        isOpen={resetConfirmOpen}
+        onClose={() => setResetConfirmOpen(false)}
+        onConfirm={handleResetSettings}
+        title="Reset API Configuration?"
+        description="Are you sure you want to reset your API connection settings to defaults? This will restore the base URL to http://localhost:8081 and clear your stored API key."
+        confirmText="Reset to Defaults"
+        cancelText="Cancel"
+        variant="warning"
+      />
 
       {/* Tenant Metadata */}
       <Card>

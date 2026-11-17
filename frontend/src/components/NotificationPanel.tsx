@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Bell,
   BellOff,
@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useNotifications } from '../context/NotificationContext'
+import { ConfirmationDialog } from './ui/ConfirmationDialog'
 import type { AppNotification, NotificationSeverity } from '../types'
 import { formatRelativeTime, formatDateTime } from '../utils/formatters'
 import { useNavigate } from 'react-router-dom'
@@ -41,17 +42,18 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
 
   const navigate = useNavigate()
   const panelRef = useRef<HTMLDivElement>(null)
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false)
 
-  // Close panel on Escape key
+  // Close panel on Escape key (only if confirmation dialog is not open)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !confirmClearOpen) {
         onClose()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [onClose])
+  }, [onClose, confirmClearOpen])
 
   // Handle clicking a notification
   const handleItemClick = (notification: AppNotification) => {
@@ -369,7 +371,7 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
           <div className="p-2.5 bg-[#F7F6F2] border-t border-[#E7E8EC] flex items-center justify-between text-3xs text-[#64748B]">
             <button
               type="button"
-              onClick={clearAll}
+              onClick={() => setConfirmClearOpen(true)}
               className="inline-flex items-center gap-1 text-[#64748B] hover:text-[#E76B64] transition-colors cursor-pointer"
               title="Clear all notifications"
             >
@@ -391,6 +393,21 @@ export const NotificationPanel: React.FC<NotificationPanelProps> = ({ onClose })
           </div>
         )}
       </div>
+
+      {/* Confirmation Dialog for Destructive Clear All Action */}
+      <ConfirmationDialog
+        isOpen={confirmClearOpen}
+        onClose={() => setConfirmClearOpen(false)}
+        onConfirm={() => {
+          clearAll()
+          setConfirmClearOpen(false)
+        }}
+        title="Clear All Notifications?"
+        description="Are you sure you want to clear all in-app notifications? This will permanently remove your notification history."
+        confirmText="Clear All"
+        cancelText="Keep Notifications"
+        variant="danger"
+      />
     </>
   )
 }
