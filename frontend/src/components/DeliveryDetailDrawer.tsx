@@ -33,6 +33,7 @@ export interface DeliveryDetailDrawerProps {
   onClose: () => void
   onReplayRequest?: (delivery: Delivery) => void
   onReplaySuccess?: (updatedDelivery: Delivery) => void
+  onCancelRequest?: (delivery: Delivery) => void
 }
 
 export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
@@ -41,6 +42,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
   onClose,
   onReplayRequest,
   onReplaySuccess,
+  onCancelRequest,
 }) => {
   const { service, addToast } = useApp()
 
@@ -177,27 +179,42 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
               Close
             </Button>
 
-            {isEligibleForReplay ? (
-              <Button
-                className="w-full sm:w-auto"
-                variant="danger"
-                size="sm"
-                leftIcon={<RotateCw className="w-3.5 h-3.5" />}
-                onClick={handleReplayClick}
-                disabled={isReplaying}
-                isLoading={isReplaying}
-              >
-                Replay Delivery
-              </Button>
-            ) : (
-              <span className="text-2xs text-[#64748B] text-center sm:text-right">
-                {delivery.state === 'SUCCEEDED'
-                  ? 'Delivered successfully • Replay not required'
-                  : delivery.state === 'IN_FLIGHT' || delivery.state === 'RETRYING'
-                  ? 'Active delivery • Managed by retry scheduler'
-                  : 'Pending dispatch in queue'}
-              </span>
-            )}
+            <div className="flex items-center gap-2 justify-end">
+              {(delivery.state === 'SCHEDULED' || delivery.state === 'PENDING') && onCancelRequest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[#E76B64] border-[#E76B64]/30 hover:bg-[#E76B64]/10"
+                  onClick={() => onCancelRequest(delivery)}
+                >
+                  Cancel Scheduled
+                </Button>
+              )}
+
+              {isEligibleForReplay ? (
+                <Button
+                  className="w-full sm:w-auto"
+                  variant="danger"
+                  size="sm"
+                  leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+                  onClick={handleReplayClick}
+                  disabled={isReplaying}
+                  isLoading={isReplaying}
+                >
+                  Replay Delivery
+                </Button>
+              ) : (
+                <span className="text-2xs text-[#64748B] text-center sm:text-right">
+                  {delivery.state === 'SUCCEEDED'
+                    ? 'Delivered successfully • Replay not required'
+                    : delivery.state === 'IN_FLIGHT' || delivery.state === 'RETRYING'
+                    ? 'Active delivery • Managed by retry scheduler'
+                    : delivery.state === 'CANCELLED'
+                    ? 'Scheduled delivery was cancelled'
+                    : 'Pending dispatch in queue'}
+                </span>
+              )}
+            </div>
           </div>
         }
       >
@@ -246,12 +263,16 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                   ? 'bg-[#E5B34B]/15 border-[#E5B34B]/30 text-[#B8871E]'
                   : delivery.state === 'IN_FLIGHT'
                   ? 'bg-[#EAF0FF] border-[#DCE5FA] text-[#5277D9]'
+                  : delivery.state === 'SCHEDULED'
+                  ? 'bg-[#EAF0FF] border-[#DCE5FA] text-[#5277D9]'
+                  : delivery.state === 'CANCELLED'
+                  ? 'bg-[#E76B64]/10 border-[#E76B64]/25 text-[#E76B64]'
                   : 'bg-white border-[#E7E8EC] text-[#64748B]'
               }`}
             >
               {delivery.state === 'SUCCEEDED' ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-[#159B78]" />
-              ) : delivery.state === 'DEAD' ? (
+              ) : delivery.state === 'DEAD' || delivery.state === 'CANCELLED' ? (
                 <AlertOctagon className="w-4 h-4 shrink-0 text-[#E76B64]" />
               ) : delivery.state === 'RETRYING' ? (
                 <RotateCw className="w-4 h-4 shrink-0 text-[#B8871E]" />
@@ -267,6 +288,10 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                   ? 'Retrying — Scheduled for automatic retry with exponential backoff.'
                   : delivery.state === 'IN_FLIGHT'
                   ? 'In Flight — Leased by worker and awaiting HTTP response.'
+                  : delivery.state === 'SCHEDULED'
+                  ? 'Scheduled — Queued for future delivery execution.'
+                  : delivery.state === 'CANCELLED'
+                  ? 'Cancelled — Scheduled delivery cancelled before dispatch.'
                   : 'Pending — Enqueued in work queue awaiting dispatcher worker.'}
               </span>
             </div>
@@ -425,6 +450,15 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 </span>
               </div>
             </div>
+
+            {(delivery.scheduled_at || delivery.scheduledAt) && (
+              <div className="p-2.5 bg-[#EAF0FF] border border-[#DCE5FA] rounded-lg text-xs text-[#5277D9] flex items-center justify-between">
+                <span className="font-medium">Scheduled Execution:</span>
+                <span className="font-semibold font-mono">
+                  {formatDateTime(delivery.scheduled_at || delivery.scheduledAt!)}
+                </span>
+              </div>
+            )}
 
             {delivery.lease_until && (
               <div className="flex items-center gap-2 p-2.5 bg-[#EAF0FF] border border-[#DCE5FA] rounded-lg text-xs text-[#5277D9]">

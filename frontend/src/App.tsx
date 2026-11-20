@@ -6,6 +6,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { EndpointsPage } from './pages/EndpointsPage'
 import { EventsPage } from './pages/EventsPage'
 import { DeliveriesPage } from './pages/DeliveriesPage'
+import { ScheduledDeliveriesPage } from './pages/ScheduledDeliveriesPage'
 import { DeadLettersPage } from './pages/DeadLettersPage'
 import { ReplayPage } from './pages/ReplayPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
@@ -24,6 +25,7 @@ export function App() {
               <Route path="endpoints" element={<EndpointsPage />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="deliveries" element={<DeliveriesPage />} />
+              <Route path="scheduled-deliveries" element={<ScheduledDeliveriesPage />} />
               <Route path="dead-letters" element={<DeadLettersPage />} />
               <Route path="replay" element={<ReplayPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />

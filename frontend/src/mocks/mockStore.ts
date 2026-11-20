@@ -7,6 +7,8 @@ import type {
   TimeSeriesDataPoint,
   StatusDistribution,
   PaginationMeta,
+  ScheduleDeliveryInput,
+  BulkReplayResult,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
@@ -324,6 +326,169 @@ class MockStore {
       success: true,
       message: `Delivery ${id} re-enqueued for replay.`,
       delivery,
+    }
+  }
+
+  // --- Scheduled Deliveries & Bulk Operations ---
+  scheduleDelivery(data: ScheduleDeliveryInput): Delivery {
+    const scheduledTime = data.scheduledAt || data.scheduled_at
+    if (!scheduledTime) throw new Error('scheduledAt is required')
+    const targetTime = new Date(scheduledTime).getTime()
+    if (isNaN(targetTime) || targetTime <= Date.now()) {
+      throw new Error('scheduledAt must be a valid future ISO-8601 date')
+    }
+    const endpointId = data.endpointId || data.endpoint_id
+    if (!endpointId) throw new Error('endpointId is required')
+    const ep = this.getEndpoint(endpointId)
+    if (!ep) throw new Error(`Endpoint ${endpointId} not found`)
+
+    let eventId = data.eventId || data.event_id
+    if (!eventId) {
+      const payload = (data.payload as Record<string, unknown>) || { event: 'scheduled.webhook' }
+      const newEv: WebhookEvent = {
+        id: `ev-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 8)}`,
+        tenant_id: MOCK_TENANT.id,
+        idempotency_key: data.idempotencyKey || data.idempotency_key || `idemp-${Date.now()}`,
+        event_type: 'scheduled.event',
+        payload,
+        created_at: new Date().toISOString(),
+        delivery_count: 1,
+        succeeded_count: 0,
+        failed_count: 0,
+      }
+      this.events.unshift(newEv)
+      eventId = newEv.id
+    }
+
+    const seq = ep.next_seq || 1
+    ep.next_seq = seq + 1
+
+    const deliveryId = `del-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`
+    const newDelivery: Delivery = {
+      id: deliveryId,
+      event_id: eventId,
+      eventId,
+      endpoint_id: ep.id,
+      endpointId: ep.id,
+      seq,
+      state: 'SCHEDULED',
+      attempt_count: 0,
+      attemptCount: 0,
+      next_attempt_at: new Date(targetTime).toISOString(),
+      nextAttemptAt: new Date(targetTime).toISOString(),
+      scheduled_at: new Date(targetTime).toISOString(),
+      scheduledAt: new Date(targetTime).toISOString(),
+      lease_until: null,
+      last_error: null,
+      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      endpoint_url: ep.url,
+      endpointUrl: ep.url,
+      last_status_code: null,
+      lastStatusCode: null,
+      endpoint: ep,
+    }
+
+    this.deliveries.unshift(newDelivery)
+    this.attempts[deliveryId] = []
+    return newDelivery
+  }
+
+  getScheduledDeliveries(filter?: DeliveryQueryParams): PaginatedList<Delivery> {
+    return this.getDeliveries({ ...filter, state: 'SCHEDULED' })
+  }
+
+  cancelScheduledDelivery(id: string): { success: boolean; message: string; delivery?: Delivery } {
+    const delivery = this.deliveries.find((d) => d.id === id)
+    if (!delivery) {
+      throw new Error(`Delivery ${id} not found`)
+    }
+    if (delivery.state !== 'SCHEDULED' && delivery.state !== 'PENDING') {
+      throw new Error(
+        `Cannot cancel delivery in state ${delivery.state}. Only SCHEDULED or PENDING deliveries can be cancelled.`
+      )
+    }
+    delivery.state = 'CANCELLED'
+    delivery.updated_at = new Date().toISOString()
+    delivery.updatedAt = delivery.updated_at
+    return {
+      success: true,
+      message: 'Scheduled delivery cancelled successfully',
+      delivery,
+    }
+  }
+
+  bulkReplayDeliveries(deliveryIds: string[]): BulkReplayResult {
+    const uniqueIds = Array.from(new Set(deliveryIds || []))
+    const successful: Delivery[] = []
+    const ineligible: { id: string; deliveryId: string; state: string; reason: string }[] = []
+    const rejected: { id: string; deliveryId: string; reason: string }[] = []
+
+    for (const id of uniqueIds) {
+      const delivery = this.deliveries.find((d) => d.id === id)
+      if (!delivery) {
+        rejected.push({
+          id,
+          deliveryId: id,
+          reason: 'Delivery not found or access denied',
+        })
+        continue
+      }
+
+      if (delivery.state !== 'DEAD') {
+        ineligible.push({
+          id,
+          deliveryId: id,
+          state: delivery.state,
+          reason: `Delivery is in state ${delivery.state}; only DEAD deliveries are eligible for replay`,
+        })
+        continue
+      }
+
+      // Replay dead delivery
+      delivery.state = 'PENDING'
+      delivery.next_attempt_at = new Date().toISOString()
+      delivery.nextAttemptAt = delivery.next_attempt_at
+      delivery.updated_at = new Date().toISOString()
+      delivery.updatedAt = delivery.updated_at
+      delivery.last_error = null
+      delivery.lastError = null
+
+      const nextAttemptNo = (delivery.attempt_count || 0) + 1
+      const newAttempt: DeliveryAttempt = {
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        delivery_id: delivery.id,
+        attempt_no: nextAttemptNo,
+        started_at: new Date().toISOString(),
+        status_code: 200,
+        latency_ms: Math.floor(40 + Math.random() * 80),
+        error: null,
+      }
+      if (!this.attempts[id]) {
+        this.attempts[id] = []
+      }
+      this.attempts[id].push(newAttempt)
+
+      successful.push(delivery)
+    }
+
+    return {
+      success: true,
+      message: 'Bulk replay completed',
+      total: uniqueIds.length,
+      successful,
+      replayed: successful,
+      ineligible,
+      rejected,
+      summary: {
+        total: uniqueIds.length,
+        successfulCount: successful.length,
+        replayedCount: successful.length,
+        ineligibleCount: ineligible.length,
+        rejectedCount: rejected.length,
+      },
     }
   }
 
