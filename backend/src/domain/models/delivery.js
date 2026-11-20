@@ -16,6 +16,7 @@ export function createDelivery(data = {}) {
     seq: data.seq,
     state: data.state ? deliveryState.fromString(data.state) : deliveryState.PENDING,
     attemptCount: data.attemptCount !== undefined ? data.attemptCount : 0,
+    scheduledAt: data.scheduledAt || null,
     nextAttemptAt: data.nextAttemptAt || new Date().toISOString(),
     leaseUntil: data.leaseUntil || null,
     lastError: data.lastError || null,

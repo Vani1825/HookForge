@@ -28,6 +28,9 @@ function mapRowToDelivery(row) {
     seq: row.seq,
     state: row.state,
     attemptCount: row.attempt_count,
+    scheduledAt: row.scheduled_at
+      ? (row.scheduled_at instanceof Date ? row.scheduled_at.toISOString() : new Date(row.scheduled_at).toISOString())
+      : null,
     nextAttemptAt: row.next_attempt_at instanceof Date
       ? row.next_attempt_at.toISOString()
       : (row.next_attempt_at ? new Date(row.next_attempt_at).toISOString() : null),

@@ -264,6 +264,8 @@ Planned enhancements include:
 ### Delivery Management
 
 - Asynchronous delivery execution.
+- Scheduled webhook delivery for future date and time.
+- Cancellation of scheduled deliveries prior to execution.
 - Bounded concurrent worker processing.
 - Per-endpoint FIFO sequence ordering.
 - Delivery status tracking.
@@ -276,6 +278,7 @@ Planned enhancements include:
 - Configurable maximum attempts.
 - Automatic retry scheduling.
 - Manual replay of failed deliveries.
+- Bulk replay of dead-letter deliveries with partial failure reporting.
 - Lease-based crash recovery.
 
 ### Dead Letter Queue
@@ -284,7 +287,7 @@ Planned enhancements include:
 - Failure reason tracking.
 - Delivery attempt inspection.
 - Manual replay functionality.
-- Planned bulk replay and advanced filtering.
+- Bulk replay of dead deliveries with detailed outcome breakdown.
 
 ### Security
 

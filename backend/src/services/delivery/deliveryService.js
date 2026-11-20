@@ -4,6 +4,10 @@
  */
 
 import deliveryRepository from '../../repositories/jdbc/deliveryRepository.js';
+import endpointRepository from '../../repositories/jdbc/endpointRepository.js';
+import eventRepository from '../../repositories/jdbc/eventRepository.js';
+import { transaction } from '../../config/database.js';
+import { v4 as uuidv4 } from 'uuid';
 import { deliveryState } from '../../domain/deliveryState.js';
 import { IllegalStateTransitionError } from '../../domain/errors/illegalStateTransitionError.js';
 import logger from '../../utils/logger.js';
@@ -201,6 +205,298 @@ export async function queryDeliveries(tenantId, filters = {}, pagination = {}) {
   };
 }
 
+/**
+ * Schedule a webhook delivery for a future date and time.
+ *
+ * @param {string} tenantId - Tenant UUID for authorization
+ * @param {Object} options - Scheduling parameters
+ * @param {string} options.endpointId - Endpoint UUID
+ * @param {string} options.scheduledAt - Future ISO 8601 execution timestamp
+ * @param {string} [options.eventId] - Existing Event UUID
+ * @param {Object|string} [options.payload] - Webhook payload object
+ * @param {string} [options.idempotencyKey] - Idempotency key for event creation
+ * @returns {Promise<Object>} Created delivery domain model
+ */
+export async function scheduleDelivery(tenantId, options = {}) {
+  const endpointId = options.endpointId || options.endpoint_id;
+  const scheduledAt = options.scheduledAt || options.scheduled_at;
+  const eventId = options.eventId || options.event_id;
+  const payload = options.payload;
+  const idempotencyKey = options.idempotencyKey || options.idempotency_key;
+
+  if (!endpointId) {
+    const error = new Error('endpointId is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!scheduledAt) {
+    const error = new Error('scheduledAt is required');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const scheduledDate = new Date(scheduledAt);
+  const scheduledTime = scheduledDate.getTime();
+  if (isNaN(scheduledTime)) {
+    const error = new Error('scheduledAt must be a valid ISO 8601 date string');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (scheduledTime <= Date.now()) {
+    const error = new Error('scheduledAt must be a future date and time');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Verify endpoint belongs to authenticated tenant
+  const endpoint = await endpointRepository.findByIdAndTenant(endpointId, tenantId);
+  if (!endpoint) {
+    const error = new Error('Endpoint not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return await transaction(async (client) => {
+    let resolvedEventId = eventId;
+
+    if (!resolvedEventId) {
+      if (payload === undefined || payload === null) {
+        const error = new Error('Either eventId or payload must be provided');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (
+        typeof payload !== 'object' ||
+        Array.isArray(payload) ||
+        Object.keys(payload).length === 0
+      ) {
+        const error = new Error('Payload must be a non-empty JSON object');
+        error.statusCode = 400;
+        throw error;
+      }
+
+      const payloadJson = JSON.stringify(payload);
+      const key = idempotencyKey || `sched_${uuidv4()}`;
+
+      let event = await eventRepository.insert(tenantId, payloadJson, key, client);
+      if (!event) {
+        event = await eventRepository.findByTenantAndIdempotencyKey(tenantId, key, client);
+      }
+      resolvedEventId = event.id;
+    } else {
+      // Verify event exists and belongs to tenant
+      const event = await eventRepository.findById(resolvedEventId);
+      if (!event || event.tenantId !== tenantId) {
+        const error = new Error('Event not found');
+        error.statusCode = 404;
+        throw error;
+      }
+    }
+
+    // Allocate monotonic sequence number for endpoint
+    const seq = await endpointRepository.allocate(endpointId, client);
+
+    // Insert scheduled delivery with state 'SCHEDULED'
+    const scheduledIso = scheduledDate.toISOString();
+    const delivery = await deliveryRepository.insertScheduledDelivery(
+      resolvedEventId,
+      endpointId,
+      seq,
+      scheduledIso,
+      client
+    );
+
+    logger.info('Delivery scheduled', {
+      deliveryId: delivery.id,
+      endpointId,
+      eventId: resolvedEventId,
+      tenantId,
+      scheduledAt: scheduledIso,
+    });
+
+    return {
+      ...delivery,
+      endpointUrl: endpoint.url,
+    };
+  });
+}
+
+/**
+ * List scheduled deliveries (tenant-scoped).
+ *
+ * @param {string} tenantId - Tenant UUID for access control
+ * @param {Object} [filters={}] - Additional filter criteria
+ * @param {Object} [pagination={}] - Pagination options
+ * @returns {Promise<{ deliveries: Array, pagination: Object }>}
+ */
+export async function getScheduledDeliveries(tenantId, filters = {}, pagination = {}) {
+  return await queryDeliveries(
+    tenantId,
+    { ...filters, state: deliveryState.SCHEDULED.toString() },
+    pagination
+  );
+}
+
+/**
+ * Get a scheduled delivery by ID (tenant-scoped).
+ *
+ * @param {string} deliveryId - Delivery UUID
+ * @param {string} tenantId - Tenant UUID for access control
+ * @returns {Promise<Object|null>} Delivery object with attempts
+ */
+export async function getScheduledDeliveryById(deliveryId, tenantId) {
+  return await getDeliveryById(deliveryId, tenantId);
+}
+
+/**
+ * Cancel a scheduled delivery (tenant-scoped).
+ * Only deliveries in SCHEDULED or PENDING state can be cancelled.
+ *
+ * @param {string} deliveryId - Delivery UUID
+ * @param {string} tenantId - Tenant UUID for access control
+ * @returns {Promise<Object>} Updated delivery
+ */
+export async function cancelScheduledDelivery(deliveryId, tenantId) {
+  const delivery = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+  if (!delivery) {
+    const error = new Error('Delivery not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const currentState = delivery.state.toString();
+  if (currentState !== 'SCHEDULED' && currentState !== 'PENDING') {
+    throw new IllegalStateTransitionError(currentState, 'CANCELLED');
+  }
+
+  const cancelled = await deliveryRepository.cancelDelivery(deliveryId, tenantId);
+  if (!cancelled) {
+    const current = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+    throw new IllegalStateTransitionError(current?.state?.toString() || currentState, 'CANCELLED');
+  }
+
+  logger.info('Delivery cancelled', {
+    deliveryId,
+    tenantId,
+    endpointId: delivery.endpointId,
+  });
+
+  return cancelled;
+}
+
+/**
+ * Bulk replay multiple failed (DEAD) deliveries.
+ * Reuses the existing single-delivery replay implementation for each delivery.
+ *
+ * @param {Array<string>} deliveryIds - Array of delivery UUIDs
+ * @param {string} tenantId - Tenant UUID for access control
+ * @returns {Promise<Object>} Aggregated results with successful, ineligible, and rejected deliveries
+ */
+export async function bulkReplayDeliveries(deliveryIds, tenantId) {
+  if (!Array.isArray(deliveryIds)) {
+    const error = new Error('deliveryIds must be an array');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  // Deduplicate delivery IDs to prevent duplicate execution in the same request
+  const uniqueIds = [...new Set(deliveryIds.filter(Boolean))];
+
+  const successful = [];
+  const ineligible = [];
+  const rejected = [];
+
+  for (const deliveryId of uniqueIds) {
+    try {
+      const delivery = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+
+      if (!delivery) {
+        rejected.push({
+          id: deliveryId,
+          deliveryId,
+          reason: 'Delivery not found or access denied',
+        });
+        continue;
+      }
+
+      const stateStr = delivery.state.toString();
+      if (stateStr !== 'DEAD') {
+        ineligible.push({
+          id: deliveryId,
+          deliveryId,
+          state: stateStr,
+          reason: `Delivery is in state ${stateStr}; only DEAD deliveries are eligible for replay`,
+        });
+        continue;
+      }
+
+      // Reuse single delivery replay implementation
+      const replayed = await replayDelivery(deliveryId, tenantId);
+      successful.push({
+        id: replayed.id,
+        deliveryId: replayed.id,
+        eventId: replayed.eventId,
+        endpointId: replayed.endpointId,
+        endpointUrl: replayed.endpointUrl || delivery.endpointUrl || null,
+        seq: replayed.seq,
+        state: replayed.state.toString(),
+        attemptCount: replayed.attemptCount,
+        nextAttemptAt: replayed.nextAttemptAt,
+      });
+    } catch (err) {
+      if (err instanceof IllegalStateTransitionError || err.name === 'IllegalStateTransitionError') {
+        ineligible.push({
+          id: deliveryId,
+          deliveryId,
+          reason: err.message,
+        });
+      } else if (err.statusCode === 404) {
+        rejected.push({
+          id: deliveryId,
+          deliveryId,
+          reason: 'Delivery not found or access denied',
+        });
+      } else {
+        logger.error('Bulk replay single delivery error', {
+          deliveryId,
+          error: err.message,
+        });
+        rejected.push({
+          id: deliveryId,
+          deliveryId,
+          reason: err.message,
+        });
+      }
+    }
+  }
+
+  logger.info('Bulk replay completed', {
+    tenantId,
+    total: uniqueIds.length,
+    successfulCount: successful.length,
+    ineligibleCount: ineligible.length,
+    rejectedCount: rejected.length,
+  });
+
+  return {
+    total: uniqueIds.length,
+    successful,
+    replayed: successful,
+    ineligible,
+    rejected,
+    summary: {
+      total: uniqueIds.length,
+      successfulCount: successful.length,
+      replayedCount: successful.length,
+      ineligibleCount: ineligible.length,
+      rejectedCount: rejected.length,
+    },
+  };
+}
+
 export default {
   getDeliveriesByEvent,
   getDeliveriesByState,
@@ -210,4 +506,9 @@ export default {
   queryDeliveries,
   getDeliveryById,
   replayDelivery,
+  scheduleDelivery,
+  getScheduledDeliveries,
+  getScheduledDeliveryById,
+  cancelScheduledDelivery,
+  bulkReplayDeliveries,
 };
