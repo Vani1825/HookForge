@@ -14,6 +14,7 @@ import type {
   StatusDistribution,
   ScheduleDeliveryInput,
   BulkReplayResult,
+  EndpointTestResult,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -49,6 +50,7 @@ interface AppContextValue {
     createEndpoint: (data: endpointsApi.CreateEndpointInput) => Promise<Endpoint>
     updateEndpoint: (id: string, data: endpointsApi.UpdateEndpointInput) => Promise<Endpoint>
     toggleEndpoint: (id: string, active: boolean) => Promise<Endpoint>
+    testEndpoint: (input: endpointsApi.EndpointTestInput) => Promise<EndpointTestResult>
     getEvents: (filter?: eventsApi.EventQueryParams) => Promise<deliveriesApi.PaginatedList<WebhookEvent>>
     getEventById: (id: string) => Promise<WebhookEvent | undefined>
     ingestEvent: (data: eventsApi.IngestEventInput) => Promise<{ duplicate: boolean; deliveriesEnqueued: number; eventId?: string }>
@@ -201,6 +203,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return toggled
       }
       return endpointsApi.toggleEndpointActive(id, active)
+    },
+
+    testEndpoint: async (input: endpointsApi.EndpointTestInput): Promise<EndpointTestResult> => {
+      if (mode === 'demo') {
+        return mockStore.testEndpoint(input)
+      }
+      return endpointsApi.testEndpoint(input)
     },
 
     getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {

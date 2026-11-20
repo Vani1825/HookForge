@@ -9,6 +9,8 @@ import type {
   PaginationMeta,
   ScheduleDeliveryInput,
   BulkReplayResult,
+  EndpointTestInput,
+  EndpointTestResult,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
@@ -78,6 +80,168 @@ class MockStore {
     const endpoint = this.getEndpoint(id)
     if (!endpoint) return null
     return this.updateEndpoint(id, { active: !endpoint.active })
+  }
+
+  testEndpoint(input: EndpointTestInput): EndpointTestResult {
+    const endpointId = input.endpointId || input.endpoint_id
+    const endpoint = endpointId ? this.getEndpoint(endpointId) : undefined
+    const url = input.url || endpoint?.url || 'https://webhook.example.com/test'
+    const method = (input.method || 'POST').toUpperCase()
+    const isGetOrHead = method === 'GET' || method === 'HEAD'
+
+    const isErrorSimulation =
+      url.toLowerCase().includes('fail') || url.toLowerCase().includes('error')
+    const isTimeoutSimulation = url.toLowerCase().includes('timeout')
+    const isNotFoundSimulation =
+      url.toLowerCase().includes('404') || url.toLowerCase().includes('notfound')
+
+    const latencyMs = Math.floor(25 + Math.random() * 45) // Realistic 25-70ms
+    const timestamp = Math.floor(Date.now() / 1000)
+
+    const requestHeaders: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Webhook-Id': `test_${Array.from({ length: 8 }, () =>
+        Math.floor(Math.random() * 16).toString(16)
+      ).join('')}`,
+      'X-Webhook-Timestamp': timestamp.toString(),
+      'X-HookForge-Test': 'true',
+      ...(input.headers || {}),
+    }
+
+    if (endpoint?.secret || input.secret) {
+      requestHeaders['X-Webhook-Signature'] = `t=${timestamp},v1=mock_signature_${Array.from(
+        { length: 16 },
+        () => Math.floor(Math.random() * 16).toString(16)
+      ).join('')}`
+    }
+
+    const sanitizedHeaders: Record<string, string> = {}
+    for (const [k, v] of Object.entries(requestHeaders)) {
+      if (
+        ['authorization', 'x-api-key', 'api-key', 'proxy-authorization'].includes(
+          k.toLowerCase()
+        )
+      ) {
+        sanitizedHeaders[k] = '[REDACTED]'
+      } else {
+        sanitizedHeaders[k] = v
+      }
+    }
+
+    const payload = isGetOrHead
+      ? null
+      : input.payload !== undefined
+        ? input.payload
+        : input.body !== undefined
+          ? input.body
+          : {
+              event: 'endpoint.test',
+              timestamp: new Date().toISOString(),
+              message: 'HookForge webhook endpoint test payload',
+              data: { test: true, endpointId: endpoint?.id || null },
+            }
+
+    if (isTimeoutSimulation) {
+      return {
+        success: false,
+        statusCode: null,
+        status_code: null,
+        latencyMs: input.timeoutMs || 5000,
+        latency_ms: input.timeoutMs || 5000,
+        error: 'Timeout',
+        request: { url, method, headers: sanitizedHeaders, payload },
+        response: null,
+        testedAt: new Date().toISOString(),
+        tested_at: new Date().toISOString(),
+      }
+    }
+
+    if (isNotFoundSimulation) {
+      const respBody = JSON.stringify({
+        error: 'Endpoint destination not found',
+        path: url,
+      })
+      return {
+        success: false,
+        statusCode: 404,
+        status_code: 404,
+        latencyMs,
+        latency_ms: latencyMs,
+        error: null,
+        request: { url, method, headers: sanitizedHeaders, payload },
+        response: {
+          statusCode: 404,
+          status_code: 404,
+          headers: { 'content-type': 'application/json', 'server': 'MockServer/1.0' },
+          body: respBody,
+          sizeBytes: respBody.length,
+          size_bytes: respBody.length,
+          truncated: false,
+        },
+        testedAt: new Date().toISOString(),
+        tested_at: new Date().toISOString(),
+      }
+    }
+
+    if (isErrorSimulation) {
+      const respBody = JSON.stringify({
+        error: 'Internal Server Error',
+        message: 'Simulated endpoint server fault',
+      })
+      return {
+        success: false,
+        statusCode: 500,
+        status_code: 500,
+        latencyMs,
+        latency_ms: latencyMs,
+        error: null,
+        request: { url, method, headers: sanitizedHeaders, payload },
+        response: {
+          statusCode: 500,
+          status_code: 500,
+          headers: { 'content-type': 'application/json', 'server': 'MockServer/1.0' },
+          body: respBody,
+          sizeBytes: respBody.length,
+          size_bytes: respBody.length,
+          truncated: false,
+        },
+        testedAt: new Date().toISOString(),
+        tested_at: new Date().toISOString(),
+      }
+    }
+
+    const respBody = JSON.stringify({
+      status: 'received',
+      ok: true,
+      message: 'Webhook probe successfully received and acknowledged',
+      endpointId: endpoint?.id || null,
+      receivedAt: new Date().toISOString(),
+    })
+
+    return {
+      success: true,
+      statusCode: 200,
+      status_code: 200,
+      latencyMs,
+      latency_ms: latencyMs,
+      error: null,
+      request: { url, method, headers: sanitizedHeaders, payload },
+      response: {
+        statusCode: 200,
+        status_code: 200,
+        headers: {
+          'content-type': 'application/json',
+          'server': 'HookForge-MockReceiver/1.0',
+          'x-request-id': `req_${Date.now()}`,
+        },
+        body: respBody,
+        sizeBytes: respBody.length,
+        size_bytes: respBody.length,
+        truncated: false,
+      },
+      testedAt: new Date().toISOString(),
+      tested_at: new Date().toISOString(),
+    }
   }
 
   // --- Events ---

@@ -196,3 +196,52 @@ export interface BulkReplayResult {
   rejected: BulkReplayRejectedItem[]
   summary: BulkReplaySummary
 }
+
+// ==========================================
+// Phase 2, Task 2: Endpoint Testing Types
+// ==========================================
+
+export type EndpointTestHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD'
+
+export interface EndpointTestInput {
+  endpointId?: string
+  endpoint_id?: string
+  url?: string
+  method?: EndpointTestHttpMethod | string
+  headers?: Record<string, string>
+  payload?: unknown
+  body?: unknown
+  secret?: string
+  timeoutMs?: number
+  timeout_ms?: number
+}
+
+export interface EndpointTestRequestSummary {
+  url: string
+  method: string
+  headers: Record<string, string>
+  payload: unknown
+}
+
+export interface EndpointTestResponseData {
+  statusCode: number
+  status_code?: number
+  headers: Record<string, string>
+  body: string | null
+  sizeBytes: number
+  size_bytes?: number
+  truncated: boolean
+}
+
+export interface EndpointTestResult {
+  success: boolean
+  statusCode: number | null
+  status_code?: number | null
+  latencyMs: number
+  latency_ms?: number
+  error: string | null
+  request: EndpointTestRequestSummary
+  response: EndpointTestResponseData | null
+  testedAt: string
+  tested_at?: string
+}
