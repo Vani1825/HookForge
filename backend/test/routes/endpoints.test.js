@@ -25,6 +25,7 @@ vi.mock('../../src/services/endpoint/endpointService.js', () => ({
     update: vi.fn(),
     get: vi.fn(),
     remove: vi.fn(),
+    testEndpoint: vi.fn(),
   },
 }));
 

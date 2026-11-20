@@ -223,6 +223,161 @@ router.patch(
 
 
 /**
+ * POST /endpoints/test
+ * Test a webhook endpoint destination using ad-hoc configuration or body endpoint ID.
+ */
+router.post(
+  '/test',
+  apiKeyAuth,
+  [
+    body('url')
+      .optional()
+      .isURL({ protocols: ['http', 'https'], require_protocol: true })
+      .withMessage('URL must be a valid HTTP or HTTPS URL'),
+    body('endpointId')
+      .optional()
+      .isUUID()
+      .withMessage('Invalid endpoint ID'),
+    body('endpoint_id')
+      .optional()
+      .isUUID()
+      .withMessage('Invalid endpoint_id'),
+    body('method')
+      .optional()
+      .isString()
+      .withMessage('Method must be a string'),
+    body('headers')
+      .optional()
+      .isObject()
+      .withMessage('Headers must be an object'),
+    body('timeoutMs')
+      .optional()
+      .isInt({ min: 100, max: 60000 })
+      .withMessage('timeoutMs must be an integer between 100 and 60000'),
+    body('timeout_ms')
+      .optional()
+      .isInt({ min: 100, max: 60000 })
+      .withMessage('timeout_ms must be an integer between 100 and 60000'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+        });
+      }
+
+      const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+      const result = await endpointService.testEndpoint(tenantId, {
+        ...req.body,
+        endpointId: req.body.endpointId || req.body.endpoint_id,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (
+        error.name === 'ValidationError' ||
+        error.type === 'validation_error' ||
+        error.statusCode === 400
+      ) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: error.message,
+        });
+      }
+      if (
+        error.name === 'NotFoundError' ||
+        error.type === 'not_found' ||
+        error.statusCode === 404
+      ) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: error.message,
+        });
+      }
+      next(error);
+    }
+  }
+);
+
+/**
+ * POST /endpoints/:id/test
+ * Test an existing saved webhook endpoint for the authenticated tenant.
+ */
+router.post(
+  '/:id/test',
+  apiKeyAuth,
+  [
+    param('id').isUUID().withMessage('Invalid endpoint ID'),
+    body('url')
+      .optional()
+      .isURL({ protocols: ['http', 'https'], require_protocol: true })
+      .withMessage('URL must be a valid HTTP or HTTPS URL'),
+    body('method')
+      .optional()
+      .isString()
+      .withMessage('Method must be a string'),
+    body('headers')
+      .optional()
+      .isObject()
+      .withMessage('Headers must be an object'),
+    body('timeoutMs')
+      .optional()
+      .isInt({ min: 100, max: 60000 })
+      .withMessage('timeoutMs must be an integer between 100 and 60000'),
+    body('timeout_ms')
+      .optional()
+      .isInt({ min: 100, max: 60000 })
+      .withMessage('timeout_ms must be an integer between 100 and 60000'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+        });
+      }
+
+      const tenantId = req[TENANT_ID_ATTRIBUTE] || req.tenantId;
+      const { id } = req.params;
+
+      const result = await endpointService.testEndpoint(tenantId, {
+        ...req.body,
+        endpointId: id,
+      });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (
+        error.name === 'ValidationError' ||
+        error.type === 'validation_error' ||
+        error.statusCode === 400
+      ) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: error.message,
+        });
+      }
+      if (
+        error.name === 'NotFoundError' ||
+        error.type === 'not_found' ||
+        error.statusCode === 404
+      ) {
+        return res.status(404).json({
+          error: 'Not Found',
+          message: error.message,
+        });
+      }
+      next(error);
+    }
+  }
+);
+
+/**
  * DELETE /endpoints/:id
  * Delete or deactivate an endpoint for the authenticated tenant.
  */
