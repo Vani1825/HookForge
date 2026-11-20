@@ -30,7 +30,7 @@ let reaperTimer = null;
  * @param {Object} endpoint - Endpoint for the delivery
  * @returns {Promise<void>}
  */
-async function processDelivery(delivery, endpoint) {
+export async function processDelivery(delivery, endpoint) {
   const now = clock.system.now();
 
   try {
@@ -113,6 +113,15 @@ async function processDelivery(delivery, endpoint) {
 export async function poll() {
   const promises = [];
   try {
+    // Promote due scheduled deliveries to PENDING
+    try {
+      if (typeof deliveryRepository.promoteDueScheduled === 'function') {
+        await deliveryRepository.promoteDueScheduled(WORKER_CONCURRENCY);
+      }
+    } catch (schedErr) {
+      logger.error('Error promoting scheduled deliveries', { error: schedErr.message });
+    }
+
     const candidateEndpoints = await findDueEndpoints(WORKER_CONCURRENCY);
 
     if (!candidateEndpoints || candidateEndpoints.length === 0) {

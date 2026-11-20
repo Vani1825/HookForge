@@ -22,11 +22,18 @@ function mapRowToDelivery(row) {
     seq: row.seq,
     state: row.state,
     attemptCount: row.attempt_count,
-    nextAttemptAt: row.next_attempt_at ? row.next_attempt_at.toISOString() : null,
-    leaseUntil: row.lease_until ? row.lease_until.toISOString() : null,
+    scheduledAt: row.scheduled_at
+      ? (row.scheduled_at instanceof Date ? row.scheduled_at.toISOString() : new Date(row.scheduled_at).toISOString())
+      : null,
+    nextAttemptAt: row.next_attempt_at
+      ? (row.next_attempt_at instanceof Date ? row.next_attempt_at.toISOString() : new Date(row.next_attempt_at).toISOString())
+      : null,
+    leaseUntil: row.lease_until
+      ? (row.lease_until instanceof Date ? row.lease_until.toISOString() : new Date(row.lease_until).toISOString())
+      : null,
     lastError: row.last_error,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
+    createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(row.created_at).toISOString(),
+    updatedAt: row.updated_at instanceof Date ? row.updated_at.toISOString() : new Date(row.updated_at).toISOString(),
   });
 }
 
@@ -961,9 +968,113 @@ export async function incrementAttemptCount(deliveryId) {
   }
 }
 
+/**
+ * Insert a new scheduled delivery.
+ */
+export async function insertScheduledDelivery(eventId, endpointId, seq, scheduledAt, client = null) {
+  const sql = `
+    INSERT INTO deliveries (
+      event_id,
+      endpoint_id,
+      seq,
+      state,
+      attempt_count,
+      scheduled_at,
+      next_attempt_at
+    )
+    VALUES ($1, $2, $3, 'SCHEDULED', 0, $4, $4)
+    RETURNING *
+  `;
+
+  const queryFn = client ? (text, params) => client.query(text, params) : query;
+
+  try {
+    const result = await queryFn(sql, [eventId, endpointId, seq, scheduledAt]);
+    return mapRowToDelivery(result.rows[0]);
+  } catch (error) {
+    logger.error('Failed to insert scheduled delivery', {
+      error: error.message,
+      endpointId,
+      eventId,
+      scheduledAt,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Cancel a delivery (tenant-scoped).
+ * Can only cancel deliveries in SCHEDULED or PENDING state.
+ */
+export async function cancelDelivery(deliveryId, tenantId) {
+  const sql = `
+    UPDATE deliveries d
+    SET state = 'CANCELLED',
+        updated_at = now()
+    FROM endpoints e
+    WHERE d.id = $1
+      AND d.endpoint_id = e.id
+      AND e.tenant_id = $2
+      AND d.state IN ('SCHEDULED', 'PENDING')
+    RETURNING d.*, e.url AS endpoint_url
+  `;
+
+  try {
+    const result = await query(sql, [deliveryId, tenantId]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return mapRowToDelivery(result.rows[0]);
+  } catch (error) {
+    logger.error('Failed to cancel delivery', {
+      error: error.message,
+      deliveryId,
+      tenantId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Promote due scheduled deliveries to PENDING.
+ * Safely claims and promotes up to batchSize deliveries whose scheduled time has arrived.
+ */
+export async function promoteDueScheduled(batchSize = 100) {
+  const sql = `
+    WITH due_scheduled AS (
+      SELECT id
+      FROM deliveries
+      WHERE state = 'SCHEDULED'
+        AND next_attempt_at <= now()
+      ORDER BY next_attempt_at ASC
+      LIMIT $1
+      FOR UPDATE SKIP LOCKED
+    )
+    UPDATE deliveries d
+    SET state = 'PENDING',
+        updated_at = now()
+    FROM due_scheduled s
+    WHERE d.id = s.id
+    RETURNING d.id
+  `;
+
+  try {
+    const result = await query(sql, [batchSize]);
+    return result.rows.length;
+  } catch (error) {
+    logger.error('Failed to promote due scheduled deliveries', {
+      error: error.message,
+    });
+    throw error;
+  }
+}
+
 export default {
   // DeliveryRepository
   insert,
+  insertScheduledDelivery,
+  cancelDelivery,
+  promoteDueScheduled,
   claim,
   findDueEndpoints,
   enqueueBatch,
