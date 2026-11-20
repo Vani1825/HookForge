@@ -13,6 +13,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  CalendarClock,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { useApp } from '../context/AppContext'
@@ -37,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Endpoints', path: '/endpoints', icon: Globe2 },
       { label: 'Events', path: '/events', icon: Inbox },
       { label: 'Deliveries', path: '/deliveries', icon: Send },
+      { label: 'Scheduled', path: '/scheduled-deliveries', icon: CalendarClock },
     ],
   },
   {

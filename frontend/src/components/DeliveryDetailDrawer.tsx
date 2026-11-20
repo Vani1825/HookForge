@@ -18,6 +18,7 @@ interface DeliveryDetailDrawerProps {
   isOpen: boolean
   onClose: () => void
   onReplayRequest?: (delivery: Delivery) => void
+  onCancelRequest?: (delivery: Delivery) => void
 }
 
 export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
@@ -25,6 +26,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
   isOpen,
   onClose,
   onReplayRequest,
+  onCancelRequest,
 }) => {
   const [copiedId, setCopiedId] = useState(false)
 
@@ -52,16 +54,28 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
-          {delivery.state === 'DEAD' && onReplayRequest && (
-            <Button
-              variant="danger"
-              size="sm"
-              leftIcon={<RotateCw className="w-3.5 h-3.5" />}
-              onClick={() => onReplayRequest(delivery)}
-            >
-              Replay Dead Delivery
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {(delivery.state === 'SCHEDULED' || delivery.state === 'PENDING') && onCancelRequest && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[#E76B64] border-[#E76B64]/30 hover:bg-[#E76B64]/10"
+                onClick={() => onCancelRequest(delivery)}
+              >
+                Cancel Scheduled
+              </Button>
+            )}
+            {delivery.state === 'DEAD' && onReplayRequest && (
+              <Button
+                variant="danger"
+                size="sm"
+                leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+                onClick={() => onReplayRequest(delivery)}
+              >
+                Replay Dead Delivery
+              </Button>
+            )}
+          </div>
         </div>
       }
     >
@@ -139,6 +153,14 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 : formatDateTime(delivery.next_attempt_at)}
             </span>
           </div>
+          {(delivery.scheduled_at || delivery.scheduledAt) && (
+            <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
+              <span className="text-[#64748B] block">Scheduled Execution</span>
+              <span className="font-medium text-[#5277D9]">
+                {formatDateTime(delivery.scheduled_at || delivery.scheduledAt!)}
+              </span>
+            </div>
+          )}
         </div>
         {delivery.lease_until && (
           <div className="flex items-center gap-2 p-2 bg-[#EAF0FF] border border-[#DCE5FA] rounded-lg text-xs text-[#5277D9]">

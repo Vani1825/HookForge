@@ -27,6 +27,18 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ state, className }) =>
           Dead Letter
         </Badge>
       )
+    case 'SCHEDULED':
+      return (
+        <Badge variant="purple" dot className={className}>
+          Scheduled
+        </Badge>
+      )
+    case 'CANCELLED':
+      return (
+        <Badge variant="slate" dot className={className}>
+          Cancelled
+        </Badge>
+      )
     case 'IN_FLIGHT':
       return (
         <Badge variant="purple" dot className={className}>

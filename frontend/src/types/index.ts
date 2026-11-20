@@ -4,7 +4,7 @@
  * and backend domain models.
  */
 
-export type DeliveryState = 'PENDING' | 'IN_FLIGHT' | 'RETRYING' | 'SUCCEEDED' | 'DEAD'
+export type DeliveryState = 'PENDING' | 'IN_FLIGHT' | 'RETRYING' | 'SUCCEEDED' | 'DEAD' | 'SCHEDULED' | 'CANCELLED'
 
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN'
 
@@ -84,6 +84,8 @@ export interface Delivery {
   lastError?: string | null
   createdAt?: string
   updatedAt?: string
+  scheduled_at?: string | null
+  scheduledAt?: string | null
 }
 
 export interface IngestRequest {
@@ -149,4 +151,48 @@ export interface PaginationMeta {
 export interface PaginatedResponse<T> {
   data: T[]
   pagination: PaginationMeta
+}
+
+export interface ScheduleDeliveryInput {
+  endpointId?: string
+  endpoint_id?: string
+  scheduledAt?: string
+  scheduled_at?: string
+  payload?: Record<string, unknown> | unknown[]
+  eventId?: string
+  event_id?: string
+  idempotencyKey?: string
+  idempotency_key?: string
+}
+
+export interface BulkReplayIneligibleItem {
+  id: string
+  deliveryId?: string
+  state?: string
+  reason: string
+}
+
+export interface BulkReplayRejectedItem {
+  id: string
+  deliveryId?: string
+  reason: string
+}
+
+export interface BulkReplaySummary {
+  total: number
+  successfulCount: number
+  replayedCount?: number
+  ineligibleCount: number
+  rejectedCount: number
+}
+
+export interface BulkReplayResult {
+  success: boolean
+  message?: string
+  total: number
+  successful: Delivery[]
+  replayed?: Delivery[]
+  ineligible: BulkReplayIneligibleItem[]
+  rejected: BulkReplayRejectedItem[]
+  summary: BulkReplaySummary
 }

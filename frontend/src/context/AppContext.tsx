@@ -12,6 +12,8 @@ import type {
   OverviewMetrics,
   TimeSeriesDataPoint,
   StatusDistribution,
+  ScheduleDeliveryInput,
+  BulkReplayResult,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -54,6 +56,11 @@ interface AppContextValue {
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
+    scheduleDelivery: (data: ScheduleDeliveryInput) => Promise<Delivery>
+    getScheduledDeliveries: (filter?: deliveriesApi.DeliveryQueryParams) => Promise<deliveriesApi.PaginatedList<Delivery>>
+    getScheduledDeliveryById: (id: string) => Promise<Delivery | undefined>
+    cancelScheduledDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
+    bulkReplayDeliveries: (deliveryIds: string[]) => Promise<BulkReplayResult>
     getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<OverviewMetrics>
     getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<TimeSeriesDataPoint[]>
     getStatusDistribution: (filter?: metricsApi.MetricsQueryParams | string) => Promise<StatusDistribution[]>
@@ -243,6 +250,41 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return mockStore.replayDelivery(id)
       }
       return deliveriesApi.replayDelivery(id)
+    },
+
+    scheduleDelivery: async (data: ScheduleDeliveryInput): Promise<Delivery> => {
+      if (mode === 'demo') {
+        return mockStore.scheduleDelivery(data)
+      }
+      return deliveriesApi.scheduleDelivery(data)
+    },
+
+    getScheduledDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams): Promise<deliveriesApi.PaginatedList<Delivery>> => {
+      if (mode === 'demo') {
+        return mockStore.getScheduledDeliveries(filter)
+      }
+      return deliveriesApi.fetchScheduledDeliveries(filter)
+    },
+
+    getScheduledDeliveryById: async (id: string): Promise<Delivery | undefined> => {
+      if (mode === 'demo') {
+        return mockStore.getDelivery(id)
+      }
+      return deliveriesApi.fetchScheduledDeliveryById(id)
+    },
+
+    cancelScheduledDelivery: async (id: string) => {
+      if (mode === 'demo') {
+        return mockStore.cancelScheduledDelivery(id)
+      }
+      return deliveriesApi.cancelScheduledDelivery(id)
+    },
+
+    bulkReplayDeliveries: async (deliveryIds: string[]) => {
+      if (mode === 'demo') {
+        return mockStore.bulkReplayDeliveries(deliveryIds)
+      }
+      return deliveriesApi.bulkReplayDeliveries(deliveryIds)
     },
 
     getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<OverviewMetrics> => {

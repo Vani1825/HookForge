@@ -9,6 +9,8 @@ import {
   Filter,
   SlidersHorizontal,
   X,
+  RotateCw,
+  Plus,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -20,10 +22,13 @@ import { EmptyState } from '../components/ui/EmptyState'
 import { Pagination } from '../components/ui/Pagination'
 import { DeliveryDetailDrawer } from '../components/DeliveryDetailDrawer'
 import { ReplayModal } from '../components/ReplayModal'
+import { ScheduleDeliveryModal } from '../components/ScheduleDeliveryModal'
+import { BulkReplayConfirmModal } from '../components/BulkReplayConfirmModal'
+import { BulkReplayResultModal } from '../components/BulkReplayResultModal'
 import { useApp } from '../context/AppContext'
 import { formatErrorMessage } from '../api/client'
 import { formatRelativeTime, truncateId, formatStatusCode, copyToClipboard } from '../utils/formatters'
-import type { Delivery, Endpoint, PaginationMeta } from '../types'
+import type { Delivery, Endpoint, PaginationMeta, BulkReplayResult } from '../types'
 
 export const DeliveriesPage: React.FC = () => {
   const { service, mode } = useApp()
@@ -60,6 +65,13 @@ export const DeliveriesPage: React.FC = () => {
   const [replayModalOpen, setReplayModalOpen] = useState(false)
   const [deliveryToReplay, setDeliveryToReplay] = useState<Delivery | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  // Scheduling & Bulk Replay State
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false)
+  const [bulkReplayConfirmOpen, setBulkReplayConfirmOpen] = useState(false)
+  const [bulkReplayResultOpen, setBulkReplayResultOpen] = useState(false)
+  const [bulkReplayResult, setBulkReplayResult] = useState<BulkReplayResult | null>(null)
 
   // Guard against race conditions and out-of-order network responses
   const latestRequestIdRef = useRef(0)
@@ -253,6 +265,29 @@ export const DeliveriesPage: React.FC = () => {
     setReplayModalOpen(true)
   }
 
+  // Selection helpers for Bulk Replay
+  const eligibleOnPage = deliveries.filter((d) => d.state === 'DEAD')
+  const allEligibleSelected =
+    eligibleOnPage.length > 0 && eligibleOnPage.every((d) => selectedIds.includes(d.id))
+  const someEligibleSelected =
+    eligibleOnPage.some((d) => selectedIds.includes(d.id))
+
+  const handleToggleSelectAll = () => {
+    if (allEligibleSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !eligibleOnPage.some((d) => d.id === id)))
+    } else {
+      const newIds = Array.from(new Set([...selectedIds, ...eligibleOnPage.map((d) => d.id)]))
+      setSelectedIds(newIds)
+    }
+  }
+
+  const handleToggleSelectRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
@@ -260,16 +295,38 @@ export const DeliveriesPage: React.FC = () => {
         title="Delivery Pipeline Monitor"
         description="Durable PostgreSQL work queue with server-side pagination, per-endpoint ordering, and lease expiration."
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => loadDeliveries(page, pageSize)}
-            isLoading={isLoading}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => loadDeliveries(page, pageSize)}
+              isLoading={isLoading}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            >
+              Refresh
+            </Button>
+            {selectedIds.length > 0 && (
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => setBulkReplayConfirmOpen(true)}
+                leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+              >
+                Bulk Replay ({selectedIds.length})
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => setScheduleModalOpen(true)}
+              leftIcon={<Plus className="w-3.5 h-3.5" />}
+            >
+              Schedule Webhook
+            </Button>
+          </div>
         }
       />
 
@@ -529,47 +586,112 @@ export const DeliveriesPage: React.FC = () => {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
-                <tr>
-                  <th className="py-3 px-4">Delivery ID</th>
-                  <th className="py-3 px-4">Destination Endpoint</th>
-                  <th className="py-3 px-4">State</th>
-                  <th className="py-3 px-4">HTTP</th>
-                  <th className="py-3 px-4">Seq</th>
-                  <th className="py-3 px-4">Attempts</th>
-                  <th className="py-3 px-4">Next Retry / Time</th>
-                  <th className="py-3 px-4 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E7E8EC]">
-                {deliveries.map((del) => {
-                  const statusInfo = formatStatusCode(del.last_status_code)
-                  return (
-                    <tr
-                      key={del.id}
-                      onClick={() => handleInspect(del)}
-                      className="hover:bg-[#F7F6F2]/70 transition-colors cursor-pointer"
-                    >
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-1.5 font-mono font-semibold text-[#202938]">
-                          <span>{truncateId(del.id, 8)}</span>
-                          <button
-                            type="button"
-                            onClick={(e) => handleCopy(del.id, e)}
-                            className="text-[#64748B] hover:text-[#202938] p-0.5 rounded cursor-pointer"
-                            title="Copy Delivery ID"
-                            aria-label={`Copy delivery ID ${del.id}`}
-                          >
-                            {copiedId === del.id ? (
-                              <Check className="w-3 h-3 text-[#159B78]" />
-                            ) : (
-                              <Copy className="w-3 h-3" />
-                            )}
-                          </button>
-                        </div>
-                      </td>
+          <div>
+            {/* Bulk Selection Notification Bar */}
+            {selectedIds.length > 0 && (
+              <div className="bg-[#EAF0FF] border-b border-[#DCE5FA] px-4 py-2.5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#5277D9]">
+                    {selectedIds.length} failed {selectedIds.length === 1 ? 'delivery' : 'deliveries'} selected for replay
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds([])}
+                    className="text-2xs text-[#64748B] hover:text-[#202938] underline ml-2 cursor-pointer"
+                  >
+                    Clear selection
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setBulkReplayConfirmOpen(true)}
+                  leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+                >
+                  Bulk Replay ({selectedIds.length})
+                </Button>
+              </div>
+            )}
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
+                  <tr>
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allEligibleSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = someEligibleSelected && !allEligibleSelected
+                        }}
+                        onChange={handleToggleSelectAll}
+                        disabled={eligibleOnPage.length === 0}
+                        title={
+                          eligibleOnPage.length > 0
+                            ? 'Select all eligible failed deliveries on this page'
+                            : 'No failed deliveries eligible for replay on this page'
+                        }
+                        aria-label="Select all eligible failed deliveries"
+                        className="rounded border-[#E7E8EC] text-[#5277D9] focus:ring-[#5277D9] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      />
+                    </th>
+                    <th className="py-3 px-4">Delivery ID</th>
+                    <th className="py-3 px-4">Destination Endpoint</th>
+                    <th className="py-3 px-4">State</th>
+                    <th className="py-3 px-4">HTTP</th>
+                    <th className="py-3 px-4">Seq</th>
+                    <th className="py-3 px-4">Attempts</th>
+                    <th className="py-3 px-4">Next Retry / Time</th>
+                    <th className="py-3 px-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E7E8EC]">
+                  {deliveries.map((del) => {
+                    const statusInfo = formatStatusCode(del.last_status_code)
+                    const isDead = del.state === 'DEAD'
+                    const isSelected = selectedIds.includes(del.id)
+                    return (
+                      <tr
+                        key={del.id}
+                        onClick={() => handleInspect(del)}
+                        className={`hover:bg-[#F7F6F2]/70 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-[#EAF0FF]/30' : ''
+                        }`}
+                      >
+                        <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            disabled={!isDead}
+                            onChange={(e) => handleToggleSelectRow(del.id, e as unknown as React.MouseEvent)}
+                            title={
+                              isDead
+                                ? 'Select this failed delivery for replay'
+                                : 'Only DEAD deliveries can be replayed'
+                            }
+                            aria-label={`Select delivery ${del.id} for replay`}
+                            className="rounded border-[#E7E8EC] text-[#5277D9] focus:ring-[#5277D9] cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5 font-mono font-semibold text-[#202938]">
+                            <span>{truncateId(del.id, 8)}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopy(del.id, e)}
+                              className="text-[#64748B] hover:text-[#202938] p-0.5 rounded cursor-pointer"
+                              title="Copy Delivery ID"
+                              aria-label={`Copy delivery ID ${del.id}`}
+                            >
+                              {copiedId === del.id ? (
+                                <Check className="w-3 h-3 text-[#159B78]" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        </td>
 
                       <td className="py-3 px-4 text-[#64748B] font-mono max-w-xs truncate">
                         {del.endpoint_url || del.endpoint_id}
@@ -625,6 +747,7 @@ export const DeliveriesPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
         )}
 
         {/* Server-side Pagination Component */}
@@ -655,6 +778,35 @@ export const DeliveriesPage: React.FC = () => {
         onSuccess={() => {
           loadDeliveries(page, pageSize)
         }}
+      />
+
+      {/* Schedule Webhook Modal */}
+      <ScheduleDeliveryModal
+        isOpen={scheduleModalOpen}
+        onClose={() => setScheduleModalOpen(false)}
+        onSuccess={() => {
+          loadDeliveries(page, pageSize)
+        }}
+      />
+
+      {/* Bulk Replay Confirmation Modal */}
+      <BulkReplayConfirmModal
+        deliveryIds={selectedIds}
+        isOpen={bulkReplayConfirmOpen}
+        onClose={() => setBulkReplayConfirmOpen(false)}
+        onComplete={(result) => {
+          setBulkReplayResult(result)
+          setBulkReplayResultOpen(true)
+          setSelectedIds([])
+          loadDeliveries(page, pageSize)
+        }}
+      />
+
+      {/* Bulk Replay Result Modal */}
+      <BulkReplayResultModal
+        result={bulkReplayResult}
+        isOpen={bulkReplayResultOpen}
+        onClose={() => setBulkReplayResultOpen(false)}
       />
     </div>
   )
