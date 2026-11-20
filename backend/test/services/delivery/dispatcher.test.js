@@ -4,7 +4,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { poll, start, stop } from '../../../src/services/delivery/dispatcher.js';
+import {
+  poll,
+  start,
+  stop,
+  POLL_INTERVAL_MS,
+  LEASE_REAPER_INTERVAL_MS,
+} from '../../../src/services/delivery/dispatcher.js';
 import deliveryRepository from '../../../src/repositories/jdbc/deliveryRepository.js';
 import { findDueEndpoints } from '../../../src/repositories/jdbc/endpointRepository.js';
 import attemptExecutor from '../../../src/services/delivery/attemptExecutor.js';
@@ -224,21 +230,34 @@ describe('Dispatcher (Queue-Driven)', () => {
 
       start();
 
+      // Initial poll fires immediately on start()
       expect(findDueEndpoints).toHaveBeenCalledTimes(1);
 
-      // Advance time by poll interval (500ms)
-      await vi.advanceTimersByTimeAsync(500);
+      // Advancing time before poll interval does not trigger a second poll
+      if (POLL_INTERVAL_MS > 1) {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS - 1);
+        expect(findDueEndpoints).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+      } else {
+        await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+      }
       expect(findDueEndpoints).toHaveBeenCalledTimes(2);
 
-      // Advance time to reaper interval (60000ms)
-      await vi.advanceTimersByTimeAsync(60000);
+      // Advance time to reaper interval
+      await vi.advanceTimersByTimeAsync(LEASE_REAPER_INTERVAL_MS);
       expect(recoverExpiredLeases).toHaveBeenCalled();
 
       stop();
 
-      const callCountAfterStop = findDueEndpoints.mock.calls.length;
-      await vi.advanceTimersByTimeAsync(5000);
-      expect(findDueEndpoints).toHaveBeenCalledTimes(callCountAfterStop);
+      // Verify stop() cleared both pollTimer and reaperTimer
+      const pollCountAfterStop = findDueEndpoints.mock.calls.length;
+      const reaperCountAfterStop = recoverExpiredLeases.mock.calls.length;
+
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 3);
+      await vi.advanceTimersByTimeAsync(LEASE_REAPER_INTERVAL_MS * 2);
+
+      expect(findDueEndpoints).toHaveBeenCalledTimes(pollCountAfterStop);
+      expect(recoverExpiredLeases).toHaveBeenCalledTimes(reaperCountAfterStop);
     });
 
     it('should not create duplicate timers if start() is called when already running', async () => {
@@ -252,6 +271,20 @@ describe('Dispatcher (Queue-Driven)', () => {
 
     it('should handle stop() safely when not running', () => {
       expect(() => stop()).not.toThrow();
+    });
+
+    it('should cleanly resume polling when restarted after stop', async () => {
+      findDueEndpoints.mockResolvedValue([]);
+
+      start();
+      expect(findDueEndpoints).toHaveBeenCalledTimes(1);
+      stop();
+
+      start();
+      expect(findDueEndpoints).toHaveBeenCalledTimes(2);
+      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+      expect(findDueEndpoints).toHaveBeenCalledTimes(3);
+      stop();
     });
   });
 });
