@@ -11,10 +11,12 @@ import type {
   BulkReplayResult,
   EndpointTestInput,
   EndpointTestResult,
+  RetryStrategy,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
 import type { MetricsQueryParams } from '../api/metrics'
+import type { CreateEndpointInput, UpdateEndpointInput } from '../api/endpoints'
 import {
   MOCK_TENANT,
   INITIAL_MOCK_ENDPOINTS,
@@ -39,10 +41,16 @@ class MockStore {
     return this.endpoints.find((e) => e.id === id)
   }
 
-  createEndpoint(data: { url: string; rate_limit_rps?: number; description?: string }): Endpoint {
+  createEndpoint(data: CreateEndpointInput): Endpoint {
     const randomHex = Array.from({ length: 32 }, () =>
       Math.floor(Math.random() * 16).toString(16)
     ).join('')
+
+    const strategy = (data.retryStrategy || data.retry_strategy || data.retryPolicy?.strategy || 'EXPONENTIAL') as RetryStrategy
+    const maxAttempts = data.retryMaxAttempts ?? data.retry_max_attempts ?? data.retryPolicy?.maxAttempts ?? 8
+    const baseDelayMs = data.retryBaseDelayMs ?? data.retry_base_delay_ms ?? data.retryPolicy?.baseDelayMs ?? 5000
+    const maxDelayMs = data.retryMaxDelayMs ?? data.retry_max_delay_ms ?? data.retryPolicy?.maxDelayMs ?? (strategy === 'FIXED' ? baseDelayMs : 3600000)
+    const backoffMultiplier = data.retryBackoffMultiplier ?? data.retry_backoff_multiplier ?? data.retryPolicy?.backoffMultiplier ?? (strategy === 'FIXED' ? 1.0 : 2.0)
 
     const newEndpoint: Endpoint = {
       id: `e1000000-0000-0000-0000-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
@@ -59,21 +67,64 @@ class MockStore {
       description: data.description || 'Webhook destination',
       total_deliveries: 0,
       success_rate: 100,
+      retry_strategy: strategy,
+      retryStrategy: strategy,
+      retry_max_attempts: maxAttempts,
+      retryMaxAttempts: maxAttempts,
+      retry_base_delay_ms: baseDelayMs,
+      retryBaseDelayMs: baseDelayMs,
+      retry_max_delay_ms: maxDelayMs,
+      retryMaxDelayMs: maxDelayMs,
+      retry_backoff_multiplier: backoffMultiplier,
+      retryBackoffMultiplier: backoffMultiplier,
+      retryPolicy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
     }
 
     this.endpoints.unshift(newEndpoint)
     return newEndpoint
   }
 
-  updateEndpoint(id: string, updates: Partial<Endpoint>): Endpoint | null {
+  updateEndpoint(id: string, updates: UpdateEndpointInput | Partial<Endpoint>): Endpoint | null {
     const idx = this.endpoints.findIndex((e) => e.id === id)
     if (idx === -1) return null
 
-    this.endpoints[idx] = {
-      ...this.endpoints[idx],
+    const existing = this.endpoints[idx]
+    const strategy = (updates.retryStrategy || updates.retry_strategy || updates.retryPolicy?.strategy || existing.retryStrategy || existing.retry_strategy || 'EXPONENTIAL') as RetryStrategy
+    const maxAttempts = updates.retryMaxAttempts ?? updates.retry_max_attempts ?? updates.retryPolicy?.maxAttempts ?? existing.retryMaxAttempts ?? existing.retry_max_attempts ?? 8
+    const baseDelayMs = updates.retryBaseDelayMs ?? updates.retry_base_delay_ms ?? updates.retryPolicy?.baseDelayMs ?? existing.retryBaseDelayMs ?? existing.retry_base_delay_ms ?? 5000
+    const maxDelayMs = updates.retryMaxDelayMs ?? updates.retry_max_delay_ms ?? updates.retryPolicy?.maxDelayMs ?? existing.retryMaxDelayMs ?? existing.retry_max_delay_ms ?? (strategy === 'FIXED' ? baseDelayMs : 3600000)
+    const backoffMultiplier = updates.retryBackoffMultiplier ?? updates.retry_backoff_multiplier ?? updates.retryPolicy?.backoffMultiplier ?? existing.retryBackoffMultiplier ?? existing.retry_backoff_multiplier ?? (strategy === 'FIXED' ? 1.0 : 2.0)
+
+    const updatedEndpoint: Endpoint = {
+      ...existing,
       ...updates,
+      retry_strategy: strategy,
+      retryStrategy: strategy,
+      retry_max_attempts: maxAttempts,
+      retryMaxAttempts: maxAttempts,
+      retry_base_delay_ms: baseDelayMs,
+      retryBaseDelayMs: baseDelayMs,
+      retry_max_delay_ms: maxDelayMs,
+      retryMaxDelayMs: maxDelayMs,
+      retry_backoff_multiplier: backoffMultiplier,
+      retryBackoffMultiplier: backoffMultiplier,
+      retryPolicy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
     }
-    return this.endpoints[idx]
+
+    this.endpoints[idx] = updatedEndpoint
+    return updatedEndpoint
   }
 
   toggleEndpoint(id: string): Endpoint | null {

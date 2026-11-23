@@ -8,6 +8,16 @@ export type DeliveryState = 'PENDING' | 'IN_FLIGHT' | 'RETRYING' | 'SUCCEEDED' |
 
 export type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN'
 
+export type RetryStrategy = 'EXPONENTIAL' | 'FIXED'
+
+export interface RetryPolicy {
+  strategy: RetryStrategy
+  maxAttempts: number
+  baseDelayMs: number
+  maxDelayMs: number
+  backoffMultiplier: number
+}
+
 export interface Tenant {
   id: string
   name: string
@@ -27,6 +37,18 @@ export interface Endpoint {
   circuit_until?: string | null
   consecutive_failures: number
   created_at: string
+  // Retry policy configuration
+  retry_strategy?: RetryStrategy
+  retryStrategy?: RetryStrategy
+  retry_max_attempts?: number
+  retryMaxAttempts?: number
+  retry_base_delay_ms?: number
+  retryBaseDelayMs?: number
+  retry_max_delay_ms?: number
+  retryMaxDelayMs?: number
+  retry_backoff_multiplier?: number
+  retryBackoffMultiplier?: number
+  retryPolicy?: RetryPolicy
   // Virtual / calculated metrics
   description?: string
   total_deliveries?: number
