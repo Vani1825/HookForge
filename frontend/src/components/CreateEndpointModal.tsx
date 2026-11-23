@@ -2,6 +2,13 @@ import React, { useState } from 'react'
 import { Modal } from './ui/Modal'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
+import {
+  RetryPolicyConfigForm,
+  DEFAULT_RETRY_FORM_DATA,
+  validateRetryPolicyForm,
+  type RetryPolicyFormData,
+  type RetryPolicyFormErrors,
+} from './RetryPolicyConfigForm'
 import { useApp } from '../context/AppContext'
 import { copyToClipboard } from '../utils/formatters'
 import { KeyRound, ShieldAlert, Check, Copy, AlertCircle } from 'lucide-react'
@@ -23,6 +30,8 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
   const [url, setUrl] = useState('')
   const [rateLimitRps, setRateLimitRps] = useState('10')
   const [description, setDescription] = useState('')
+  const [retryData, setRetryData] = useState<RetryPolicyFormData>(DEFAULT_RETRY_FORM_DATA)
+  const [retryErrors, setRetryErrors] = useState<RetryPolicyFormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
   const [urlError, setUrlError] = useState<string | null>(null)
   const [rateLimitError, setRateLimitError] = useState<string | null>(null)
@@ -36,6 +45,8 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
     setUrl('')
     setRateLimitRps('10')
     setDescription('')
+    setRetryData(DEFAULT_RETRY_FORM_DATA)
+    setRetryErrors({})
     setUrlError(null)
     setRateLimitError(null)
     setApiError(null)
@@ -44,7 +55,14 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
     onClose()
   }
 
-  const validate = (): boolean => {
+  const handleRetryChange = (field: keyof RetryPolicyFormData, value: string) => {
+    setRetryData((prev) => ({ ...prev, [field]: value }))
+    if (retryErrors[field]) {
+      setRetryErrors((prev) => ({ ...prev, [field]: undefined }))
+    }
+  }
+
+  const validate = () => {
     let valid = true
     setUrlError(null)
     setRateLimitError(null)
@@ -72,12 +90,21 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
       valid = false
     }
 
-    return valid
+    const retryValidation = validateRetryPolicyForm(retryData)
+    if (!retryValidation.isValid) {
+      setRetryErrors(retryValidation.errors)
+      valid = false
+    } else {
+      setRetryErrors({})
+    }
+
+    return valid ? retryValidation.cleanValues : null
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate()) return
+    const cleanValues = validate()
+    if (!cleanValues) return
 
     setIsLoading(true)
     setApiError(null)
@@ -87,6 +114,11 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
         url: url.trim(),
         rate_limit_rps: parseInt(rateLimitRps, 10),
         description: description.trim() || undefined,
+        retryStrategy: cleanValues.retryStrategy,
+        retryMaxAttempts: cleanValues.retryMaxAttempts,
+        retryBaseDelayMs: cleanValues.retryBaseDelayMs,
+        retryMaxDelayMs: cleanValues.retryMaxDelayMs,
+        retryBackoffMultiplier: cleanValues.retryBackoffMultiplier,
       })
 
       addToast({
@@ -186,7 +218,7 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
       onClose={handleReset}
       title="Add Webhook Endpoint"
       description="Register a new destination URL to receive webhook event dispatches."
-      maxWidth="md"
+      maxWidth="lg"
       footer={
         <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 w-full">
           <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={handleReset} disabled={isLoading}>
@@ -221,6 +253,7 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
           error={urlError || undefined}
           helperText="The HTTPS endpoint where HookForge will deliver POST requests."
           required
+          disabled={isLoading}
         />
 
         <Input
@@ -232,6 +265,7 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
           onChange={(e) => setRateLimitRps(e.target.value)}
           error={rateLimitError || undefined}
           helperText="Token bucket capacity allocated to this destination (default: 10 RPS)."
+          disabled={isLoading}
         />
 
         <Input
@@ -240,6 +274,15 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           helperText="Internal identifier or note for your engineering team."
+          disabled={isLoading}
+        />
+
+        {/* Retry Policy Configuration Sub-Form */}
+        <RetryPolicyConfigForm
+          values={retryData}
+          errors={retryErrors}
+          onChange={handleRetryChange}
+          disabled={isLoading}
         />
       </form>
     </Modal>
