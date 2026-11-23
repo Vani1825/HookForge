@@ -33,6 +33,72 @@ router.post(
       .optional()
       .isInt({ min: 1 })
       .withMessage('rate_limit_rps must be a positive integer'),
+    body('retryStrategy')
+      .optional()
+      .custom((val) => {
+        const s = String(val).trim().toUpperCase();
+        if (s !== 'EXPONENTIAL' && s !== 'FIXED') {
+          throw new Error('retryStrategy must be EXPONENTIAL or FIXED');
+        }
+        return true;
+      }),
+    body('retry_strategy')
+      .optional()
+      .custom((val) => {
+        const s = String(val).trim().toUpperCase();
+        if (s !== 'EXPONENTIAL' && s !== 'FIXED') {
+          throw new Error('retry_strategy must be EXPONENTIAL or FIXED');
+        }
+        return true;
+      }),
+    body('retryMaxAttempts')
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage('retryMaxAttempts must be an integer between 1 and 50'),
+    body('retry_max_attempts')
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage('retry_max_attempts must be an integer between 1 and 50'),
+    body('retryBaseDelayMs')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retryBaseDelayMs must be an integer between 100 and 86400000'),
+    body('retry_base_delay_ms')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retry_base_delay_ms must be an integer between 100 and 86400000'),
+    body('retryDelayMs')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retryDelayMs must be an integer between 100 and 86400000'),
+    body('retry_delay_ms')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retry_delay_ms must be an integer between 100 and 86400000'),
+    body('retryMaxDelayMs')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retryMaxDelayMs must be an integer between 100 and 86400000'),
+    body('retry_max_delay_ms')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retry_max_delay_ms must be an integer between 100 and 86400000'),
+    body('retryBackoffMultiplier')
+      .optional()
+      .isFloat({ min: 1.0, max: 10.0 })
+      .withMessage('retryBackoffMultiplier must be a number between 1.0 and 10.0'),
+    body('retry_backoff_multiplier')
+      .optional()
+      .isFloat({ min: 1.0, max: 10.0 })
+      .withMessage('retry_backoff_multiplier must be a number between 1.0 and 10.0'),
+    body('retryPolicy')
+      .optional()
+      .isObject()
+      .withMessage('retryPolicy must be an object'),
+    body('retry_policy')
+      .optional()
+      .isObject()
+      .withMessage('retry_policy must be an object'),
   ],
   async (req, res, next) => {
     try {
@@ -52,6 +118,7 @@ router.post(
           : req.body.rate_limit_rps;
 
       const endpoint = await endpointService.create(tenantId, {
+        ...req.body,
         url,
         rateLimitRps,
       });
@@ -61,7 +128,7 @@ router.post(
         tenantId,
       });
 
-      const circuit = endpoint.circuitState.toString();
+      const circuit = endpoint.circuitState ? endpoint.circuitState.toString() : 'CLOSED';
       res.status(201).json({
         id: endpoint.id,
         url: endpoint.url,
@@ -73,6 +140,23 @@ router.post(
         circuit_state: circuit,
         consecutiveFailures: endpoint.consecutiveFailures,
         consecutive_failures: endpoint.consecutiveFailures,
+        retryStrategy: endpoint.retryStrategy || 'EXPONENTIAL',
+        retry_strategy: endpoint.retryStrategy || 'EXPONENTIAL',
+        retryMaxAttempts: endpoint.retryMaxAttempts ?? 8,
+        retry_max_attempts: endpoint.retryMaxAttempts ?? 8,
+        retryBaseDelayMs: endpoint.retryBaseDelayMs ?? 5000,
+        retry_base_delay_ms: endpoint.retryBaseDelayMs ?? 5000,
+        retryMaxDelayMs: endpoint.retryMaxDelayMs ?? 3600000,
+        retry_max_delay_ms: endpoint.retryMaxDelayMs ?? 3600000,
+        retryBackoffMultiplier: endpoint.retryBackoffMultiplier ?? 2.0,
+        retry_backoff_multiplier: endpoint.retryBackoffMultiplier ?? 2.0,
+        retryPolicy: {
+          strategy: endpoint.retryStrategy || 'EXPONENTIAL',
+          maxAttempts: endpoint.retryMaxAttempts ?? 8,
+          baseDelayMs: endpoint.retryBaseDelayMs ?? 5000,
+          maxDelayMs: endpoint.retryMaxDelayMs ?? 3600000,
+          backoffMultiplier: endpoint.retryBackoffMultiplier ?? 2.0,
+        },
         createdAt: endpoint.createdAt,
         created_at: endpoint.createdAt,
       });
@@ -171,6 +255,72 @@ router.patch(
       .optional()
       .isInt({ min: 1 })
       .withMessage('rate_limit_rps must be a positive integer'),
+    body('retryStrategy')
+      .optional()
+      .custom((val) => {
+        const s = String(val).trim().toUpperCase();
+        if (s !== 'EXPONENTIAL' && s !== 'FIXED') {
+          throw new Error('retryStrategy must be EXPONENTIAL or FIXED');
+        }
+        return true;
+      }),
+    body('retry_strategy')
+      .optional()
+      .custom((val) => {
+        const s = String(val).trim().toUpperCase();
+        if (s !== 'EXPONENTIAL' && s !== 'FIXED') {
+          throw new Error('retry_strategy must be EXPONENTIAL or FIXED');
+        }
+        return true;
+      }),
+    body('retryMaxAttempts')
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage('retryMaxAttempts must be an integer between 1 and 50'),
+    body('retry_max_attempts')
+      .optional()
+      .isInt({ min: 1, max: 50 })
+      .withMessage('retry_max_attempts must be an integer between 1 and 50'),
+    body('retryBaseDelayMs')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retryBaseDelayMs must be an integer between 100 and 86400000'),
+    body('retry_base_delay_ms')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retry_base_delay_ms must be an integer between 100 and 86400000'),
+    body('retryDelayMs')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retryDelayMs must be an integer between 100 and 86400000'),
+    body('retry_delay_ms')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retry_delay_ms must be an integer between 100 and 86400000'),
+    body('retryMaxDelayMs')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retryMaxDelayMs must be an integer between 100 and 86400000'),
+    body('retry_max_delay_ms')
+      .optional()
+      .isInt({ min: 100, max: 86400000 })
+      .withMessage('retry_max_delay_ms must be an integer between 100 and 86400000'),
+    body('retryBackoffMultiplier')
+      .optional()
+      .isFloat({ min: 1.0, max: 10.0 })
+      .withMessage('retryBackoffMultiplier must be a number between 1.0 and 10.0'),
+    body('retry_backoff_multiplier')
+      .optional()
+      .isFloat({ min: 1.0, max: 10.0 })
+      .withMessage('retry_backoff_multiplier must be a number between 1.0 and 10.0'),
+    body('retryPolicy')
+      .optional()
+      .isObject()
+      .withMessage('retryPolicy must be an object'),
+    body('retry_policy')
+      .optional()
+      .isObject()
+      .withMessage('retry_policy must be an object'),
   ],
   async (req, res, next) => {
     try {
@@ -191,6 +341,7 @@ router.patch(
           : req.body.rate_limit_rps;
 
       const updated = await endpointService.update(tenantId, id, {
+        ...req.body,
         url,
         active,
         rateLimitRps,

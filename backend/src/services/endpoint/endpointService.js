@@ -29,6 +29,129 @@ function generateSecret() {
 }
 
 /**
+ * Extract and validate custom retry settings from request.
+ * Supports flat camelCase, snake_case, and nested retryPolicy / retry_policy objects.
+ *
+ * @param {Object} request - Inbound request body
+ * @param {Object|null} [existing=null] - Existing endpoint (for updates)
+ * @returns {Object|null} Normalized retry settings or null if none provided
+ */
+function extractAndValidateRetrySettings(request, existing = null) {
+  if (!request || typeof request !== 'object') {
+    return null;
+  }
+
+  const nested = request.retryPolicy || request.retry_policy || {};
+
+  const rawStrategy =
+    request.retryStrategy ??
+    request.retry_strategy ??
+    nested.strategy ??
+    nested.retryStrategy;
+
+  const rawMaxAttempts =
+    request.retryMaxAttempts ??
+    request.retry_max_attempts ??
+    nested.maxAttempts ??
+    nested.retryMaxAttempts;
+
+  const rawBaseDelayMs =
+    request.retryBaseDelayMs ??
+    request.retry_base_delay_ms ??
+    request.retryDelayMs ??
+    request.retry_delay_ms ??
+    nested.baseDelayMs ??
+    nested.retryBaseDelayMs ??
+    nested.delayMs ??
+    nested.retryDelayMs;
+
+  const rawMaxDelayMs =
+    request.retryMaxDelayMs ??
+    request.retry_max_delay_ms ??
+    nested.maxDelayMs ??
+    nested.retryMaxDelayMs;
+
+  const rawBackoffMultiplier =
+    request.retryBackoffMultiplier ??
+    request.retry_backoff_multiplier ??
+    nested.backoffMultiplier ??
+    nested.retryBackoffMultiplier ??
+    nested.multiplier;
+
+  const hasAnyRetryField =
+    rawStrategy !== undefined ||
+    rawMaxAttempts !== undefined ||
+    rawBaseDelayMs !== undefined ||
+    rawMaxDelayMs !== undefined ||
+    rawBackoffMultiplier !== undefined;
+
+  if (!hasAnyRetryField && !existing) {
+    return null;
+  }
+
+  const settings = {};
+
+  if (rawStrategy !== undefined) {
+    const s = String(rawStrategy).trim().toUpperCase();
+    if (s !== 'EXPONENTIAL' && s !== 'FIXED') {
+      throw new ValidationError(`retryStrategy must be 'EXPONENTIAL' or 'FIXED'`);
+    }
+    settings.retryStrategy = s;
+  } else if (existing) {
+    settings.retryStrategy = existing.retryStrategy || 'EXPONENTIAL';
+  }
+
+  if (rawMaxAttempts !== undefined) {
+    const num = Number(rawMaxAttempts);
+    if (!Number.isInteger(num) || num < 1 || num > 50) {
+      throw new ValidationError('retryMaxAttempts must be an integer between 1 and 50');
+    }
+    settings.retryMaxAttempts = num;
+  } else if (existing) {
+    settings.retryMaxAttempts = existing.retryMaxAttempts ?? 8;
+  }
+
+  if (rawBaseDelayMs !== undefined) {
+    const num = Number(rawBaseDelayMs);
+    if (!Number.isInteger(num) || num < 100 || num > 86400000) {
+      throw new ValidationError('retryBaseDelayMs must be an integer between 100 and 86400000');
+    }
+    settings.retryBaseDelayMs = num;
+  } else if (existing) {
+    settings.retryBaseDelayMs = existing.retryBaseDelayMs ?? 5000;
+  }
+
+  if (rawMaxDelayMs !== undefined) {
+    const num = Number(rawMaxDelayMs);
+    if (!Number.isInteger(num) || num < 100 || num > 86400000) {
+      throw new ValidationError('retryMaxDelayMs must be an integer between 100 and 86400000');
+    }
+    settings.retryMaxDelayMs = num;
+  } else if (existing) {
+    settings.retryMaxDelayMs = existing.retryMaxDelayMs ?? 3600000;
+  }
+
+  if (rawBackoffMultiplier !== undefined) {
+    const num = Number(rawBackoffMultiplier);
+    if (Number.isNaN(num) || num < 1.0 || num > 10.0) {
+      throw new ValidationError('retryBackoffMultiplier must be a number between 1.0 and 10.0');
+    }
+    settings.retryBackoffMultiplier = num;
+  } else if (existing) {
+    settings.retryBackoffMultiplier = existing.retryBackoffMultiplier ?? 2.0;
+  }
+
+  // Cross-field validation: maxDelayMs must be >= baseDelayMs
+  const effectiveBase = settings.retryBaseDelayMs ?? existing?.retryBaseDelayMs ?? 5000;
+  const effectiveMax = settings.retryMaxDelayMs ?? existing?.retryMaxDelayMs ?? 3600000;
+  if (effectiveMax < effectiveBase) {
+    throw new ValidationError('retryMaxDelayMs must be greater than or equal to retryBaseDelayMs');
+  }
+
+  return settings;
+}
+
+/**
  * Create a new endpoint for a tenant.
  *
  * @param {string} tenantId - Tenant UUID
@@ -43,19 +166,30 @@ export async function create(tenantId, request) {
   // SSRF protection: validate protocol, port, host literals, and resolved DNS
   await validateUrl(url);
 
+  const retrySettings = extractAndValidateRetrySettings(request);
+
   const secret = generateSecret();
 
-  const endpoint = await endpointRepository.insert(
-    tenantId,
-    url,
-    secret,
-    rateLimitRps
-  );
+  const endpoint = retrySettings
+    ? await endpointRepository.insert(
+        tenantId,
+        url,
+        secret,
+        rateLimitRps,
+        retrySettings
+      )
+    : await endpointRepository.insert(
+        tenantId,
+        url,
+        secret,
+        rateLimitRps
+      );
 
   logger.info('Endpoint created', {
     endpointId: endpoint.id,
     tenantId,
     url,
+    retryStrategy: endpoint.retryStrategy,
   });
 
   // Return endpoint with secret (shown only on create)
@@ -130,6 +264,8 @@ export async function update(tenantId, endpointId, request) {
     await validateUrl(request.url);
   }
 
+  const retrySettings = extractAndValidateRetrySettings(request, existing);
+
   // Patch fields (only update provided fields)
   const updates = {
     id: existing.id,
@@ -144,6 +280,11 @@ export async function update(tenantId, endpointId, request) {
     circuitState: existing.circuitState,
     circuitUntil: existing.circuitUntil,
     consecutiveFailures: existing.consecutiveFailures,
+    retryStrategy: retrySettings?.retryStrategy ?? existing.retryStrategy ?? 'EXPONENTIAL',
+    retryMaxAttempts: retrySettings?.retryMaxAttempts ?? existing.retryMaxAttempts ?? 8,
+    retryBaseDelayMs: retrySettings?.retryBaseDelayMs ?? existing.retryBaseDelayMs ?? 5000,
+    retryMaxDelayMs: retrySettings?.retryMaxDelayMs ?? existing.retryMaxDelayMs ?? 3600000,
+    retryBackoffMultiplier: retrySettings?.retryBackoffMultiplier ?? existing.retryBackoffMultiplier ?? 2.0,
   };
 
   const updated = await endpointRepository.update(updates);

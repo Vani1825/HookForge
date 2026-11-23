@@ -42,6 +42,23 @@ function mapRowToEndpoint(row) {
         : row.circuit_until
       : null,
     consecutiveFailures: row.consecutive_failures,
+    retryStrategy: row.retry_strategy || 'EXPONENTIAL',
+    retryMaxAttempts:
+      row.retry_max_attempts !== undefined && row.retry_max_attempts !== null
+        ? Number(row.retry_max_attempts)
+        : 8,
+    retryBaseDelayMs:
+      row.retry_base_delay_ms !== undefined && row.retry_base_delay_ms !== null
+        ? Number(row.retry_base_delay_ms)
+        : 5000,
+    retryMaxDelayMs:
+      row.retry_max_delay_ms !== undefined && row.retry_max_delay_ms !== null
+        ? Number(row.retry_max_delay_ms)
+        : 3600000,
+    retryBackoffMultiplier:
+      row.retry_backoff_multiplier !== undefined && row.retry_backoff_multiplier !== null
+        ? Number(row.retry_backoff_multiplier)
+        : 2.0,
     createdAt: row.created_at
       ? row.created_at instanceof Date
         ? row.created_at.toISOString()
@@ -56,7 +73,7 @@ function mapRowToEndpoint(row) {
  * Insert a new endpoint.
  * Encrypts the signing secret at rest using AES-256-GCM before database insertion.
  */
-export async function insert(tenantId, url, secret, rateLimitRps) {
+export async function insert(tenantId, url, secret, rateLimitRps, retryOptions = {}) {
   let encrypted;
   let plaintextSecret = null;
 
@@ -70,23 +87,57 @@ export async function insert(tenantId, url, secret, rateLimitRps) {
     throw new Error('Secret must be provided as a string or encrypted secret object');
   }
 
-  const sql = `
-    INSERT INTO endpoints (
-      tenant_id,
-      url,
-      secret,
-      rate_limit_rps,
-      secret_ciphertext,
-      secret_iv,
-      secret_tag,
-      secret_version
-    )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *
-  `;
+  const hasCustomRetry =
+    retryOptions &&
+    (retryOptions.retryStrategy !== undefined ||
+      retryOptions.retry_strategy !== undefined ||
+      retryOptions.retryMaxAttempts !== undefined ||
+      retryOptions.retry_max_attempts !== undefined ||
+      retryOptions.retryBaseDelayMs !== undefined ||
+      retryOptions.retry_base_delay_ms !== undefined ||
+      retryOptions.retryDelayMs !== undefined ||
+      retryOptions.retry_delay_ms !== undefined ||
+      retryOptions.retryMaxDelayMs !== undefined ||
+      retryOptions.retry_max_delay_ms !== undefined ||
+      retryOptions.retryBackoffMultiplier !== undefined ||
+      retryOptions.retry_backoff_multiplier !== undefined);
 
-  try {
-    const result = await query(sql, [
+  let sql;
+  let params;
+
+  if (hasCustomRetry) {
+    const retryStrategy = retryOptions.retryStrategy || retryOptions.retry_strategy || 'EXPONENTIAL';
+    const retryMaxAttempts = retryOptions.retryMaxAttempts ?? retryOptions.retry_max_attempts ?? 8;
+    const retryBaseDelayMs =
+      retryOptions.retryBaseDelayMs ??
+      retryOptions.retry_base_delay_ms ??
+      retryOptions.retryDelayMs ??
+      retryOptions.retry_delay_ms ??
+      5000;
+    const retryMaxDelayMs = retryOptions.retryMaxDelayMs ?? retryOptions.retry_max_delay_ms ?? 3600000;
+    const retryBackoffMultiplier =
+      retryOptions.retryBackoffMultiplier ?? retryOptions.retry_backoff_multiplier ?? 2.0;
+
+    sql = `
+      INSERT INTO endpoints (
+        tenant_id,
+        url,
+        secret,
+        rate_limit_rps,
+        secret_ciphertext,
+        secret_iv,
+        secret_tag,
+        secret_version,
+        retry_strategy,
+        retry_max_attempts,
+        retry_base_delay_ms,
+        retry_max_delay_ms,
+        retry_backoff_multiplier
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      RETURNING *
+    `;
+    params = [
       tenantId,
       url,
       null, // legacy secret column stored as NULL for newly encrypted secrets
@@ -95,7 +146,41 @@ export async function insert(tenantId, url, secret, rateLimitRps) {
       encrypted.iv,
       encrypted.tag,
       encrypted.version,
-    ]);
+      retryStrategy,
+      retryMaxAttempts,
+      retryBaseDelayMs,
+      retryMaxDelayMs,
+      retryBackoffMultiplier,
+    ];
+  } else {
+    sql = `
+      INSERT INTO endpoints (
+        tenant_id,
+        url,
+        secret,
+        rate_limit_rps,
+        secret_ciphertext,
+        secret_iv,
+        secret_tag,
+        secret_version
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `;
+    params = [
+      tenantId,
+      url,
+      null, // legacy secret column stored as NULL for newly encrypted secrets
+      rateLimitRps,
+      encrypted.ciphertext,
+      encrypted.iv,
+      encrypted.tag,
+      encrypted.version,
+    ];
+  }
+
+  try {
+    const result = await query(sql, params);
 
     const created = mapRowToEndpoint(result.rows[0]);
     if (plaintextSecret && !created.secret) {
@@ -253,6 +338,13 @@ export async function findDueEndpoints(limit = 50, client = null) {
  * Update an endpoint.
  */
 export async function update(endpoint) {
+  const retryStrategy = endpoint.retryStrategy || 'EXPONENTIAL';
+  const retryMaxAttempts = endpoint.retryMaxAttempts !== undefined ? endpoint.retryMaxAttempts : 8;
+  const retryBaseDelayMs = endpoint.retryBaseDelayMs !== undefined ? endpoint.retryBaseDelayMs : 5000;
+  const retryMaxDelayMs = endpoint.retryMaxDelayMs !== undefined ? endpoint.retryMaxDelayMs : 3600000;
+  const retryBackoffMultiplier =
+    endpoint.retryBackoffMultiplier !== undefined ? endpoint.retryBackoffMultiplier : 2.0;
+
   const sql = `
     UPDATE endpoints
     SET url = $1,
@@ -260,8 +352,13 @@ export async function update(endpoint) {
         rate_limit_rps = $3,
         circuit_state = $4,
         circuit_until = $5,
-        consecutive_failures = $6
-    WHERE id = $7 AND tenant_id = $8
+        consecutive_failures = $6,
+        retry_strategy = $7,
+        retry_max_attempts = $8,
+        retry_base_delay_ms = $9,
+        retry_max_delay_ms = $10,
+        retry_backoff_multiplier = $11
+    WHERE id = $12 AND tenant_id = $13
     RETURNING *
   `;
 
@@ -270,9 +367,14 @@ export async function update(endpoint) {
       endpoint.url,
       endpoint.active,
       endpoint.rateLimitRps,
-      endpoint.circuitState.toString(),
+      endpoint.circuitState ? endpoint.circuitState.toString() : 'CLOSED',
       endpoint.circuitUntil,
       endpoint.consecutiveFailures,
+      retryStrategy,
+      retryMaxAttempts,
+      retryBaseDelayMs,
+      retryMaxDelayMs,
+      retryBackoffMultiplier,
       endpoint.id,
       endpoint.tenantId,
     ]);
