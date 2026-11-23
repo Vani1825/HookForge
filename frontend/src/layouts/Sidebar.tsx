@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarClock,
+  FlaskConical,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { useApp } from '../context/AppContext'
@@ -46,6 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Dead Letter Queue', path: '/dead-letters', icon: AlertOctagon, badge: '3' },
       { label: 'Replay Queue', path: '/replay', icon: RotateCw },
+      { label: 'Endpoint Testing', path: '/endpoint-testing', icon: FlaskConical },
     ],
   },
   {

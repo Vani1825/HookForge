@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Globe2,
   Plus,
@@ -8,6 +9,7 @@ import {
   ExternalLink,
   X,
   Trash2,
+  FlaskConical,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -18,6 +20,7 @@ import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
 import { CreateEndpointModal } from '../components/CreateEndpointModal'
 import { ConfirmationDialog } from '../components/ui/ConfirmationDialog'
+import { EndpointTestModal } from '../components/EndpointTestModal'
 import { useApp } from '../context/AppContext'
 import { formatErrorMessage } from '../api/client'
 import { formatDateTime, truncateId } from '../utils/formatters'
@@ -25,6 +28,7 @@ import type { Endpoint } from '../types'
 
 export const EndpointsPage: React.FC = () => {
   const { service, mode, addToast } = useApp()
+  const navigate = useNavigate()
 
   const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -34,6 +38,8 @@ export const EndpointsPage: React.FC = () => {
   const [circuitFilter, setCircuitFilter] = useState<'ALL' | 'CLOSED' | 'OPEN' | 'HALF_OPEN'>('ALL')
 
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [testModalOpen, setTestModalOpen] = useState(false)
+  const [testingEndpoint, setTestingEndpoint] = useState<Endpoint | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
   // Confirmation dialog state for deletion
@@ -174,6 +180,14 @@ export const EndpointsPage: React.FC = () => {
               leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
             >
               Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/endpoint-testing')}
+              leftIcon={<FlaskConical className="w-3.5 h-3.5 text-[#5277D9]" />}
+            >
+              Testing Console
             </Button>
             <Button
               variant="primary"
@@ -406,6 +420,18 @@ export const EndpointsPage: React.FC = () => {
                     <td className="py-3.5 px-4 w-40 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
+                          onClick={() => {
+                            setTestingEndpoint(ep)
+                            setTestModalOpen(true)
+                          }}
+                          title="Test this webhook endpoint"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer bg-[#5277D9]/10 text-[#5277D9] border-[#5277D9]/25 hover:bg-[#5277D9]/20"
+                        >
+                          <FlaskConical className="w-3 h-3" />
+                          <span>Test</span>
+                        </button>
+
+                        <button
                           onClick={() => handleToggleClick(ep)}
                           disabled={togglingId === ep.id || deletingId === ep.id}
                           title={ep.active ? 'Pause delivery dispatches' : 'Resume delivery dispatches'}
@@ -485,6 +511,16 @@ export const EndpointsPage: React.FC = () => {
         cancelText="Keep Active"
         variant="warning"
         isLoading={Boolean(togglingId)}
+      />
+
+      {/* Endpoint Test Modal */}
+      <EndpointTestModal
+        isOpen={testModalOpen}
+        onClose={() => {
+          setTestModalOpen(false)
+          setTestingEndpoint(null)
+        }}
+        endpoint={testingEndpoint}
       />
     </div>
   )
