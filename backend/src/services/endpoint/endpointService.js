@@ -161,12 +161,31 @@ function extractAndValidateRetrySettings(request, existing = null) {
  * @returns {Promise<Object>} Created endpoint with secret (shown only once)
  */
 export async function create(tenantId, request) {
-  const { url, rateLimitRps = 10 } = request;
+  let effectiveRequest = { ...request };
+  const templateId = request.templateId || request.template_id;
+  if (templateId) {
+    const { default: templateService } = await import('../template/templateService.js');
+    const prefilled = await templateService.applyTemplate(tenantId, templateId, request);
+    effectiveRequest = {
+      ...prefilled,
+      ...request,
+      url: request.url || prefilled.url,
+      rateLimitRps:
+        request.rateLimitRps !== undefined
+          ? request.rateLimitRps
+          : (request.rate_limit_rps !== undefined ? request.rate_limit_rps : prefilled.rateLimitRps),
+    };
+  }
+
+  const { url, rateLimitRps = 10 } = effectiveRequest;
+  if (!url) {
+    throw new ValidationError('URL is required');
+  }
 
   // SSRF protection: validate protocol, port, host literals, and resolved DNS
   await validateUrl(url);
 
-  const retrySettings = extractAndValidateRetrySettings(request);
+  const retrySettings = extractAndValidateRetrySettings(effectiveRequest);
 
   const secret = generateSecret();
 

@@ -38,6 +38,13 @@ vi.mock('../../src/utils/logger.js', () => ({
   },
 }));
 
+vi.mock('../../src/services/template/templateService.js', () => ({
+  default: {
+    getById: vi.fn(),
+    applyTemplate: vi.fn(),
+  },
+}));
+
 describe('EndpointService', () => {
   let endpointService;
 
@@ -112,6 +119,45 @@ describe('EndpointService', () => {
         'https://example.com/webhook',
         expect.any(String),
         10
+      );
+    });
+
+    it('should prefill endpoint settings from templateId if provided', async () => {
+      const endpointRepository = (await import('../../src/repositories/jdbc/endpointRepository.js')).default;
+      const templateService = (await import('../../src/services/template/templateService.js')).default;
+
+      templateService.applyTemplate.mockResolvedValue({
+        templateId: 'template-uuid-1',
+        url: 'https://template.example.com/hook',
+        rateLimitRps: 25,
+        retryStrategy: 'FIXED',
+        retryMaxAttempts: 4,
+        retryBaseDelayMs: 2500,
+        retryMaxDelayMs: 2500,
+        retryBackoffMultiplier: 1.0,
+      });
+
+      endpointRepository.insert.mockResolvedValue({});
+
+      await endpointService.create(mockTenantId, {
+        templateId: 'template-uuid-1',
+      });
+
+      expect(templateService.applyTemplate).toHaveBeenCalledWith(
+        mockTenantId,
+        'template-uuid-1',
+        expect.objectContaining({ templateId: 'template-uuid-1' })
+      );
+      expect(endpointRepository.insert).toHaveBeenCalledWith(
+        mockTenantId,
+        'https://template.example.com/hook',
+        expect.any(String),
+        25,
+        expect.objectContaining({
+          retryStrategy: 'FIXED',
+          retryMaxAttempts: 4,
+          retryBaseDelayMs: 2500,
+        })
       );
     });
 
