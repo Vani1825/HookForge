@@ -6,6 +6,12 @@
 import deliveryRepository from '../../repositories/jdbc/deliveryRepository.js';
 import endpointRepository from '../../repositories/jdbc/endpointRepository.js';
 import eventRepository from '../../repositories/jdbc/eventRepository.js';
+import attemptExecutor from './attemptExecutor.js';
+import { handleOutcome } from './outcomeHandler.js';
+import { shouldAttempt } from '../resilience/thresholdCircuitBreaker.js';
+import { tryAcquire } from '../resilience/tokenBucketRateLimiter.js';
+import clock from '../../utils/clock.js';
+import config from '../../config/index.js';
 import { transaction } from '../../config/database.js';
 import { v4 as uuidv4 } from 'uuid';
 import { deliveryState } from '../../domain/deliveryState.js';
@@ -17,6 +23,8 @@ import {
   sanitizeUrl,
   classifyFailure,
   getFailureRecommendation,
+  sanitizeHeaders,
+  sanitizeResponseBody,
 } from '../../utils/redaction.js';
 
 /**
@@ -166,6 +174,21 @@ function formatDetailedDelivery(delivery, attempts = [], event = null, endpoint 
         ? err
         : 'No response';
 
+    const respBody = a.responseBody ?? a.response_body ?? null;
+    const respHeaders = a.responseHeaders ?? a.response_headers ?? null;
+    const reqHeaders = a.requestHeaders ?? a.request_headers ?? null;
+
+    const sanitizedRespHeaders = sanitizeHeaders(respHeaders);
+    const sanitizedReqHeaders = reqHeaders
+      ? sanitizeHeaders(reqHeaders)
+      : {
+          'Content-Type': 'application/json',
+          'X-Webhook-Id': delivery.id,
+          'X-Webhook-Timestamp': '[TIMESTAMP]',
+          'X-Webhook-Signature': '[REDACTED]',
+        };
+    const sanitizedRespBody = sanitizeResponseBody(respBody);
+
     return {
       id: a.id,
       deliveryId: a.deliveryId || delivery.id,
@@ -183,9 +206,16 @@ function formatDetailedDelivery(delivery, attempts = [], event = null, endpoint 
       error: err,
       responseSummary: summary,
       response_summary: summary,
+      responseBody: sanitizedRespBody,
+      response_body: sanitizedRespBody,
+      responseHeaders: sanitizedRespHeaders,
+      response_headers: sanitizedRespHeaders,
+      requestHeaders: sanitizedReqHeaders,
+      request_headers: sanitizedReqHeaders,
       request: {
         method: 'POST',
         url: sanitizedUrl,
+        headers: sanitizedReqHeaders,
       },
     };
   });
@@ -200,6 +230,16 @@ function formatDetailedDelivery(delivery, attempts = [], event = null, endpoint 
   const updatedTime = new Date(delivery.updatedAt).getTime();
   const lifecycleDurationMs =
     !isNaN(createdTime) && !isNaN(updatedTime) ? Math.max(0, updatedTime - createdTime) : 0;
+
+  const latestAttempt = attempts && attempts.length > 0 ? attempts[attempts.length - 1] : null;
+  const topRequestHeaders = (latestAttempt?.requestHeaders || latestAttempt?.request_headers)
+    ? sanitizeHeaders(latestAttempt.requestHeaders || latestAttempt.request_headers)
+    : {
+        'Content-Type': 'application/json',
+        'X-Webhook-Id': delivery.id,
+        'X-Webhook-Timestamp': '[TIMESTAMP]',
+        'X-Webhook-Signature': '[REDACTED]',
+      };
 
   return {
     ...delivery,
@@ -281,12 +321,7 @@ function formatDetailedDelivery(delivery, attempts = [], event = null, endpoint 
       method: 'POST',
       url: sanitizedUrl,
       seq: delivery.seq,
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Webhook-Id': delivery.id,
-        'X-Webhook-Timestamp': '[TIMESTAMP]',
-        'X-Webhook-Signature': '[REDACTED]',
-      },
+      headers: topRequestHeaders,
     },
     diagnostics: {
       lastError: sanitizeErrorMessage(delivery.lastError),
@@ -344,6 +379,21 @@ export async function getDeliveryAttempts(deliveryId, tenantId) {
     const err = sanitizeErrorMessage(a.error);
     const summary = code ? `HTTP ${code}` : err || 'No response';
 
+    const respBody = a.responseBody ?? a.response_body ?? null;
+    const respHeaders = a.responseHeaders ?? a.response_headers ?? null;
+    const reqHeaders = a.requestHeaders ?? a.request_headers ?? null;
+
+    const sanitizedRespHeaders = sanitizeHeaders(respHeaders);
+    const sanitizedReqHeaders = reqHeaders
+      ? sanitizeHeaders(reqHeaders)
+      : {
+          'Content-Type': 'application/json',
+          'X-Webhook-Id': delivery.id,
+          'X-Webhook-Timestamp': '[TIMESTAMP]',
+          'X-Webhook-Signature': '[REDACTED]',
+        };
+    const sanitizedRespBody = sanitizeResponseBody(respBody);
+
     return {
       id: a.id,
       deliveryId: a.deliveryId || delivery.id,
@@ -361,9 +411,16 @@ export async function getDeliveryAttempts(deliveryId, tenantId) {
       error: err,
       responseSummary: summary,
       response_summary: summary,
+      responseBody: sanitizedRespBody,
+      response_body: sanitizedRespBody,
+      responseHeaders: sanitizedRespHeaders,
+      response_headers: sanitizedRespHeaders,
+      requestHeaders: sanitizedReqHeaders,
+      request_headers: sanitizedReqHeaders,
       request: {
         method: 'POST',
         url: sanitizedUrl,
+        headers: sanitizedReqHeaders,
       },
     };
   });
@@ -739,6 +796,227 @@ export async function bulkReplayDeliveries(deliveryIds, tenantId) {
   };
 }
 
+/**
+ * Resend an existing delivery (DEAD, SUCCEEDED, or CANCELLED).
+ * Rejects IN_FLIGHT deliveries.
+ * If options.immediate is true, dispatches immediately via safe lifecycle and returns attempt result.
+ * If options.immediate is false (default), requeues the delivery as PENDING for the dispatcher.
+ *
+ * @param {string} deliveryId - Delivery UUID
+ * @param {string} tenantId - Tenant UUID for access control
+ * @param {Object} [options={}] - Options { immediate: boolean }
+ * @returns {Promise<{ delivery: Object, attempt?: Object, success: boolean, message: string }>}
+ */
+export async function resendDelivery(deliveryId, tenantId, options = {}) {
+  const delivery = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+  if (!delivery) {
+    const error = new Error('Delivery not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const stateStr = delivery.state.toString();
+
+  // Reject IN_FLIGHT deliveries
+  if (stateStr === 'IN_FLIGHT') {
+    const error = new Error('Delivery is currently in flight and cannot be resent');
+    error.statusCode = 400;
+    error.name = 'IllegalStateTransitionError';
+    throw error;
+  }
+
+  // Allow explicit manual resend for DEAD, SUCCEEDED, and CANCELLED deliveries
+  if (!['DEAD', 'SUCCEEDED', 'CANCELLED'].includes(stateStr)) {
+    const error = new Error(
+      `Delivery in state ${stateStr} is not eligible for resend; must be DEAD, SUCCEEDED, or CANCELLED`
+    );
+    error.statusCode = 400;
+    error.name = 'IllegalStateTransitionError';
+    throw error;
+  }
+
+  const immediate = Boolean(options.immediate);
+
+  if (!immediate) {
+    // Requeue existing delivery as PENDING (resets attempt_count to 0 for a new retry cycle, preserves seq & past attempts)
+    const updated = await deliveryRepository.releaseLease(
+      deliveryId,
+      deliveryState.PENDING,
+      new Date().toISOString(),
+      null // Clear last error
+    );
+
+    logger.info('Delivery queued for resend', {
+      deliveryId,
+      tenantId,
+      endpointId: delivery.endpointId,
+      previousState: stateStr,
+    });
+
+    const replayed = { ...updated };
+    if (delivery.endpointUrl !== undefined || updated?.endpointUrl !== undefined) {
+      replayed.endpointUrl = updated?.endpointUrl || delivery.endpointUrl || null;
+    }
+    if (delivery.lastStatusCode !== undefined || updated?.lastStatusCode !== undefined) {
+      replayed.lastStatusCode =
+        updated?.lastStatusCode !== undefined
+          ? updated.lastStatusCode
+          : (delivery.lastStatusCode ?? null);
+    }
+
+    return {
+      success: true,
+      message: 'Delivery queued for resend',
+      delivery: replayed,
+    };
+  }
+
+  // Immediate execution path: safely acquire lease with atomic concurrency protection
+  const leaseDurationMs = config?.dispatcher?.leaseMarginMs ?? 30000;
+  const claimedDelivery = await deliveryRepository.claimForImmediateExecution(
+    deliveryId,
+    leaseDurationMs
+  );
+
+  if (!claimedDelivery) {
+    const current = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+    if (current?.state?.toString() === 'IN_FLIGHT') {
+      const error = new Error('Delivery is currently in flight and cannot be resent');
+      error.statusCode = 400;
+      error.name = 'IllegalStateTransitionError';
+      throw error;
+    }
+    const error = new Error('Failed to claim delivery for immediate execution');
+    error.statusCode = 400;
+    error.name = 'IllegalStateTransitionError';
+    throw error;
+  }
+
+  // Fetch endpoint with tenant isolation
+  const endpoint = await endpointRepository.findByIdAndTenant(claimedDelivery.endpointId, tenantId);
+  if (!endpoint) {
+    await deliveryRepository.releaseLease(
+      deliveryId,
+      deliveryState.DEAD,
+      new Date().toISOString(),
+      'Endpoint not found or inactive',
+      { requireInFlight: true }
+    );
+    const error = new Error('Endpoint not found');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  try {
+    const now = clock.system.now();
+
+    // Circuit breaker check
+    const canAttempt = await shouldAttempt(endpoint.id, endpoint, now);
+    if (!canAttempt) {
+      logger.debug('Immediate resend blocked by circuit breaker', {
+        deliveryId,
+        endpointId: endpoint.id,
+      });
+      const updated = await deliveryRepository.releaseLease(
+        deliveryId,
+        deliveryState.RETRYING,
+        new Date(now + 60000).toISOString(),
+        'Circuit breaker open',
+        { requireInFlight: true, expectedAttemptCount: claimedDelivery.attemptCount }
+      );
+      return {
+        success: false,
+        message: 'Delivery execution delayed: circuit breaker is open',
+        delivery: { ...updated, endpointUrl: endpoint.url },
+        blocked: 'CIRCUIT_BREAKER_OPEN',
+      };
+    }
+
+    // Rate limiter check
+    const rateLimitAllowed = await tryAcquire(endpoint.id, endpoint.rateLimitRps);
+    if (!rateLimitAllowed) {
+      logger.debug('Immediate resend blocked by rate limiter', {
+        deliveryId,
+        endpointId: endpoint.id,
+      });
+      const updated = await deliveryRepository.releaseLease(
+        deliveryId,
+        deliveryState.RETRYING,
+        new Date(now + 1000).toISOString(),
+        'Rate limited',
+        { requireInFlight: true, expectedAttemptCount: claimedDelivery.attemptCount }
+      );
+      return {
+        success: false,
+        message: 'Delivery execution delayed: endpoint rate limit exceeded',
+        delivery: { ...updated, endpointUrl: endpoint.url },
+        blocked: 'RATE_LIMITED',
+      };
+    }
+
+    // Execute delivery attempt with HMAC signature and bounded response capture
+    const attempt = await attemptExecutor.execute(claimedDelivery, endpoint);
+
+    // Handle outcome and state transition
+    const finalDelivery = await handleOutcome(
+      claimedDelivery,
+      attempt.outcome,
+      attempt,
+      endpoint
+    );
+
+    logger.info('Delivery resent immediately', {
+      deliveryId,
+      tenantId,
+      endpointId: endpoint.id,
+      statusCode: attempt.statusCode,
+      outcome: attempt.outcome?.toString(),
+    });
+
+    const resendResult = { ...(finalDelivery || claimedDelivery) };
+    resendResult.endpointUrl = endpoint.url;
+    if (attempt.statusCode !== undefined && attempt.statusCode !== null) {
+      resendResult.lastStatusCode = attempt.statusCode;
+    }
+
+    return {
+      success: true,
+      message: 'Delivery resent immediately',
+      delivery: resendResult,
+      attempt: {
+        attemptNo: attempt.attemptNo,
+        attempt_no: attempt.attemptNo,
+        startedAt: attempt.startedAt,
+        started_at: attempt.startedAt,
+        statusCode: attempt.statusCode,
+        status_code: attempt.statusCode,
+        latencyMs: attempt.latencyMs,
+        latency_ms: attempt.latencyMs,
+        error: attempt.error,
+        responseBody: attempt.responseBody || null,
+        response_body: attempt.responseBody || null,
+        responseHeaders: attempt.responseHeaders || null,
+        response_headers: attempt.responseHeaders || null,
+        requestHeaders: attempt.requestHeaders || null,
+        request_headers: attempt.requestHeaders || null,
+      },
+    };
+  } catch (execError) {
+    logger.error('Error during immediate delivery resend', {
+      deliveryId,
+      error: execError.message,
+    });
+    await deliveryRepository.releaseLease(
+      deliveryId,
+      deliveryState.RETRYING,
+      new Date(Date.now() + 5000).toISOString(),
+      execError.message,
+      { requireInFlight: true }
+    );
+    throw execError;
+  }
+}
+
 export default {
   getDeliveriesByEvent,
   getDeliveriesByState,
@@ -750,6 +1028,7 @@ export default {
   getDeliveryAttempts,
   getDeliveryLogs,
   replayDelivery,
+  resendDelivery,
   scheduleDelivery,
   getScheduledDeliveries,
   getScheduledDeliveryById,

@@ -9,8 +9,11 @@ import { classify } from './defaultResponseClassifier.js';
 import { createDeliveryAttempt } from '../../domain/models/deliveryAttempt.js';
 import { deliveryOutcome } from '../../domain/deliveryOutcome.js';
 import { findById } from '../../repositories/jdbc/eventRepository.js';
+import { sanitizeHeaders, sanitizeResponseBody } from '../../utils/redaction.js';
 import config from '../../config/index.js';
 import logger from '../../utils/logger.js';
+
+const RESPONSE_CAPTURE_LIMIT_BYTES = 65536;
 
 /**
  * Execute a single delivery attempt.
@@ -21,6 +24,7 @@ import logger from '../../utils/logger.js';
 export async function execute(delivery, endpoint) {
   const startedAt = new Date().toISOString();
   const timestamp = Math.floor(Date.now() / 1000); // Unix timestamp in seconds
+  let safeRequestHeaders = null;
 
   try {
     // Get event payload
@@ -42,25 +46,37 @@ export async function execute(delivery, endpoint) {
     const maxResponseBytes = config?.http?.maxResponseBytes ?? 1048576;
     const timeoutMs = connectTimeoutMs + readTimeoutMs;
 
-    // Send webhook with configured timeouts and response size limits
+    const requestHeaders = {
+      'Content-Type': 'application/json',
+      'X-Webhook-Id': delivery.id,
+      'X-Webhook-Signature': signature,
+      'X-Webhook-Timestamp': timestamp.toString(),
+    };
+
+    // Safe request headers for logging & persistence (never persist signature plaintext)
+    safeRequestHeaders = sanitizeHeaders(requestHeaders);
+
+    // Send webhook with configured timeouts, response limits, and bounded response capture
     const result = await httpWebhookSender.send(
       endpoint.url,
       payloadJson,
-      {
-        'X-Webhook-Id': delivery.id,
-        'X-Webhook-Signature': signature,
-        'X-Webhook-Timestamp': timestamp.toString(),
-      },
+      requestHeaders,
       timeoutMs,
       {
         connectTimeoutMs,
         readTimeoutMs,
         maxResponseBytes,
+        captureResponse: true,
+        captureResponseBody: true,
+        maxCaptureBytes: RESPONSE_CAPTURE_LIMIT_BYTES,
       }
     );
 
     // Classify outcome
     const outcome = classify(result.statusCode);
+
+    const safeResponseHeaders = result.headers ? sanitizeHeaders(result.headers) : null;
+    const safeResponseBody = result.body ? sanitizeResponseBody(result.body, RESPONSE_CAPTURE_LIMIT_BYTES) : null;
 
     logger.info('Delivery attempt completed', {
       deliveryId: delivery.id,
@@ -78,6 +94,9 @@ export async function execute(delivery, endpoint) {
       latencyMs: result.latencyMs,
       error: result.error,
       outcome,
+      responseBody: safeResponseBody,
+      responseHeaders: safeResponseHeaders,
+      requestHeaders: safeRequestHeaders,
     });
   } catch (error) {
     logger.error('Delivery attempt failed', {
@@ -94,6 +113,14 @@ export async function execute(delivery, endpoint) {
       latencyMs: 0,
       error: error.message,
       outcome: deliveryOutcome.RETRY,
+      responseBody: null,
+      responseHeaders: null,
+      requestHeaders: safeRequestHeaders || {
+        'Content-Type': 'application/json',
+        'X-Webhook-Id': delivery.id,
+        'X-Webhook-Timestamp': timestamp.toString(),
+        'X-Webhook-Signature': '[REDACTED]',
+      },
     });
   }
 }

@@ -49,6 +49,9 @@ export async function handleOutcome(
     statusCode: attempt.statusCode,
     latencyMs: attempt.latencyMs,
     error: attempt.error,
+    responseBody: attempt.responseBody ?? attempt.response_body ?? null,
+    responseHeaders: attempt.responseHeaders ?? attempt.response_headers ?? null,
+    requestHeaders: attempt.requestHeaders ?? attempt.request_headers ?? null,
   });
 
   const outcomeStr = outcome?.toString() || outcome;

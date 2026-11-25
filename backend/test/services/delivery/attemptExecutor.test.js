@@ -76,11 +76,39 @@ describe('AttemptExecutor', () => {
         connectTimeoutMs: config.http.connectTimeoutMs,
         readTimeoutMs: config.http.readTimeoutMs,
         maxResponseBytes: config.http.maxResponseBytes,
+        captureResponse: true,
+        captureResponseBody: true,
+        maxCaptureBytes: 65536,
       }
     );
     expect(result).toHaveProperty('attemptNo', 1);
     expect(result).toHaveProperty('statusCode', 200);
     expect(result.outcome.equals(deliveryOutcome.SUCCESS)).toBe(true);
+    expect(result.requestHeaders).toBeDefined();
+    expect(result.requestHeaders['X-Webhook-Signature']).toBe('[REDACTED]');
+  });
+
+  it('should capture response body and headers while redacting sensitive tokens', async () => {
+    const httpWebhookSender = (await import('../../../src/services/delivery/httpWebhookSender.js')).default;
+    httpWebhookSender.send.mockResolvedValue({
+      statusCode: 200,
+      latencyMs: 80,
+      error: null,
+      headers: {
+        'content-type': 'application/json',
+        'set-cookie': 'session=secret123; HttpOnly',
+        'server': 'nginx',
+      },
+      body: JSON.stringify({ status: 'ok', secret_token: 'should-be-masked' }),
+    });
+
+    const result = await attemptExecutor.execute(mockDelivery, mockEndpoint);
+
+    expect(result.responseHeaders).toBeDefined();
+    expect(result.responseHeaders['content-type']).toBe('application/json');
+    expect(result.responseHeaders['set-cookie']).toBe('[REDACTED]');
+    expect(result.responseBody).toContain('"status":"ok"');
+    expect(result.responseBody).toContain('"secret_token":"[REDACTED]"');
   });
 
   it('should classify oversized response failure as RETRY outcome', async () => {

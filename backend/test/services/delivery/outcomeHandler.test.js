@@ -72,6 +72,9 @@ describe('OutcomeHandler', () => {
         statusCode: mockAttempt.statusCode,
         latencyMs: mockAttempt.latencyMs,
         error: mockAttempt.error,
+        responseBody: null,
+        responseHeaders: null,
+        requestHeaders: null,
       });
       expect(deliveryRepository.incrementAttemptCount).not.toHaveBeenCalled();
       expect(deliveryRepository.markTerminal).toHaveBeenCalledWith(
@@ -79,6 +82,36 @@ describe('OutcomeHandler', () => {
         deliveryState.SUCCEEDED,
         { incrementAttempt: true, requireInFlight: true, expectedAttemptCount: 0 }
       );
+    });
+
+    it('should pass captured response body and headers to deliveryRepository.recordAttempt', async () => {
+      exponentialJitterRetryPolicy.nextDelay.mockResolvedValue(null);
+      thresholdCircuitBreaker.recordResult.mockResolvedValue({
+        circuitState: circuitState.CLOSED,
+        circuitUntil: null,
+        consecutiveFailures: 0,
+      });
+
+      const attemptWithMetadata = {
+        ...mockAttempt,
+        responseBody: '{"success":true}',
+        responseHeaders: { 'content-type': 'application/json' },
+        requestHeaders: { 'X-Webhook-Id': 'delivery-1', 'X-Webhook-Signature': '[REDACTED]' },
+      };
+
+      await handleOutcome(mockDelivery, deliveryOutcome.SUCCESS, attemptWithMetadata, mockEndpoint);
+
+      expect(deliveryRepository.recordAttempt).toHaveBeenCalledWith({
+        deliveryId: 'delivery-1',
+        attemptNo: 1,
+        startedAt: mockAttempt.startedAt,
+        statusCode: mockAttempt.statusCode,
+        latencyMs: mockAttempt.latencyMs,
+        error: mockAttempt.error,
+        responseBody: '{"success":true}',
+        responseHeaders: { 'content-type': 'application/json' },
+        requestHeaders: { 'X-Webhook-Id': 'delivery-1', 'X-Webhook-Signature': '[REDACTED]' },
+      });
     });
 
     it('should reject stale worker and return null if markTerminal fails', async () => {
