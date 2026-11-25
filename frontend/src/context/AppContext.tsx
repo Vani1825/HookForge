@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, type ReactNode } from 'react'
 import { checkBackendHealth } from '../api/health'
 import { mockStore } from '../mocks/mockStore'
 import * as endpointsApi from '../api/endpoints'
@@ -22,6 +22,8 @@ import type {
   TemplateApplyResult,
   DeliveryAttemptsResponse,
   DeliveryLogsResponse,
+  ResendDeliveryOptions,
+  ResendDeliveryResult,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -67,6 +69,7 @@ interface AppContextValue {
     getDeliveryLogs: (id: string) => Promise<DeliveryLogsResponse>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
+    resendDelivery: (id: string, options?: ResendDeliveryOptions) => Promise<ResendDeliveryResult>
     scheduleDelivery: (data: ScheduleDeliveryInput) => Promise<Delivery>
     getScheduledDeliveries: (filter?: deliveriesApi.DeliveryQueryParams) => Promise<deliveriesApi.PaginatedList<Delivery>>
     getScheduledDeliveryById: (id: string) => Promise<Delivery | undefined>
@@ -188,8 +191,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, [checkHealth])
 
   // Centralized Unified Service API
-  const service = {
-    getEndpoints: async (): Promise<Endpoint[]> => {
+  const service = useMemo(
+    () => ({
+      getEndpoints: async (): Promise<Endpoint[]> => {
       if (mode === 'demo') {
         return mockStore.getEndpoints()
       }
@@ -289,6 +293,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return mockStore.replayDelivery(id)
       }
       return deliveriesApi.replayDelivery(id)
+    },
+
+    resendDelivery: async (id: string, options?: ResendDeliveryOptions): Promise<ResendDeliveryResult> => {
+      if (mode === 'demo') {
+        return mockStore.resendDelivery(id, options)
+      }
+      return deliveriesApi.resendDelivery(id, options)
     },
 
     scheduleDelivery: async (data: ScheduleDeliveryInput): Promise<Delivery> => {
@@ -402,7 +413,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
       return templatesApi.createEndpointFromTemplate(id, overrides)
     },
-  }
+  }), [mode])
 
   return (
     <AppContext.Provider

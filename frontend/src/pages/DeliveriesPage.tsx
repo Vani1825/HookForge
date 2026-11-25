@@ -1252,6 +1252,9 @@ export const DeliveriesPage: React.FC = () => {
         isOpen={detailDrawerOpen}
         onClose={() => setDetailDrawerOpen(false)}
         onReplayRequest={handleReplayClick}
+        onResendSuccess={() => {
+          loadDeliveries(page, pageSize)
+        }}
         onCancelRequest={(del) => {
           service
             .cancelScheduledDelivery(del.id)

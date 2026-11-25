@@ -320,6 +320,9 @@ export const ReplayPage: React.FC = () => {
         onReplayRequest={(del) => {
           handleOpenReplay(del)
         }}
+        onResendSuccess={() => {
+          loadData()
+        }}
       />
 
       {/* Replay Confirmation Modal */}

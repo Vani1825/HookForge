@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
-import type { Delivery, DeliveryAttempt, DeliveryLogEntry, DeliveryDiagnostics } from '../types'
+import type { Delivery, DeliveryAttempt, DeliveryLogEntry, DeliveryDiagnostics, ResendDeliveryResult } from '../types'
 import { Drawer } from './ui/Drawer'
 import { StatusBadge } from './StatusBadge'
 import { Button } from './ui/Button'
 import { JsonViewer } from './ui/JsonViewer'
+import { ResendModal } from './ResendModal'
 import { useApp } from '../context/AppContext'
 import {
   formatDateTime,
@@ -33,6 +34,7 @@ interface DeliveryDetailDrawerProps {
   onClose: () => void
   onReplayRequest?: (delivery: Delivery) => void
   onCancelRequest?: (delivery: Delivery) => void
+  onResendSuccess?: (updatedDelivery?: Delivery) => void
 }
 
 type TabType = 'overview' | 'payload' | 'attempts' | 'logs'
@@ -43,10 +45,19 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
   onClose,
   onReplayRequest,
   onCancelRequest,
+  onResendSuccess,
 }) => {
   const { service } = useApp()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [copiedId, setCopiedId] = useState(false)
+  const [resendModalOpen, setResendModalOpen] = useState(false)
+  const [currentDelivery, setCurrentDelivery] = useState<Delivery | null>(delivery)
+
+  useEffect(() => {
+    setCurrentDelivery(delivery)
+  }, [delivery])
+
+  const activeDelivery = currentDelivery || delivery
 
   // Attempts state
   const [attemptsData, setAttemptsData] = useState<DeliveryAttempt[]>([])
@@ -60,7 +71,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
   const [logsError, setLogsError] = useState<string | null>(null)
   const [diagnosticsData, setDiagnosticsData] = useState<DeliveryDiagnostics | undefined>(undefined)
 
-  const deliveryId = delivery?.id
+  const deliveryId = activeDelivery?.id
 
   // Load detailed attempts and logs when drawer opens
   useEffect(() => {
@@ -75,11 +86,11 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
     let isMounted = true
 
     // Initial seed from delivery object if present
-    if (delivery?.attempts) {
-      setAttemptsData(delivery.attempts)
+    if (activeDelivery?.attempts) {
+      setAttemptsData(activeDelivery.attempts)
     }
-    if (delivery?.diagnostics) {
-      setDiagnosticsData(delivery.diagnostics)
+    if (activeDelivery?.diagnostics) {
+      setDiagnosticsData(activeDelivery.diagnostics)
     }
 
     const fetchAttempts = async () => {
@@ -90,15 +101,15 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
         if (isMounted) {
           if (res?.attempts && res.attempts.length > 0) {
             setAttemptsData(res.attempts)
-          } else if (delivery?.attempts && delivery.attempts.length > 0) {
-            setAttemptsData(delivery.attempts)
+          } else if (activeDelivery?.attempts && activeDelivery.attempts.length > 0) {
+            setAttemptsData(activeDelivery.attempts)
           } else {
             setAttemptsData([])
           }
         }
       } catch {
         if (isMounted) {
-          if (!delivery?.attempts || delivery.attempts.length === 0) {
+          if (!activeDelivery?.attempts || activeDelivery.attempts.length === 0) {
             setAttemptsError('Failed to fetch detailed attempts history.')
           }
         }
@@ -163,12 +174,34 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
     return () => {
       isMounted = false
     }
-  }, [isOpen, deliveryId, service, delivery?.attempts, delivery?.diagnostics])
+  }, [isOpen, deliveryId, service, activeDelivery?.attempts, activeDelivery?.diagnostics])
 
-  if (!delivery) return null
+  const handleResendSuccess = async (result: ResendDeliveryResult) => {
+    if (result.delivery) {
+      setCurrentDelivery(result.delivery)
+    }
+    if (deliveryId) {
+      try {
+        const updated = await service.getDeliveryById(deliveryId)
+        if (updated) setCurrentDelivery(updated)
+        const atts = await service.getDeliveryAttempts(deliveryId)
+        if (atts?.attempts) setAttemptsData(atts.attempts)
+        const logs = await service.getDeliveryLogs(deliveryId)
+        if (logs?.logs) {
+          setLogsData(logs.logs)
+          if (logs.diagnostics) setDiagnosticsData(logs.diagnostics)
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    onResendSuccess?.(result.delivery)
+  }
+
+  if (!activeDelivery) return null
 
   const handleCopyId = async () => {
-    const ok = await copyToClipboard(delivery.id)
+    const ok = await copyToClipboard(activeDelivery.id)
     if (ok) {
       setCopiedId(true)
       setTimeout(() => setCopiedId(false), 2000)
@@ -179,46 +212,72 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
     setExpandedAttemptIds((prev) => ({ ...prev, [id]: !prev[id] }))
   }
 
-  const effectiveDiagnostics = diagnosticsData || delivery.diagnostics
-  const retryPolicy = delivery.retry || delivery.endpoint?.retryPolicy
+  const effectiveDiagnostics = diagnosticsData || activeDelivery.diagnostics
+  const retryPolicy = activeDelivery.retry || activeDelivery.endpoint?.retryPolicy
+
+  const isResendEligible =
+    activeDelivery.state === 'DEAD' ||
+    activeDelivery.state === 'SUCCEEDED' ||
+    activeDelivery.state === 'CANCELLED'
 
   return (
-    <Drawer
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Delivery Details & Diagnostics"
-      subtitle={`ID: ${delivery.id}`}
-      width="xl"
-      footer={
-        <div className="flex items-center justify-between w-full">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            Close
-          </Button>
-          <div className="flex items-center gap-2">
-            {(delivery.state === 'SCHEDULED' || delivery.state === 'PENDING') && onCancelRequest && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="text-[#E76B64] border-[#E76B64]/30 hover:bg-[#E76B64]/10"
-                onClick={() => onCancelRequest(delivery)}
-              >
-                Cancel Scheduled
-              </Button>
-            )}
-            {delivery.state === 'DEAD' && onReplayRequest && (
-              <Button
-                variant="danger"
-                size="sm"
-                leftIcon={<RotateCw className="w-3.5 h-3.5" />}
-                onClick={() => onReplayRequest(delivery)}
-              >
-                Replay Dead Delivery
-              </Button>
-            )}
+    <>
+      <Drawer
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Delivery Details & Diagnostics"
+        subtitle={`ID: ${activeDelivery.id}`}
+        width="xl"
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <Button variant="outline" size="sm" onClick={onClose}>
+              Close
+            </Button>
+            <div className="flex items-center gap-2">
+              {activeDelivery.state === 'IN_FLIGHT' && (
+                <span
+                  className="text-2xs font-semibold text-[#5277D9] bg-[#5277D9]/10 px-2.5 py-1.5 rounded-lg border border-[#5277D9]/20 flex items-center gap-1.5"
+                  data-testid="dispatch-in-flight-badge"
+                >
+                  <RefreshCw className="w-3 h-3 animate-spin text-[#5277D9]" />
+                  <span>Dispatch In Flight</span>
+                </span>
+              )}
+              {(activeDelivery.state === 'SCHEDULED' || activeDelivery.state === 'PENDING') && onCancelRequest && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-[#E76B64] border-[#E76B64]/30 hover:bg-[#E76B64]/10"
+                  onClick={() => onCancelRequest(activeDelivery)}
+                >
+                  Cancel Scheduled
+                </Button>
+              )}
+              {isResendEligible && (
+                <Button
+                  variant={activeDelivery.state === 'DEAD' ? 'primary' : 'outline'}
+                  size="sm"
+                  leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+                  onClick={() => setResendModalOpen(true)}
+                  data-testid="resend-webhook-button"
+                >
+                  Resend Webhook
+                </Button>
+              )}
+              {activeDelivery.state === 'DEAD' && onReplayRequest && (
+                <Button
+                  variant="danger"
+                  size="sm"
+                  leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+                  onClick={() => onReplayRequest(activeDelivery)}
+                >
+                  Replay Dead Delivery
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      }
-    >
+        }
+      >
       <div className="space-y-4">
         {/* Status & Overview Bar */}
         <div className="flex items-center justify-between p-3.5 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC]">
@@ -227,13 +286,13 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
               Current State
             </span>
             <div className="mt-1 flex items-center gap-2">
-              <StatusBadge state={delivery.state} />
+              <StatusBadge state={activeDelivery.state} />
               <span className="text-xs font-medium text-[#202938]">
-                Attempt {delivery.attempt_count}
+                Attempt {activeDelivery.attempt_count ?? activeDelivery.attemptCount ?? 0}
               </span>
-              {delivery.last_status_code !== undefined && delivery.last_status_code !== null && (
+              {activeDelivery.last_status_code !== undefined && activeDelivery.last_status_code !== null && (
                 <span className="text-2xs font-mono px-2 py-0.5 rounded bg-white border border-[#E7E8EC] font-semibold text-[#64748B]">
-                  Last HTTP {delivery.last_status_code}
+                  Last HTTP {activeDelivery.last_status_code}
                 </span>
               )}
             </div>
@@ -353,13 +412,13 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                   <span className="text-[#64748B] block mb-1">Destination Endpoint</span>
                   <div className="flex items-center gap-1 font-mono text-[#202938] break-all font-semibold">
                     <ExternalLink className="w-3.5 h-3.5 text-[#64748B] shrink-0" />
-                    <span>{delivery.endpoint_url || delivery.endpoint?.url || '—'}</span>
+                    <span>{activeDelivery.endpoint_url || activeDelivery.endpoint?.url || '—'}</span>
                   </div>
-                  {delivery.endpoint && (
+                  {activeDelivery.endpoint && (
                     <div className="mt-1.5 flex items-center gap-2 text-3xs text-[#64748B]">
-                      <span>Rate Limit: {delivery.endpoint.rate_limit_rps || 10} rps</span>
+                      <span>Rate Limit: {activeDelivery.endpoint.rate_limit_rps || 10} rps</span>
                       <span>•</span>
-                      <span>Circuit: {delivery.endpoint.circuit_state || 'CLOSED'}</span>
+                      <span>Circuit: {activeDelivery.endpoint.circuit_state || 'CLOSED'}</span>
                     </div>
                   )}
                 </div>
@@ -367,7 +426,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 <div className="p-3 bg-white rounded-lg border border-[#E7E8EC]">
                   <span className="text-[#64748B] block mb-1">Head-of-Line Sequence</span>
                   <span className="font-mono text-[#202938] font-bold text-sm">
-                    #{delivery.seq}
+                    #{activeDelivery.seq}
                   </span>
                   <p className="text-3xs text-[#64748B] mt-0.5">Strict per-endpoint FIFO order</p>
                 </div>
@@ -383,36 +442,36 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
                   <span className="text-[#64748B] block text-3xs">Created At</span>
                   <span className="font-medium text-[#202938] text-2xs">
-                    {formatDateTime(delivery.created_at)}
+                    {formatDateTime(activeDelivery.created_at)}
                   </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
                   <span className="text-[#64748B] block text-3xs">Last Updated</span>
                   <span className="font-medium text-[#202938] text-2xs">
-                    {formatRelativeTime(delivery.updated_at)}
+                    {formatRelativeTime(activeDelivery.updated_at)}
                   </span>
                 </div>
                 <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
                   <span className="text-[#64748B] block text-3xs">Next Attempt</span>
                   <span className="font-medium text-[#202938] text-2xs">
-                    {delivery.state === 'DEAD' || delivery.state === 'SUCCEEDED'
+                    {activeDelivery.state === 'DEAD' || activeDelivery.state === 'SUCCEEDED'
                       ? '—'
-                      : formatDateTime(delivery.next_attempt_at)}
+                      : formatDateTime(activeDelivery.next_attempt_at)}
                   </span>
                 </div>
-                {(delivery.scheduled_at || delivery.scheduledAt) && (
+                {(activeDelivery.scheduled_at || activeDelivery.scheduledAt) && (
                   <div className="p-2.5 bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]/60">
                     <span className="text-[#64748B] block text-3xs">Scheduled Execution</span>
                     <span className="font-medium text-[#5277D9] text-2xs">
-                      {formatDateTime(delivery.scheduled_at || delivery.scheduledAt!)}
+                      {formatDateTime(activeDelivery.scheduled_at || activeDelivery.scheduledAt!)}
                     </span>
                   </div>
                 )}
-                {delivery.lease_until && (
+                {activeDelivery.lease_until && (
                   <div className="p-2.5 bg-[#EAF0FF] rounded-lg border border-[#DCE5FA] col-span-2 sm:col-span-1">
                     <span className="text-[#5277D9] block text-3xs">Worker Lease Expiration</span>
                     <span className="font-medium text-[#5277D9] text-2xs">
-                      {formatDateTime(delivery.lease_until)}
+                      {formatDateTime(activeDelivery.lease_until)}
                     </span>
                   </div>
                 )}
@@ -447,7 +506,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
             )}
 
             {/* Request Dispatch Metadata */}
-            {delivery.request && (
+            {activeDelivery.request && (
               <div className="space-y-2">
                 <h4 className="text-2xs font-semibold uppercase tracking-wider text-[#64748B]">
                   HTTP Request Details
@@ -455,23 +514,23 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 <div className="p-3 bg-white rounded-lg border border-[#E7E8EC] space-y-2 text-xs font-mono">
                   <div className="flex items-center gap-2">
                     <span className="px-1.5 py-0.5 rounded bg-[#EAF0FF] text-[#5277D9] font-bold text-3xs">
-                      {delivery.request.method}
+                      {activeDelivery.request.method}
                     </span>
-                    <span className="text-[#202938] break-all text-2xs">{delivery.request.url}</span>
+                    <span className="text-[#202938] break-all text-2xs">{activeDelivery.request.url}</span>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Last Error Message */}
-            {delivery.last_error && (
+            {activeDelivery.last_error && (
               <div className="p-3 bg-[#E76B64]/10 border border-[#E76B64]/25 rounded-xl space-y-1 text-left">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-[#E76B64]">
                   <AlertOctagon className="w-4 h-4 text-[#E76B64]" />
                   <span>Last Captured Error</span>
                 </div>
                 <p className="text-xs text-[#E76B64] font-mono break-all leading-relaxed">
-                  {delivery.last_error}
+                  {activeDelivery.last_error}
                 </p>
               </div>
             )}
@@ -486,28 +545,28 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
               <div>
                 <span className="text-[#64748B] text-3xs block">Event UUID</span>
                 <span className="font-mono text-[#202938] text-2xs font-semibold break-all">
-                  {delivery.event_id}
+                  {activeDelivery.event_id}
                 </span>
               </div>
               <div>
                 <span className="text-[#64748B] text-3xs block">Idempotency Key</span>
                 <span className="font-mono text-[#202938] text-2xs break-all">
-                  {delivery.event?.idempotency_key || '—'}
+                  {activeDelivery.event?.idempotency_key || '—'}
                 </span>
               </div>
               <div>
                 <span className="text-[#64748B] text-3xs block">Event Type</span>
                 <span className="font-semibold text-[#5277D9] text-2xs">
-                  {delivery.event?.event_type ||
-                    (delivery.event?.payload as any)?.type ||
-                    (delivery.event?.payload as any)?.event ||
+                  {activeDelivery.event?.event_type ||
+                    (activeDelivery.event?.payload as any)?.type ||
+                    (activeDelivery.event?.payload as any)?.event ||
                     'custom.event'}
                 </span>
               </div>
               <div>
                 <span className="text-[#64748B] text-3xs block">Ingested Timestamp</span>
                 <span className="text-[#202938] text-2xs">
-                  {delivery.event?.created_at ? formatDateTime(delivery.event.created_at) : '—'}
+                  {activeDelivery.event?.created_at ? formatDateTime(activeDelivery.event.created_at) : '—'}
                 </span>
               </div>
             </div>
@@ -522,8 +581,8 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                   Sensitive credentials automatically masked
                 </span>
               </div>
-              {delivery.event?.payload ? (
-                <JsonViewer data={delivery.event.payload} maxHeight="max-h-96" />
+              {activeDelivery.event?.payload ? (
+                <JsonViewer data={activeDelivery.event.payload} maxHeight="max-h-96" />
               ) : (
                 <div className="p-6 text-center text-xs text-[#64748B] bg-[#F7F6F2] rounded-lg border border-[#E7E8EC]">
                   No event payload found for this delivery.
@@ -554,14 +613,14 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => service.getDeliveryAttempts(delivery.id)}
+                  onClick={() => service.getDeliveryAttempts(activeDelivery.id)}
                 >
                   Retry
                 </Button>
               </div>
             ) : attemptsData.length === 0 ? (
               <div className="text-center p-8 bg-[#F7F6F2] rounded-xl border border-[#E7E8EC] text-xs text-[#64748B]">
-                No delivery attempts executed yet. Current state: {delivery.state}.
+                No delivery attempts executed yet. Current state: {activeDelivery.state}.
               </div>
             ) : (
               <div className="border border-[#E7E8EC] rounded-xl overflow-hidden divide-y divide-[#E7E8EC] bg-white">
@@ -573,8 +632,14 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                   const started = att.started_at || att.attemptedAt || new Date().toISOString()
                   const statusInfo = formatStatusCode(code)
                   const isExpanded = Boolean(expandedAttemptIds[att.id])
+                  const reqHeaders = att.request_headers || att.requestHeaders
                   const headers = att.response_headers || att.responseHeaders
                   const body = att.response_body || att.responseBody
+                  const hasDetails = Boolean(
+                    (reqHeaders && Object.keys(reqHeaders).length > 0) ||
+                    (headers && Object.keys(headers).length > 0) ||
+                    body
+                  )
 
                   return (
                     <div key={att.id} className="p-3 text-xs flex flex-col gap-2">
@@ -598,7 +663,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
 
                       <div className="flex items-center justify-between text-2xs text-[#64748B]">
                         <span>Latency: {formatLatency(lat)}</span>
-                        {(headers || body) && (
+                        {hasDetails && (
                           <button
                             type="button"
                             onClick={() => toggleAttemptExpand(att.id)}
@@ -625,9 +690,25 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                         </p>
                       )}
 
-                      {/* Expanded Response Headers and Body */}
+                      {/* Expanded Details: Request Headers, Response Headers, Response Body */}
                       {isExpanded && (
-                        <div className="pt-2 border-t border-[#E7E8EC] space-y-2">
+                        <div className="pt-2 border-t border-[#E7E8EC] space-y-2.5">
+                          {reqHeaders && Object.keys(reqHeaders).length > 0 && (
+                            <div className="space-y-1">
+                              <span className="text-3xs font-semibold uppercase text-[#64748B] block">
+                                Request Headers
+                              </span>
+                              <div className="p-2 bg-[#F7F6F2] rounded border border-[#E7E8EC] font-mono text-3xs space-y-0.5">
+                                {Object.entries(reqHeaders).map(([k, v]) => (
+                                  <div key={k} className="flex gap-2">
+                                    <span className="font-semibold text-[#202938]">{k}:</span>
+                                    <span className="text-[#64748B] break-all">{v}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {headers && Object.keys(headers).length > 0 && (
                             <div className="space-y-1">
                               <span className="text-3xs font-semibold uppercase text-[#64748B] block">
@@ -637,7 +718,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                                 {Object.entries(headers).map(([k, v]) => (
                                   <div key={k} className="flex gap-2">
                                     <span className="font-semibold text-[#202938]">{k}:</span>
-                                    <span className="text-[#64748B]">{v}</span>
+                                    <span className="text-[#64748B] break-all">{v}</span>
                                   </div>
                                 ))}
                               </div>
@@ -646,10 +727,17 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
 
                           {body && (
                             <div className="space-y-1">
-                              <span className="text-3xs font-semibold uppercase text-[#64748B] block">
-                                Response Body
-                              </span>
-                              <div className="p-2 bg-[#F7F6F2] rounded border border-[#E7E8EC] font-mono text-3xs text-[#202938] max-h-36 overflow-y-auto whitespace-pre-wrap break-all">
+                              <div className="flex items-center justify-between">
+                                <span className="text-3xs font-semibold uppercase text-[#64748B] block">
+                                  Response Body
+                                </span>
+                                {(body.includes('[TRUNCATED') || body.length >= 65536) && (
+                                  <span className="text-3xs text-[#B8871E] font-semibold bg-[#E5B34B]/15 px-1.5 py-0.5 rounded border border-[#E5B34B]/30">
+                                    Truncated (64KB capture limit)
+                                  </span>
+                                )}
+                              </div>
+                              <div className="p-2 bg-[#F7F6F2] rounded border border-[#E7E8EC] font-mono text-3xs text-[#202938] max-h-48 overflow-y-auto whitespace-pre-wrap break-all">
                                 {body}
                               </div>
                             </div>
@@ -685,7 +773,7 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => service.getDeliveryLogs(delivery.id)}
+                  onClick={() => service.getDeliveryLogs(activeDelivery.id)}
                 >
                   Retry
                 </Button>
@@ -730,5 +818,13 @@ export const DeliveryDetailDrawer: React.FC<DeliveryDetailDrawerProps> = ({
         )}
       </div>
     </Drawer>
+
+    <ResendModal
+      delivery={activeDelivery}
+      isOpen={resendModalOpen}
+      onClose={() => setResendModalOpen(false)}
+      onSuccess={handleResendSuccess}
+    />
+  </>
   )
 }

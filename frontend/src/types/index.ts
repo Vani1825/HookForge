@@ -85,6 +85,8 @@ export interface DeliveryAttempt {
   responseBody?: string | null
   response_headers?: Record<string, string> | null
   responseHeaders?: Record<string, string> | null
+  request_headers?: Record<string, string> | null
+  requestHeaders?: Record<string, string> | null
 }
 
 export interface DeliveryDiagnostics {
@@ -278,6 +280,18 @@ export interface BulkReplayResult {
   ineligible: BulkReplayIneligibleItem[]
   rejected: BulkReplayRejectedItem[]
   summary: BulkReplaySummary
+}
+
+export interface ResendDeliveryOptions {
+  immediate?: boolean
+}
+
+export interface ResendDeliveryResult {
+  success: boolean
+  message: string
+  delivery?: Delivery
+  attempt?: DeliveryAttempt
+  blocked?: string
 }
 
 // ==========================================

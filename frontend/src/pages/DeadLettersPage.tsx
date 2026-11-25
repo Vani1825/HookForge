@@ -310,6 +310,9 @@ export const DeadLettersPage: React.FC = () => {
           setDeliveryToReplay(del)
           setReplayModalOpen(true)
         }}
+        onResendSuccess={() => {
+          loadDeadLetters()
+        }}
       />
 
       {/* Replay Modal */}
