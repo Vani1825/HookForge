@@ -859,7 +859,38 @@ describe('JdbcDeliveryRepository', () => {
   });
 
   describe('recordAttempt', () => {
-    it('should record delivery attempt', async () => {
+    it('should record delivery attempt with response and request headers', async () => {
+      query.mockResolvedValue({});
+
+      await deliveryRepository.recordAttempt({
+        deliveryId: 'delivery-1',
+        attemptNo: 1,
+        startedAt: new Date().toISOString(),
+        statusCode: 200,
+        latencyMs: 100,
+        error: null,
+        responseBody: '{"ok": true}',
+        responseHeaders: { 'content-type': 'application/json' },
+        requestHeaders: { 'X-Webhook-Id': 'delivery-1' },
+      });
+
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO delivery_attempts'),
+        [
+          'delivery-1',
+          1,
+          expect.any(String),
+          200,
+          100,
+          null,
+          '{"ok": true}',
+          '{"content-type":"application/json"}',
+          '{"X-Webhook-Id":"delivery-1"}',
+        ]
+      );
+    });
+
+    it('should record delivery attempt with null defaults when response metadata is absent', async () => {
       query.mockResolvedValue({});
 
       await deliveryRepository.recordAttempt({
@@ -873,8 +904,75 @@ describe('JdbcDeliveryRepository', () => {
 
       expect(query).toHaveBeenCalledWith(
         expect.stringContaining('INSERT INTO delivery_attempts'),
-        ['delivery-1', 1, expect.any(String), 200, 100, null]
+        ['delivery-1', 1, expect.any(String), 200, 100, null, null, null, null]
       );
+    });
+  });
+
+  describe('findAttemptsByDeliveryId', () => {
+    it('should retrieve attempts with response and request metadata', async () => {
+      const mockRows = [
+        {
+          id: '1',
+          delivery_id: 'delivery-1',
+          attempt_no: 1,
+          started_at: new Date('2024-01-01T00:00:00Z'),
+          status_code: 500,
+          latency_ms: 120,
+          error: 'Internal Server Error',
+          response_body: '{"error": "crash"}',
+          response_headers: { 'content-type': 'application/json' },
+          request_headers: { 'X-Webhook-Id': 'delivery-1' },
+        },
+      ];
+
+      query.mockResolvedValue({ rows: mockRows });
+
+      const attempts = await deliveryRepository.findAttemptsByDeliveryId('delivery-1');
+
+      expect(attempts).toHaveLength(1);
+      expect(attempts[0].deliveryId).toBe('delivery-1');
+      expect(attempts[0].statusCode).toBe(500);
+      expect(attempts[0].responseBody).toBe('{"error": "crash"}');
+      expect(attempts[0].responseHeaders).toEqual({ 'content-type': 'application/json' });
+      expect(attempts[0].requestHeaders).toEqual({ 'X-Webhook-Id': 'delivery-1' });
+    });
+  });
+
+  describe('claimForImmediateExecution', () => {
+    it('should claim an eligible delivery and return domain model', async () => {
+      const mockRow = {
+        id: 'delivery-1',
+        event_id: 'event-1',
+        endpoint_id: 'endpoint-1',
+        seq: 1,
+        state: 'IN_FLIGHT',
+        attempt_count: 0,
+        lease_until: new Date(Date.now() + 30000),
+        next_attempt_at: new Date(),
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      query.mockResolvedValue({ rows: [mockRow] });
+
+      const claimed = await deliveryRepository.claimForImmediateExecution('delivery-1', 30000);
+
+      expect(claimed).toBeDefined();
+      expect(claimed.id).toBe('delivery-1');
+      expect(claimed.state.toString()).toBe('IN_FLIGHT');
+      expect(query).toHaveBeenCalledWith(
+        expect.stringMatching(/UPDATE deliveries\s+SET state = 'IN_FLIGHT'/),
+        ['delivery-1', 30]
+      );
+    });
+
+    it('should return null if delivery is already claimed or in-flight', async () => {
+      query.mockResolvedValue({ rows: [] });
+
+      const claimed = await deliveryRepository.claimForImmediateExecution('delivery-1', 30000);
+
+      expect(claimed).toBeNull();
     });
   });
 

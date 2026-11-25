@@ -19,6 +19,7 @@ import endpointsRouter from './routes/endpoints.js';
 import eventsRouter from './routes/events.js';
 import deliveriesRouter from './routes/deliveries.js';
 import metricsRouter from './routes/metrics.js';
+import templatesRouter from './routes/templates.js';
 
 const app = express();
 
@@ -57,6 +58,7 @@ app.use('/endpoints', apiChain, endpointsRouter);
 app.use('/events', apiChain, eventsRouter);
 app.use('/deliveries', apiChain, deliveriesRouter);
 app.use('/metrics', apiChain, metricsRouter);
+app.use('/templates', apiChain, templatesRouter);
 
 // 404 handler
 app.use(notFoundHandler);

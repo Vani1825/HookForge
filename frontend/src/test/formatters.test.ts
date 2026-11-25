@@ -6,6 +6,8 @@ import {
   formatLatency,
   formatStatusCode,
   formatRate,
+  formatDuration,
+  formatRetryPolicySummary,
 } from '../utils/formatters'
 
 describe('Formatters Utility', () => {
@@ -43,5 +45,37 @@ describe('Formatters Utility', () => {
     expect(formatDateTime('invalid-date')).toBe('—')
     expect(formatRelativeTime(null)).toBe('—')
     expect(formatRelativeTime(new Date())).toBe('just now')
+  })
+
+  it('formats duration in human-readable units', () => {
+    expect(formatDuration(null)).toBe('—')
+    expect(formatDuration(500)).toBe('500 ms')
+    expect(formatDuration(1000)).toBe('1s')
+    expect(formatDuration(5000)).toBe('5s')
+    expect(formatDuration(60000)).toBe('1m')
+    expect(formatDuration(120000)).toBe('2m')
+    expect(formatDuration(3600000)).toBe('1h')
+    expect(formatDuration(7200000)).toBe('2h')
+    expect(formatDuration(90000)).toBe('1.5m')
+  })
+
+  it('formats retry policy summaries', () => {
+    expect(
+      formatRetryPolicySummary({
+        retryStrategy: 'EXPONENTIAL',
+        retryMaxAttempts: 8,
+        retryBaseDelayMs: 5000,
+        retryMaxDelayMs: 3600000,
+        retryBackoffMultiplier: 2.0,
+      })
+    ).toBe('Exponential (8 attempts, max 1h)')
+
+    expect(
+      formatRetryPolicySummary({
+        retryStrategy: 'FIXED',
+        retryMaxAttempts: 4,
+        retryBaseDelayMs: 3000,
+      })
+    ).toBe('Fixed (4 attempts @ 3s)')
   })
 })

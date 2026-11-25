@@ -14,10 +14,12 @@ import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
 import { DeliveryDetailDrawer } from '../components/DeliveryDetailDrawer'
 import { ReplayModal } from '../components/ReplayModal'
+import { BulkReplayConfirmModal } from '../components/BulkReplayConfirmModal'
+import { BulkReplayResultModal } from '../components/BulkReplayResultModal'
 import { useApp } from '../context/AppContext'
 import { formatErrorMessage } from '../api/client'
 import { formatRelativeTime, truncateId } from '../utils/formatters'
-import type { Delivery } from '../types'
+import type { Delivery, BulkReplayResult } from '../types'
 
 export const DeadLettersPage: React.FC = () => {
   const { service, mode } = useApp()
@@ -32,6 +34,12 @@ export const DeadLettersPage: React.FC = () => {
 
   const [replayModalOpen, setReplayModalOpen] = useState(false)
   const [deliveryToReplay, setDeliveryToReplay] = useState<Delivery | null>(null)
+
+  // Bulk Replay State
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkReplayConfirmOpen, setBulkReplayConfirmOpen] = useState(false)
+  const [bulkReplayResultOpen, setBulkReplayResultOpen] = useState(false)
+  const [bulkReplayResult, setBulkReplayResult] = useState<BulkReplayResult | null>(null)
 
   const loadDeadLetters = useCallback(async () => {
     setIsLoading(true)
@@ -78,6 +86,25 @@ export const DeadLettersPage: React.FC = () => {
     )
   })
 
+  const allSelected = filtered.length > 0 && filtered.every((d) => selectedIds.includes(d.id))
+  const someSelected = filtered.some((d) => selectedIds.includes(d.id))
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filtered.some((d) => d.id === id)))
+    } else {
+      const newIds = Array.from(new Set([...selectedIds, ...filtered.map((d) => d.id)]))
+      setSelectedIds(newIds)
+    }
+  }
+
+  const handleToggleSelectRow = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    )
+  }
+
   return (
     <div className="space-y-6 text-left">
       {/* Page Header */}
@@ -85,15 +112,27 @@ export const DeadLettersPage: React.FC = () => {
         title="Dead Letter Queue (DLQ)"
         description="Deliveries that have permanently failed after exhausting exponential retry policies."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadDeadLetters}
-            isLoading={isLoading}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadDeadLetters}
+              isLoading={isLoading}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            >
+              Refresh
+            </Button>
+            {selectedIds.length > 0 && (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setBulkReplayConfirmOpen(true)}
+                leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+              >
+                Bulk Replay ({selectedIds.length})
+              </Button>
+            )}
+          </div>
         }
       />
 
@@ -140,66 +179,124 @@ export const DeadLettersPage: React.FC = () => {
             }
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs min-w-[700px]">
-              <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
-                <tr>
-                  <th className="py-3 px-4">Delivery ID</th>
-                  <th className="py-3 px-4">Destination Endpoint</th>
-                  <th className="py-3 px-4">Diagnostic / Error</th>
-                  <th className="py-3 px-4">Attempts Exhausted</th>
-                  <th className="py-3 px-4">Failed At</th>
-                  <th className="py-3 px-4 text-right">Replay Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E7E8EC]">
-                {filtered.map((del) => (
-                  <tr
-                    key={del.id}
-                    onClick={() => handleInspect(del)}
-                    className="hover:bg-[#F7F6F2]/70 transition-colors cursor-pointer"
+          <div>
+            {/* Bulk Selection Notification Bar */}
+            {selectedIds.length > 0 && (
+              <div className="bg-[#EAF0FF] border-b border-[#DCE5FA] px-4 py-2.5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#5277D9]">
+                    {selectedIds.length} dead {selectedIds.length === 1 ? 'delivery' : 'deliveries'} selected for replay
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIds([])}
+                    className="text-2xs text-[#64748B] hover:text-[#202938] underline ml-2 cursor-pointer"
                   >
-                    <td className="py-3 px-4">
-                      <div className="flex flex-col">
-                        <span className="font-mono font-semibold text-[#202938]">{truncateId(del.id, 8)}</span>
-                        <span className="text-2xs font-mono text-[#64748B] mt-0.5">Seq #{del.seq}</span>
-                      </div>
-                    </td>
+                    Clear selection
+                  </button>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setBulkReplayConfirmOpen(true)}
+                  leftIcon={<RotateCw className="w-3.5 h-3.5" />}
+                >
+                  Bulk Replay ({selectedIds.length})
+                </Button>
+              </div>
+            )}
 
-                    <td className="py-3 px-4 text-[#64748B] font-mono max-w-xs truncate">
-                      {del.endpoint_url || del.endpoint_id}
-                    </td>
-
-                    <td className="py-3 px-4 max-w-md">
-                      <span className="font-mono text-2xs text-[#E76B64] bg-[#E76B64]/10 px-2 py-1 rounded line-clamp-2 break-all border border-[#E76B64]/20">
-                        {del.last_error || 'Delivery timeout / network error'}
-                      </span>
-                    </td>
-
-                    <td className="py-3 px-4 font-semibold text-[#E76B64]">
-                      {del.attempt_count} attempts
-                    </td>
-
-                    <td className="py-3 px-4 text-[#64748B]">
-                      {formatRelativeTime(del.updated_at)}
-                    </td>
-
-                    <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          leftIcon={<RotateCw className="w-3 h-3" />}
-                          onClick={(e) => handleOpenReplay(del, e)}
-                        >
-                          Replay
-                        </Button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
+                  <tr>
+                    <th className="py-3 px-3 w-10 text-center">
+                      <input
+                        type="checkbox"
+                        checked={allSelected}
+                        ref={(input) => {
+                          if (input) input.indeterminate = someSelected && !allSelected
+                        }}
+                        onChange={handleToggleSelectAll}
+                        disabled={filtered.length === 0}
+                        title="Select all dead deliveries on this page"
+                        aria-label="Select all dead deliveries"
+                        className="rounded border-[#E7E8EC] text-[#5277D9] focus:ring-[#5277D9] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      />
+                    </th>
+                    <th className="py-3 px-4">Delivery ID</th>
+                    <th className="py-3 px-4">Destination Endpoint</th>
+                    <th className="py-3 px-4">Diagnostic / Error</th>
+                    <th className="py-3 px-4">Attempts Exhausted</th>
+                    <th className="py-3 px-4">Failed At</th>
+                    <th className="py-3 px-4 text-right">Replay Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#E7E8EC]">
+                  {filtered.map((del) => {
+                    const isSelected = selectedIds.includes(del.id)
+                    return (
+                      <tr
+                        key={del.id}
+                        onClick={() => handleInspect(del)}
+                        className={`hover:bg-[#F7F6F2]/70 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-[#EAF0FF]/30' : ''
+                        }`}
+                      >
+                        <td className="py-3 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => handleToggleSelectRow(del.id, e as unknown as React.MouseEvent)}
+                            title="Select delivery for bulk replay"
+                            aria-label={`Select delivery ${del.id} for replay`}
+                            className="rounded border-[#E7E8EC] text-[#5277D9] focus:ring-[#5277D9] cursor-pointer"
+                          />
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col">
+                            <span className="font-mono font-semibold text-[#202938]">{truncateId(del.id, 8)}</span>
+                            <span className="text-2xs font-mono text-[#64748B] mt-0.5">Seq #{del.seq}</span>
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4 text-[#64748B] font-mono max-w-xs truncate">
+                          {del.endpoint_url || del.endpoint_id}
+                        </td>
+
+                        <td className="py-3 px-4 max-w-md">
+                          <span className="font-mono text-2xs text-[#E76B64] bg-[#E76B64]/10 px-2 py-1 rounded line-clamp-2 break-all border border-[#E76B64]/20">
+                            {del.last_error || 'Delivery timeout / network error'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 font-semibold text-[#E76B64]">
+                          {del.attempt_count} attempts
+                        </td>
+
+                        <td className="py-3 px-4 text-[#64748B]">
+                          {formatRelativeTime(del.updated_at)}
+                        </td>
+
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              leftIcon={<RotateCw className="w-3 h-3" />}
+                              onClick={(e) => handleOpenReplay(del, e)}
+                            >
+                              Replay
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </Card>
@@ -215,6 +312,10 @@ export const DeadLettersPage: React.FC = () => {
         }}
         onReplaySuccess={(updated) => {
           setSelectedDelivery(updated)
+          loadDeadLetters()
+        }}
+        onResendSuccess={(updated) => {
+          if (updated) setSelectedDelivery(updated)
           loadDeadLetters()
         }}
       />
@@ -237,6 +338,26 @@ export const DeadLettersPage: React.FC = () => {
               .catch(() => {})
           }
         }}
+      />
+
+      {/* Bulk Replay Confirmation Modal */}
+      <BulkReplayConfirmModal
+        deliveryIds={selectedIds}
+        isOpen={bulkReplayConfirmOpen}
+        onClose={() => setBulkReplayConfirmOpen(false)}
+        onComplete={(result) => {
+          setBulkReplayResult(result)
+          setBulkReplayResultOpen(true)
+          setSelectedIds([])
+          loadDeadLetters()
+        }}
+      />
+
+      {/* Bulk Replay Result Modal */}
+      <BulkReplayResultModal
+        result={bulkReplayResult}
+        isOpen={bulkReplayResultOpen}
+        onClose={() => setBulkReplayResultOpen(false)}
       />
     </div>
   )

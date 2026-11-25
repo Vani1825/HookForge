@@ -8,6 +8,7 @@ import { deliveryOutcome } from '../../domain/deliveryOutcome.js';
 import deliveryRepository from '../../repositories/jdbc/deliveryRepository.js';
 import { saveCircuit } from '../../repositories/jdbc/endpointRepository.js';
 import exponentialJitterRetryPolicy from '../resilience/exponentialJitterRetryPolicy.js';
+import { resolveRetryPolicy } from '../resilience/retryPolicyFactory.js';
 import thresholdCircuitBreaker from '../resilience/thresholdCircuitBreaker.js';
 import clock from '../../utils/clock.js';
 import logger from '../../utils/logger.js';
@@ -27,9 +28,16 @@ export async function handleOutcome(
   outcome,
   attempt,
   endpoint,
-  retryPolicy = exponentialJitterRetryPolicy,
+  retryPolicy = null,
   timeSource = clock.system
 ) {
+  const policy =
+    retryPolicy && retryPolicy !== exponentialJitterRetryPolicy
+      ? retryPolicy
+      : endpoint
+        ? resolveRetryPolicy(endpoint)
+        : retryPolicy || exponentialJitterRetryPolicy;
+
   const now = timeSource.now();
   const attemptCount = delivery.attemptCount + 1;
 
@@ -41,6 +49,9 @@ export async function handleOutcome(
     statusCode: attempt.statusCode,
     latencyMs: attempt.latencyMs,
     error: attempt.error,
+    responseBody: attempt.responseBody ?? attempt.response_body ?? null,
+    responseHeaders: attempt.responseHeaders ?? attempt.response_headers ?? null,
+    requestHeaders: attempt.requestHeaders ?? attempt.request_headers ?? null,
   });
 
   const outcomeStr = outcome?.toString() || outcome;
@@ -129,7 +140,7 @@ export async function handleOutcome(
   }
 
   // Retryable outcomes: RETRY, RATE_LIMITED, RETRY_LIMITED
-  const delay = await retryPolicy.nextDelay(attemptCount, outcome);
+  const delay = await policy.nextDelay(attemptCount, outcome);
 
   if (delay === null) {
     // No more retries - mark as DEAD with atomic attempt increment, stale worker protection, and attempt-level fencing

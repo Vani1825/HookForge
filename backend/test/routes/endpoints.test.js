@@ -25,6 +25,7 @@ vi.mock('../../src/services/endpoint/endpointService.js', () => ({
     update: vi.fn(),
     get: vi.fn(),
     remove: vi.fn(),
+    testEndpoint: vi.fn(),
   },
 }));
 
@@ -116,6 +117,93 @@ describe('Endpoint Routes', () => {
 
       expect(response.body.error).toBe('Validation Error');
       expect(response.body.message).toContain('cloud metadata');
+    });
+
+    it('should create endpoint with custom retry policy and return 201', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      const mockEndpoint = {
+        id: mockEndpointId,
+        url: 'https://example.com/webhook',
+        secret: 'whsec_test123',
+        active: true,
+        rateLimitRps: 10,
+        circuitState: 'CLOSED',
+        retryStrategy: 'FIXED',
+        retryMaxAttempts: 5,
+        retryBaseDelayMs: 3000,
+        retryMaxDelayMs: 3000,
+        retryBackoffMultiplier: 1.0,
+        createdAt: new Date().toISOString(),
+      };
+
+      endpointService.create.mockResolvedValue(mockEndpoint);
+
+      const response = await request(app)
+        .post('/endpoints')
+        .send({
+          url: 'https://example.com/webhook',
+          retryStrategy: 'FIXED',
+          retryMaxAttempts: 5,
+          retryBaseDelayMs: 3000,
+        })
+        .expect(201);
+
+      expect(response.body.retryStrategy).toBe('FIXED');
+      expect(response.body.retryMaxAttempts).toBe(5);
+      expect(response.body.retryBaseDelayMs).toBe(3000);
+      expect(response.body.retryPolicy).toEqual({
+        strategy: 'FIXED',
+        maxAttempts: 5,
+        baseDelayMs: 3000,
+        maxDelayMs: 3000,
+        backoffMultiplier: 1.0,
+      });
+    });
+
+    it('should return 400 for invalid retryStrategy on create', async () => {
+      const response = await request(app)
+        .post('/endpoints')
+        .send({
+          url: 'https://example.com/webhook',
+          retryStrategy: 'INVALID_STRATEGY',
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe('Validation Error');
+      expect(response.body.message).toContain('retryStrategy');
+    });
+
+    it('should return 400 for invalid retryMaxAttempts on create', async () => {
+      const response = await request(app)
+        .post('/endpoints')
+        .send({
+          url: 'https://example.com/webhook',
+          retryMaxAttempts: 0,
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe('Validation Error');
+      expect(response.body.message).toContain('retryMaxAttempts');
+    });
+
+    it('should return 400 when endpointService rejects invalid retry configuration', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      const { ValidationError } = await import('../../src/middleware/errorHandler.js');
+      endpointService.create.mockRejectedValueOnce(
+        new ValidationError('retryMaxDelayMs must be greater than or equal to retryBaseDelayMs')
+      );
+
+      const response = await request(app)
+        .post('/endpoints')
+        .send({
+          url: 'https://example.com/webhook',
+          retryBaseDelayMs: 10000,
+          retryMaxDelayMs: 5000,
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe('Validation Error');
+      expect(response.body.message).toContain('retryMaxDelayMs must be greater than or equal to retryBaseDelayMs');
     });
   });
 
@@ -234,6 +322,47 @@ describe('Endpoint Routes', () => {
         .patch('/endpoints/not-a-uuid')
         .send({ url: 'https://example.com/new-url' })
         .expect(400);
+    });
+
+    it('should update endpoint with custom retry policy and return 200', async () => {
+      const endpointService = (await import('../../src/services/endpoint/endpointService.js')).default;
+      const mockUpdated = {
+        id: mockEndpointId,
+        url: 'https://example.com/webhook',
+        active: true,
+        rateLimitRps: 10,
+        circuitState: 'CLOSED',
+        retryStrategy: 'FIXED',
+        retryMaxAttempts: 3,
+        retryBaseDelayMs: 2000,
+        createdAt: new Date().toISOString(),
+      };
+
+      endpointService.update.mockResolvedValue(mockUpdated);
+
+      const response = await request(app)
+        .patch(`/endpoints/${mockEndpointId}`)
+        .send({
+          retryStrategy: 'FIXED',
+          retryMaxAttempts: 3,
+          retryBaseDelayMs: 2000,
+        })
+        .expect(200);
+
+      expect(response.body.retryStrategy).toBe('FIXED');
+      expect(response.body.retryMaxAttempts).toBe(3);
+    });
+
+    it('should return 400 for invalid retryStrategy on PATCH', async () => {
+      const response = await request(app)
+        .patch(`/endpoints/${mockEndpointId}`)
+        .send({
+          retryStrategy: 'INVALID_STRATEGY',
+        })
+        .expect(400);
+
+      expect(response.body.error).toBe('Validation Error');
+      expect(response.body.message).toContain('retryStrategy');
     });
   });
 

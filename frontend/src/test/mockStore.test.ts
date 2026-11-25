@@ -66,4 +66,68 @@ describe('MockStore Lifecycle & Guarantees', () => {
       expect(res.success).toBe(false)
     }
   })
+
+  describe('resendDelivery (Tanvi Phase 2)', () => {
+    it('allows resending DEAD, SUCCEEDED, and CANCELLED deliveries in queued mode', () => {
+      const deadDeliveries = mockStore.getDeliveries({ state: 'DEAD' })
+      expect(deadDeliveries.length).toBeGreaterThan(0)
+      const resDead = mockStore.resendDelivery(deadDeliveries[0].id, { immediate: false })
+      expect(resDead.success).toBe(true)
+      expect(resDead.delivery?.state).toBe('PENDING')
+      expect(resDead.delivery?.attempt_count).toBe(0)
+
+      const succeededDeliveries = mockStore.getDeliveries({ state: 'SUCCEEDED' })
+      expect(succeededDeliveries.length).toBeGreaterThan(0)
+      const resSucceeded = mockStore.resendDelivery(succeededDeliveries[0].id, { immediate: false })
+      expect(resSucceeded.success).toBe(true)
+      expect(resSucceeded.delivery?.state).toBe('PENDING')
+      expect(resSucceeded.delivery?.attempt_count).toBe(0)
+
+      // Find or create a cancelled delivery in mockStore
+      let cancelledDelivery = mockStore.getDeliveries().find((d) => d.state === 'CANCELLED')
+      if (!cancelledDelivery) {
+        const d = mockStore.getDeliveries()[0]
+        d.state = 'CANCELLED'
+        cancelledDelivery = d
+      }
+      const resCancelled = mockStore.resendDelivery(cancelledDelivery.id, { immediate: false })
+      expect(resCancelled.success).toBe(true)
+      expect(resCancelled.delivery?.state).toBe('PENDING')
+    })
+
+    it('allows immediate execution mode for resendDelivery', () => {
+      const target = mockStore.getDeliveries()[0]
+      target.state = 'DEAD'
+
+      const res = mockStore.resendDelivery(target.id, { immediate: true })
+      expect(res.success).toBe(true)
+      expect(res.message).toBe('Delivery resent immediately')
+      expect(res.delivery?.state).toBe('SUCCEEDED')
+      expect(res.attempt).toBeDefined()
+      expect(res.attempt?.statusCode).toBe(200)
+      expect(res.attempt?.request_headers).toBeDefined()
+      expect(res.attempt?.request_headers?.['content-type']).toBe('application/json')
+      expect(res.attempt?.request_headers?.['x-webhook-signature']).toBe('[REDACTED]')
+      expect(res.attempt?.response_headers?.['content-type']).toContain('application/json')
+      expect(res.attempt?.response_body).toBeDefined()
+    })
+
+    it('rejects resending an IN_FLIGHT delivery', () => {
+      const target = mockStore.getDeliveries()[0]
+      target.state = 'IN_FLIGHT'
+
+      const res = mockStore.resendDelivery(target.id)
+      expect(res.success).toBe(false)
+      expect(res.message).toContain('in flight')
+    })
+
+    it('rejects resending an unsupported state such as SCHEDULED', () => {
+      const target = mockStore.getDeliveries()[0]
+      target.state = 'SCHEDULED'
+
+      const res = mockStore.resendDelivery(target.id)
+      expect(res.success).toBe(false)
+      expect(res.message).toContain('Resend is only supported for DEAD, SUCCEEDED, and CANCELLED')
+    })
+  })
 })
