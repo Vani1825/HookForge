@@ -324,6 +324,10 @@ export const ReplayPage: React.FC = () => {
           setSelectedDelivery(updated)
           loadData()
         }}
+        onResendSuccess={(updated) => {
+          if (updated) setSelectedDelivery(updated)
+          loadData()
+        }}
       />
 
       {/* Replay Confirmation Modal */}

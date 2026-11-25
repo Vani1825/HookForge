@@ -314,6 +314,10 @@ export const DeadLettersPage: React.FC = () => {
           setSelectedDelivery(updated)
           loadDeadLetters()
         }}
+        onResendSuccess={(updated) => {
+          if (updated) setSelectedDelivery(updated)
+          loadDeadLetters()
+        }}
       />
 
       {/* Replay Modal */}

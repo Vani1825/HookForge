@@ -1368,6 +1368,10 @@ export const DeliveriesPage: React.FC = () => {
           setSelectedDelivery(updated)
           handleRefresh()
         }}
+        onResendSuccess={(updated) => {
+          if (updated) setSelectedDelivery(updated)
+          handleRefresh()
+        }}
         onCancelRequest={(del) => {
           service
             .cancelScheduledDelivery(del.id)

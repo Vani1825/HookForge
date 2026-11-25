@@ -20,6 +20,8 @@ import type {
   DeliveryLogsResponse,
   DeliveryLogEntry,
   DeliveryDiagnostics,
+  ResendDeliveryOptions,
+  ResendDeliveryResult,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
@@ -917,6 +919,102 @@ class MockStore {
       success: true,
       message: `Delivery ${id} re-enqueued for replay.`,
       delivery,
+    }
+  }
+
+  resendDelivery(id: string, options?: ResendDeliveryOptions): ResendDeliveryResult {
+    const delivery = this.deliveries.find((d) => d.id === id)
+    if (!delivery) {
+      return { success: false, message: `Delivery ${id} not found.` }
+    }
+
+    if (delivery.state === 'IN_FLIGHT') {
+      return {
+        success: false,
+        message: 'Delivery is currently in flight and cannot be resent.',
+      }
+    }
+
+    const ALLOWED_STATES = ['DEAD', 'SUCCEEDED', 'CANCELLED']
+    if (!ALLOWED_STATES.includes(delivery.state)) {
+      return {
+        success: false,
+        message: `Delivery ${id} is in state ${delivery.state}. Resend is only supported for DEAD, SUCCEEDED, and CANCELLED deliveries.`,
+      }
+    }
+
+    const immediate = options?.immediate === true
+
+    if (!immediate) {
+      delivery.state = 'PENDING'
+      delivery.attempt_count = 0
+      delivery.attemptCount = 0
+      delivery.next_attempt_at = new Date().toISOString()
+      delivery.nextAttemptAt = delivery.next_attempt_at
+      delivery.updated_at = new Date().toISOString()
+      delivery.updatedAt = delivery.updated_at
+      delivery.last_error = null
+      delivery.lastError = null
+
+      return {
+        success: true,
+        message: 'Delivery queued for resend',
+        delivery,
+      }
+    }
+
+    const nextAttemptNo = (delivery.attempt_count || delivery.attemptCount || 0) + 1
+    const newAttempt: DeliveryAttempt = {
+      id: Date.now(),
+      delivery_id: delivery.id,
+      attempt_no: nextAttemptNo,
+      attemptNumber: nextAttemptNo,
+      started_at: new Date().toISOString(),
+      attemptedAt: new Date().toISOString(),
+      status_code: 200,
+      statusCode: 200,
+      latency_ms: 65,
+      latencyMs: 65,
+      error: null,
+      errorMessage: null,
+      request_headers: {
+        'content-type': 'application/json',
+        'x-webhook-signature': '[REDACTED]',
+      },
+      requestHeaders: {
+        'content-type': 'application/json',
+        'x-webhook-signature': '[REDACTED]',
+      },
+      response_headers: {
+        'content-type': 'application/json; charset=utf-8',
+      },
+      responseHeaders: {
+        'content-type': 'application/json; charset=utf-8',
+      },
+      response_body: JSON.stringify({ status: 'ok', received: true }),
+      responseBody: JSON.stringify({ status: 'ok', received: true }),
+    }
+
+    if (!this.attempts[id]) {
+      this.attempts[id] = []
+    }
+    this.attempts[id].push(newAttempt)
+
+    delivery.state = 'SUCCEEDED'
+    delivery.attempt_count = nextAttemptNo
+    delivery.attemptCount = nextAttemptNo
+    delivery.last_status_code = 200
+    delivery.lastStatusCode = 200
+    delivery.last_error = null
+    delivery.lastError = null
+    delivery.updated_at = new Date().toISOString()
+    delivery.updatedAt = delivery.updated_at
+
+    return {
+      success: true,
+      message: 'Delivery resent immediately',
+      delivery,
+      attempt: newAttempt,
     }
   }
 

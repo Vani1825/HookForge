@@ -7,9 +7,11 @@ import type {
   PaginationMeta,
   ScheduleDeliveryInput,
   BulkReplayResult,
+  ResendDeliveryOptions,
+  ResendDeliveryResult,
 } from '../types'
 
-export type { ScheduleDeliveryInput, BulkReplayResult }
+export type { ScheduleDeliveryInput, BulkReplayResult, ResendDeliveryOptions, ResendDeliveryResult }
 
 export interface DeliveryQueryParams {
   state?: string
@@ -64,6 +66,7 @@ export function normalizeAttempt(a: any): DeliveryAttempt {
   const errorMsg = a.error !== undefined ? a.error : (a.errorMessage ?? null)
   const respBody = a.response_body !== undefined ? a.response_body : (a.responseBody ?? null)
   const respHeaders = a.response_headers || a.responseHeaders || null
+  const reqHeaders = a.request_headers || a.requestHeaders || null
 
   return {
     id: a.id,
@@ -82,6 +85,8 @@ export function normalizeAttempt(a: any): DeliveryAttempt {
     responseBody: respBody,
     response_headers: respHeaders,
     responseHeaders: respHeaders,
+    request_headers: reqHeaders,
+    requestHeaders: reqHeaders,
   }
 }
 
@@ -302,6 +307,31 @@ export async function replayDelivery(id: string): Promise<{ success: boolean; me
   return {
     success: true,
     message: 'Delivery replayed successfully',
+  }
+}
+
+export async function resendDelivery(
+  id: string,
+  options?: ResendDeliveryOptions
+): Promise<ResendDeliveryResult> {
+  const body = {
+    immediate: options?.immediate ?? false,
+  }
+  const res = await apiClient.post<any>(`/deliveries/${id}/resend`, body)
+  if (res && typeof res === 'object') {
+    const rawDelivery = res.delivery || (res.id ? res : undefined)
+    const rawAttempt = res.attempt || undefined
+    return {
+      success: res.success !== undefined ? Boolean(res.success) : true,
+      message: res.message || (body.immediate ? 'Delivery resent immediately' : 'Delivery queued for resend'),
+      delivery: rawDelivery ? normalizeDelivery(rawDelivery) : undefined,
+      attempt: rawAttempt ? normalizeAttempt(rawAttempt) : undefined,
+      blocked: res.blocked || undefined,
+    }
+  }
+  return {
+    success: true,
+    message: body.immediate ? 'Delivery resent immediately' : 'Delivery queued for resend',
   }
 }
 
