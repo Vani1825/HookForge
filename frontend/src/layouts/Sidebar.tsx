@@ -13,6 +13,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  CalendarClock,
+  FlaskConical,
+  LayoutTemplate,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { useApp } from '../context/AppContext'
@@ -35,8 +38,10 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Overview', path: '/', icon: LayoutDashboard },
       { label: 'Endpoints', path: '/endpoints', icon: Globe2 },
+      { label: 'Templates', path: '/templates', icon: LayoutTemplate },
       { label: 'Events', path: '/events', icon: Inbox },
       { label: 'Deliveries', path: '/deliveries', icon: Send },
+      { label: 'Scheduled', path: '/scheduled-deliveries', icon: CalendarClock },
     ],
   },
   {
@@ -44,6 +49,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Dead Letter Queue', path: '/dead-letters', icon: AlertOctagon, badge: '3' },
       { label: 'Replay Queue', path: '/replay', icon: RotateCw },
+      { label: 'Endpoint Testing', path: '/endpoint-testing', icon: FlaskConical },
     ],
   },
   {

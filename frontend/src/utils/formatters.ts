@@ -103,3 +103,42 @@ function fallbackCopyTextToClipboard(text: string): boolean {
     return false
   }
 }
+
+export function formatDuration(ms: number | undefined | null): string {
+  if (ms === undefined || ms === null || isNaN(ms)) return '—'
+  if (ms < 1000) return `${ms} ms`
+  const sec = ms / 1000
+  if (sec < 60) {
+    return Number.isInteger(sec) ? `${sec}s` : `${sec.toFixed(1)}s`
+  }
+  const min = sec / 60
+  if (min < 60) {
+    return Number.isInteger(min) ? `${min}m` : `${min.toFixed(1)}m`
+  }
+  const hr = min / 60
+  return Number.isInteger(hr) ? `${hr}h` : `${hr.toFixed(1)}h`
+}
+
+export function formatRetryPolicySummary(endpoint: {
+  retry_strategy?: string
+  retryStrategy?: string
+  retry_max_attempts?: number
+  retryMaxAttempts?: number
+  retry_base_delay_ms?: number
+  retryBaseDelayMs?: number
+  retry_max_delay_ms?: number
+  retryMaxDelayMs?: number
+  retry_backoff_multiplier?: number
+  retryBackoffMultiplier?: number
+}): string {
+  const strategy = (endpoint.retry_strategy || endpoint.retryStrategy || 'EXPONENTIAL').toUpperCase()
+  const attempts = endpoint.retry_max_attempts ?? endpoint.retryMaxAttempts ?? 8
+  const baseDelay = endpoint.retry_base_delay_ms ?? endpoint.retryBaseDelayMs ?? 5000
+
+  if (strategy === 'FIXED') {
+    return `Fixed (${attempts} attempts @ ${formatDuration(baseDelay)})`
+  }
+
+  const maxDelay = endpoint.retry_max_delay_ms ?? endpoint.retryMaxDelayMs ?? 3600000
+  return `Exponential (${attempts} attempts, max ${formatDuration(maxDelay)})`
+}

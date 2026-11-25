@@ -43,7 +43,8 @@ const CROSS_ORIGIN_STRIPPED_HEADERS = new Set([
  * @param {string|Buffer|Object|null} body - Request body
  * @param {Object} headers - Request headers
  * @param {number} timeoutMs - Timeout in milliseconds for this hop
- * @returns {Promise<{ statusCode: number|null, headers: Object|null, error: string|null }>}
+ * @param {Object} [hopOptions] - Options including timeouts, limits, and capture flags
+ * @returns {Promise<{ statusCode: number|null, headers: Object|null, body: string|null, sizeBytes: number, truncated: boolean, error: string|null }>}
  */
 function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions = {}) {
   return new Promise((resolve) => {
@@ -62,6 +63,10 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
       hopOptions.maxResponseBytes ??
       config?.http?.maxResponseBytes ??
       DEFAULT_MAX_RESPONSE_BYTES;
+    const captureResponse = Boolean(
+      hopOptions.captureResponse || hopOptions.captureResponseBody
+    );
+    const maxCaptureBytes = hopOptions.maxCaptureBytes ?? 65536; // 64 KB default capture limit
 
     const isGetOrHead = method === 'GET' || method === 'HEAD';
     let bodyBuffer = Buffer.alloc(0);
@@ -152,6 +157,9 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
       resolve({
         statusCode: null,
         headers: null,
+        body: null,
+        sizeBytes: 0,
+        truncated: false,
         error: 'Timeout',
       });
     }, hopTimeoutMs);
@@ -170,6 +178,9 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
       resolve({
         statusCode: null,
         headers: null,
+        body: null,
+        sizeBytes: 0,
+        truncated: false,
         error: 'Timeout',
       });
     }, effectiveConnectTimeout);
@@ -201,6 +212,9 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
         resolve({
           statusCode: null,
           headers: null,
+          body: null,
+          sizeBytes: 0,
+          truncated: false,
           error: 'Timeout',
         });
       }, effectiveReadTimeout);
@@ -228,13 +242,19 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
           return resolve({
             statusCode: null,
             headers: null,
+            body: null,
+            sizeBytes: 0,
+            truncated: false,
             error: `Response size exceeded maximum allowed limit of ${maxResponseBytes} bytes`,
           });
         }
       }
 
-      // Incrementally count streamed response bytes
+      // Incrementally count streamed response bytes and optionally capture body
       let receivedBytes = 0;
+      const bodyChunks = [];
+      let captureBytes = 0;
+      let truncated = false;
 
       res.on('data', (chunk) => {
         receivedBytes += chunk.length;
@@ -253,8 +273,28 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
           resolve({
             statusCode: null,
             headers: null,
+            body: null,
+            sizeBytes: receivedBytes,
+            truncated: false,
             error: `Response size exceeded maximum allowed limit of ${maxResponseBytes} bytes`,
           });
+          return;
+        }
+
+        if (captureResponse) {
+          if (captureBytes < maxCaptureBytes) {
+            const needed = maxCaptureBytes - captureBytes;
+            if (chunk.length <= needed) {
+              bodyChunks.push(chunk);
+              captureBytes += chunk.length;
+            } else {
+              bodyChunks.push(chunk.subarray(0, needed));
+              captureBytes += needed;
+              truncated = true;
+            }
+          } else {
+            truncated = true;
+          }
         }
       });
 
@@ -262,9 +302,16 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
         if (isDone) return;
         isDone = true;
         cleanup();
+        let bodyString = null;
+        if (captureResponse) {
+          bodyString = Buffer.concat(bodyChunks).toString('utf8');
+        }
         resolve({
           statusCode: res.statusCode ?? null,
           headers: res.headers,
+          body: bodyString,
+          sizeBytes: receivedBytes,
+          truncated,
           error: null,
         });
       });
@@ -277,6 +324,9 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
         resolve({
           statusCode: null,
           headers: null,
+          body: null,
+          sizeBytes: 0,
+          truncated: false,
           error: err.message,
         });
       });
@@ -318,6 +368,9 @@ function executeHop(resolution, method, body, headers, hopTimeoutMs, hopOptions 
       resolve({
         statusCode: null,
         headers: null,
+        body: null,
+        sizeBytes: 0,
+        truncated: false,
         error: errorMsg,
       });
     });
@@ -356,11 +409,29 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
     DEFAULT_MAX_RESPONSE_BYTES;
   const effectiveTimeoutMs =
     timeoutMs ?? (connectTimeoutMs + readTimeoutMs);
+  const captureResponse = Boolean(
+    options.captureResponse || options.captureResponseBody
+  );
   let currentUrl = url;
-  let currentMethod = 'POST';
+  let currentMethod = (options.method || 'POST').toUpperCase();
   let currentBody = body;
   let currentHeaders = { ...headers };
   let redirectCount = 0;
+
+  const buildResult = (statusCode, latencyMs, error, hopResult = null) => {
+    const res = {
+      statusCode,
+      latencyMs,
+      error,
+    };
+    if (captureResponse) {
+      res.headers = hopResult?.headers ?? null;
+      res.body = hopResult?.body ?? null;
+      res.sizeBytes = hopResult?.sizeBytes ?? 0;
+      res.truncated = hopResult?.truncated ?? false;
+    }
+    return res;
+  };
 
   while (true) {
     const elapsedMs = Date.now() - startTime;
@@ -369,11 +440,7 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
         url: sanitizeUrlForLogging(currentUrl),
         latencyMs: elapsedMs,
       });
-      return {
-        statusCode: null,
-        latencyMs: elapsedMs,
-        error: 'Timeout',
-      };
+      return buildResult(null, elapsedMs, 'Timeout');
     }
     const remainingTimeout = effectiveTimeoutMs - elapsedMs;
 
@@ -396,22 +463,18 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
           url: sanitizeUrlForLogging(currentUrl),
           latencyMs,
         });
-        return {
-          statusCode: null,
-          latencyMs,
-          error: 'Timeout',
-        };
+        return buildResult(null, latencyMs, 'Timeout');
       }
 
       logger.error('Webhook dispatch blocked by SSRF protection', {
         url: sanitizeUrlForLogging(currentUrl),
         error: ssrfErr.message,
       });
-      return {
-        statusCode: null,
+      return buildResult(
+        null,
         latencyMs,
-        error: `Blocked by SSRF protection: ${ssrfErr.message}`,
-      };
+        `Blocked by SSRF protection: ${ssrfErr.message}`
+      );
     }
 
     // Fail closed if pinned IP is unavailable
@@ -420,11 +483,11 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
       logger.error('Webhook dispatch blocked: no pinned IP address', {
         url: sanitizeUrlForLogging(currentUrl),
       });
-      return {
-        statusCode: null,
+      return buildResult(
+        null,
         latencyMs,
-        error: 'Blocked by SSRF protection: No pinned IP address available for destination',
-      };
+        'Blocked by SSRF protection: No pinned IP address available for destination'
+      );
     }
 
     // Ensure expired requests cannot proceed to an outbound connection after DNS resolution completes
@@ -434,11 +497,7 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
         url: sanitizeUrlForLogging(currentUrl),
         latencyMs: postDnsElapsedMs,
       });
-      return {
-        statusCode: null,
-        latencyMs: postDnsElapsedMs,
-        error: 'Timeout',
-      };
+      return buildResult(null, postDnsElapsedMs, 'Timeout');
     }
     const hopRemainingTimeout = effectiveTimeoutMs - postDnsElapsedMs;
 
@@ -465,11 +524,7 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
         error: hopResult.error,
         latencyMs,
       });
-      return {
-        statusCode: null,
-        latencyMs,
-        error: hopResult.error,
-      };
+      return buildResult(null, latencyMs, hopResult.error, hopResult);
     }
 
     // 4. Handle Redirects (301, 302, 303, 307, 308)
@@ -485,24 +540,26 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
           url: sanitizeUrlForLogging(currentUrl),
           redirectCount,
         });
-        return {
-          statusCode: hopResult.statusCode,
+        return buildResult(
+          hopResult.statusCode,
           latencyMs,
-          error: 'Too many redirects',
-        };
+          'Too many redirects',
+          hopResult
+        );
       }
 
-      const rawLocation = hopResult.headers.location;
+      const rawLocation = hopResult.headers?.location;
       if (typeof rawLocation !== 'string' || !rawLocation.trim()) {
         const latencyMs = Date.now() - startTime;
         logger.warn('Webhook redirect rejected: empty Location header', {
           from: sanitizeUrlForLogging(currentUrl),
         });
-        return {
-          statusCode: null,
+        return buildResult(
+          null,
           latencyMs,
-          error: 'Invalid redirect Location header',
-        };
+          'Invalid redirect Location header',
+          hopResult
+        );
       }
 
       let nextUrl;
@@ -513,11 +570,12 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
         logger.warn('Webhook redirect rejected: invalid Location header', {
           from: sanitizeUrlForLogging(currentUrl),
         });
-        return {
-          statusCode: null,
+        return buildResult(
+          null,
           latencyMs,
-          error: 'Invalid redirect Location header',
-        };
+          'Invalid redirect Location header',
+          hopResult
+        );
       }
 
       // Check scheme of nextUrl: must be http: or https:
@@ -529,19 +587,21 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
           logger.warn('Webhook redirect rejected: disallowed protocol', {
             from: sanitizeUrlForLogging(currentUrl),
           });
-          return {
-            statusCode: null,
+          return buildResult(
+            null,
             latencyMs,
-            error: `Blocked by SSRF protection: Disallowed redirect URL scheme '${nextParsed.protocol}'`,
-          };
+            `Blocked by SSRF protection: Disallowed redirect URL scheme '${nextParsed.protocol}'`,
+            hopResult
+          );
         }
       } catch {
         const latencyMs = Date.now() - startTime;
-        return {
-          statusCode: null,
+        return buildResult(
+          null,
           latencyMs,
-          error: 'Invalid redirect Location header',
-        };
+          'Invalid redirect Location header',
+          hopResult
+        );
       }
 
       // Reject HTTPS -> HTTP downgrade to prevent plaintext transmission of webhook payloads
@@ -550,11 +610,12 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
         logger.warn('Webhook redirect rejected: insecure HTTPS to HTTP downgrade', {
           from: sanitizeUrlForLogging(currentUrl),
         });
-        return {
-          statusCode: null,
+        return buildResult(
+          null,
           latencyMs,
-          error: 'Blocked by SSRF protection: Insecure redirect downgrade from HTTPS to HTTP is disallowed',
-        };
+          'Blocked by SSRF protection: Insecure redirect downgrade from HTTPS to HTTP is disallowed',
+          hopResult
+        );
       }
 
       logger.debug('Following webhook redirect', {
@@ -578,7 +639,7 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
 
       // Handle Redirect Method & Body Semantics:
       // 301, 302, 303: Rewrite method to GET and discard body
-      // 307, 308: Preserve original method (POST) and body
+      // 307, 308: Preserve original method and body
       if (
         hopResult.statusCode === 301 ||
         hopResult.statusCode === 302 ||
@@ -595,7 +656,7 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
         }
         currentHeaders = cleanHeaders;
       } else if (hopResult.statusCode === 307 || hopResult.statusCode === 308) {
-        currentMethod = 'POST';
+        currentMethod = (options.method || 'POST').toUpperCase();
         currentBody = body; // Preserved
       }
 
@@ -612,14 +673,30 @@ export async function send(url, body, headers = {}, timeoutMs, options = {}) {
       latencyMs,
     });
 
-    return {
-      statusCode: hopResult.statusCode,
-      latencyMs,
-      error: null,
-    };
+    return buildResult(hopResult.statusCode, latencyMs, null, hopResult);
   }
+}
+
+/**
+ * Test dispatch an HTTP request to an endpoint and capture response body & headers.
+ * Stateless test probe; does not alter webhook deliveries or sequence state.
+ *
+ * @param {string} url - Destination webhook URL
+ * @param {string|null} body - Payload body string
+ * @param {Object} [headers] - Optional headers map
+ * @param {number} [timeoutMs] - Request timeout in milliseconds
+ * @param {Object} [options] - Optional overrides (e.g. method, dnsLookup, allowLocal)
+ * @returns {Promise<{ statusCode: number|null, latencyMs: number, error: string|null, headers: Object|null, body: string|null, sizeBytes: number, truncated: boolean }>}
+ */
+export async function test(url, body, headers = {}, timeoutMs, options = {}) {
+  return send(url, body, headers, timeoutMs, {
+    ...options,
+    captureResponse: true,
+    captureResponseBody: true,
+  });
 }
 
 export default {
   send,
+  test,
 };

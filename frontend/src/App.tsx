@@ -4,8 +4,11 @@ import { NotificationProvider } from './context/NotificationContext'
 import { DashboardLayout } from './layouts/DashboardLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { EndpointsPage } from './pages/EndpointsPage'
+import { EndpointTestingPage } from './pages/EndpointTestingPage'
+import { TemplatesPage } from './pages/TemplatesPage'
 import { EventsPage } from './pages/EventsPage'
 import { DeliveriesPage } from './pages/DeliveriesPage'
+import { ScheduledDeliveriesPage } from './pages/ScheduledDeliveriesPage'
 import { DeadLettersPage } from './pages/DeadLettersPage'
 import { ReplayPage } from './pages/ReplayPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
@@ -22,8 +25,11 @@ export function App() {
               <Route index element={<DashboardPage />} />
               <Route path="dashboard" element={<Navigate to="/" replace />} />
               <Route path="endpoints" element={<EndpointsPage />} />
+              <Route path="templates" element={<TemplatesPage />} />
+              <Route path="endpoint-testing" element={<EndpointTestingPage />} />
               <Route path="events" element={<EventsPage />} />
               <Route path="deliveries" element={<DeliveriesPage />} />
+              <Route path="scheduled-deliveries" element={<ScheduledDeliveriesPage />} />
               <Route path="dead-letters" element={<DeadLettersPage />} />
               <Route path="replay" element={<ReplayPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />

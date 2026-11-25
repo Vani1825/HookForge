@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Globe2,
   Plus,
@@ -8,6 +9,11 @@ import {
   ExternalLink,
   X,
   Trash2,
+  FlaskConical,
+  Edit3,
+  Zap,
+  Clock,
+  LayoutTemplate,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -17,14 +23,18 @@ import { CircuitBadge } from '../components/CircuitBadge'
 import { TableSkeleton } from '../components/ui/LoadingSkeleton'
 import { EmptyState } from '../components/ui/EmptyState'
 import { CreateEndpointModal } from '../components/CreateEndpointModal'
+import { EditEndpointModal } from '../components/EditEndpointModal'
+import { EndpointDetailDrawer } from '../components/EndpointDetailDrawer'
 import { ConfirmationDialog } from '../components/ui/ConfirmationDialog'
+import { EndpointTestModal } from '../components/EndpointTestModal'
 import { useApp } from '../context/AppContext'
 import { formatErrorMessage } from '../api/client'
-import { formatDateTime, truncateId } from '../utils/formatters'
+import { formatDateTime, truncateId, formatDuration } from '../utils/formatters'
 import type { Endpoint } from '../types'
 
 export const EndpointsPage: React.FC = () => {
   const { service, mode, addToast } = useApp()
+  const navigate = useNavigate()
 
   const [endpoints, setEndpoints] = useState<Endpoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -34,6 +44,12 @@ export const EndpointsPage: React.FC = () => {
   const [circuitFilter, setCircuitFilter] = useState<'ALL' | 'CLOSED' | 'OPEN' | 'HALF_OPEN'>('ALL')
 
   const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [testModalOpen, setTestModalOpen] = useState(false)
+  const [testingEndpoint, setTestingEndpoint] = useState<Endpoint | null>(null)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editingEndpoint, setEditingEndpoint] = useState<Endpoint | null>(null)
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false)
+  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null)
   const [togglingId, setTogglingId] = useState<string | null>(null)
 
   // Confirmation dialog state for deletion
@@ -174,6 +190,22 @@ export const EndpointsPage: React.FC = () => {
               leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
             >
               Refresh
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/endpoint-testing')}
+              leftIcon={<FlaskConical className="w-3.5 h-3.5 text-[#5277D9]" />}
+            >
+              Testing Console
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/templates')}
+              leftIcon={<LayoutTemplate className="w-3.5 h-3.5 text-indigo-600" />}
+            >
+              Templates
             </Button>
             <Button
               variant="primary"
@@ -333,22 +365,33 @@ export const EndpointsPage: React.FC = () => {
             <table className="w-full text-left text-xs min-w-[720px]">
               <thead className="bg-[#F7F6F2] border-b border-[#E7E8EC] text-[#64748B] font-semibold">
                 <tr>
-                  <th className="py-3 px-4 min-w-[280px]">Endpoint Destination</th>
-                  <th className="py-3 px-4 w-32">Status</th>
-                  <th className="py-3 px-4 w-40">Circuit Breaker</th>
-                  <th className="py-3 px-4 w-28">Rate Limit</th>
-                  <th className="py-3 px-4 w-28">Next Sequence</th>
-                  <th className="py-3 px-4 w-36">Created</th>
-                  <th className="py-3 px-4 w-40 text-right">Actions</th>
+                  <th className="py-3 px-4 min-w-[240px]">Endpoint Destination</th>
+                  <th className="py-3 px-4 w-28">Status</th>
+                  <th className="py-3 px-4 w-36">Circuit Breaker</th>
+                  <th className="py-3 px-4 w-44">Retry Policy</th>
+                  <th className="py-3 px-4 w-24">Rate Limit</th>
+                  <th className="py-3 px-4 w-24">Next Seq</th>
+                  <th className="py-3 px-4 w-32">Created</th>
+                  <th className="py-3 px-4 w-52 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E7E8EC]">
                 {filteredEndpoints.map((ep) => (
                   <tr key={ep.id} className="hover:bg-[#F7F6F2]/70 transition-colors">
-                    <td className="py-3.5 px-4 min-w-[280px]">
+                    <td className="py-3.5 px-4 min-w-[260px]">
                       <div className="flex flex-col space-y-0.5">
                         <div className="flex items-center gap-1.5 font-mono font-medium text-[#202938]">
-                          <span className="truncate max-w-xs">{ep.url}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedEndpoint(ep)
+                              setDetailDrawerOpen(true)
+                            }}
+                            className="text-left font-mono font-medium text-[#202938] hover:text-[#5277D9] truncate max-w-xs transition-colors cursor-pointer"
+                            title="Click to view full endpoint details and retry policy"
+                          >
+                            {ep.url}
+                          </button>
                           <a
                             href={ep.url}
                             target="_blank"
@@ -370,7 +413,7 @@ export const EndpointsPage: React.FC = () => {
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4 w-32">
+                    <td className="py-3.5 px-4 w-28">
                       {ep.active ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-2xs font-semibold bg-[#159B78]/10 text-[#159B78] border border-[#159B78]/25">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#159B78]" />
@@ -384,32 +427,95 @@ export const EndpointsPage: React.FC = () => {
                       )}
                     </td>
 
-                    <td className="py-3.5 px-4 w-40">
+                    <td className="py-3.5 px-4 w-36">
                       <CircuitBadge
                         state={ep.circuit_state}
                         consecutiveFailures={ep.consecutive_failures}
                       />
                     </td>
 
-                    <td className="py-3.5 px-4 w-28 text-[#202938] font-semibold">
+                    {/* Retry Policy Column */}
+                    <td className="py-3.5 px-4 w-44">
+                      {(() => {
+                        const strat =
+                          ep.retryStrategy ||
+                          ep.retry_strategy ||
+                          ep.retryPolicy?.strategy ||
+                          'EXPONENTIAL'
+                        const isExp = strat === 'EXPONENTIAL'
+                        const attempts =
+                          ep.retryMaxAttempts ??
+                          ep.retry_max_attempts ??
+                          ep.retryPolicy?.maxAttempts ??
+                          8
+                        const baseDelay =
+                          ep.retryBaseDelayMs ??
+                          ep.retry_base_delay_ms ??
+                          ep.retryPolicy?.baseDelayMs ??
+                          5000
+                        return (
+                          <div className="flex flex-col space-y-1">
+                            <span
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-3xs font-semibold w-fit border ${
+                                isExp
+                                  ? 'bg-[#EAF0FF] text-[#5277D9] border-[#DCE5FA]'
+                                  : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              }`}
+                            >
+                              {isExp ? <Zap className="w-2.5 h-2.5" /> : <Clock className="w-2.5 h-2.5" />}
+                              {isExp ? 'Exponential' : 'Fixed'}
+                            </span>
+                            <span className="text-3xs text-[#64748B] font-mono">
+                              {attempts} attempts • {formatDuration(baseDelay)}
+                            </span>
+                          </div>
+                        )
+                      })()}
+                    </td>
+
+                    <td className="py-3.5 px-4 w-24 text-[#202938] font-semibold">
                       {ep.rate_limit_rps} RPS
                     </td>
 
-                    <td className="py-3.5 px-4 w-28 font-mono text-[#64748B]">
+                    <td className="py-3.5 px-4 w-24 font-mono text-[#64748B]">
                       #{ep.next_seq ?? 1}
                     </td>
 
-                    <td className="py-3.5 px-4 w-36 text-[#64748B]">
+                    <td className="py-3.5 px-4 w-32 text-[#64748B]">
                       {formatDateTime(ep.created_at)}
                     </td>
 
-                    <td className="py-3.5 px-4 w-40 text-right">
+                    <td className="py-3.5 px-4 w-48 text-right">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => {
+                            setTestingEndpoint(ep)
+                            setTestModalOpen(true)
+                          }}
+                          title="Test this webhook endpoint"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer bg-[#5277D9]/10 text-[#5277D9] border-[#5277D9]/25 hover:bg-[#5277D9]/20"
+                        >
+                          <FlaskConical className="w-3 h-3" />
+                          <span>Test</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setEditingEndpoint(ep)
+                            setEditModalOpen(true)
+                          }}
+                          title="Edit endpoint configuration and retry policy"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer bg-slate-100 text-[#202938] border-[#E7E8EC] hover:bg-slate-200"
+                        >
+                          <Edit3 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+
                         <button
                           onClick={() => handleToggleClick(ep)}
                           disabled={togglingId === ep.id || deletingId === ep.id}
                           title={ep.active ? 'Pause delivery dispatches' : 'Resume delivery dispatches'}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer ${
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-2xs font-semibold border transition-colors cursor-pointer ${
                             ep.active
                               ? 'bg-[#E5B34B]/10 text-[#B48418] border-[#E5B34B]/30 hover:bg-[#E5B34B]/20'
                               : 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25 hover:bg-[#159B78]/20'
@@ -444,6 +550,48 @@ export const EndpointsPage: React.FC = () => {
         onClose={() => setCreateModalOpen(false)}
         onSuccess={(newEp) => {
           setEndpoints((prev) => [newEp, ...prev])
+        }}
+      />
+
+      {/* Edit Endpoint Modal */}
+      <EditEndpointModal
+        isOpen={editModalOpen}
+        onClose={() => {
+          setEditModalOpen(false)
+          setEditingEndpoint(null)
+        }}
+        endpoint={editingEndpoint}
+        onSuccess={(updated) => {
+          setEndpoints((prev) => prev.map((e) => (e.id === updated.id ? updated : e)))
+          if (selectedEndpoint?.id === updated.id) {
+            setSelectedEndpoint(updated)
+          }
+        }}
+      />
+
+      {/* Endpoint Detail Drawer */}
+      <EndpointDetailDrawer
+        isOpen={detailDrawerOpen}
+        onClose={() => {
+          setDetailDrawerOpen(false)
+          setSelectedEndpoint(null)
+        }}
+        endpoint={selectedEndpoint}
+        onEdit={(ep) => {
+          setDetailDrawerOpen(false)
+          setEditingEndpoint(ep)
+          setEditModalOpen(true)
+        }}
+        onTest={(ep) => {
+          setDetailDrawerOpen(false)
+          setTestingEndpoint(ep)
+          setTestModalOpen(true)
+        }}
+        onToggle={(ep) => {
+          handleToggleClick(ep)
+          if (selectedEndpoint && selectedEndpoint.id === ep.id) {
+            setSelectedEndpoint((prev) => (prev ? { ...prev, active: !prev.active } : null))
+          }
         }}
       />
 
@@ -485,6 +633,16 @@ export const EndpointsPage: React.FC = () => {
         cancelText="Keep Active"
         variant="warning"
         isLoading={Boolean(togglingId)}
+      />
+
+      {/* Endpoint Test Modal */}
+      <EndpointTestModal
+        isOpen={testModalOpen}
+        onClose={() => {
+          setTestModalOpen(false)
+          setTestingEndpoint(null)
+        }}
+        endpoint={testingEndpoint}
       />
     </div>
   )
