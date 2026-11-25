@@ -985,28 +985,44 @@ export async function countDeliveries(tenantId, options = {}) {
  */
 export async function findAttemptsByDeliveryId(deliveryId) {
   const sql = `
-    SELECT id, delivery_id, attempt_no, started_at, status_code, latency_ms, error
+    SELECT id, delivery_id, attempt_no, started_at, status_code, latency_ms, error,
+           response_body, response_headers, request_headers
     FROM delivery_attempts
     WHERE delivery_id = $1
-    ORDER BY attempt_no ASC
+    ORDER BY attempt_no ASC, id ASC
   `;
 
   try {
     const result = await query(sql, [deliveryId]);
-    return result.rows.map((row) => ({
-      id: row.id,
-      deliveryId: row.delivery_id,
-      delivery_id: row.delivery_id,
-      attemptNo: row.attempt_no,
-      attempt_no: row.attempt_no,
-      startedAt: row.started_at ? row.started_at.toISOString() : null,
-      started_at: row.started_at ? row.started_at.toISOString() : null,
-      statusCode: row.status_code,
-      status_code: row.status_code,
-      latencyMs: Number(row.latency_ms),
-      latency_ms: Number(row.latency_ms),
-      error: row.error,
-    }));
+    return result.rows.map((row) => {
+      const respHeaders = typeof row.response_headers === 'string'
+        ? JSON.parse(row.response_headers)
+        : (row.response_headers || null);
+      const reqHeaders = typeof row.request_headers === 'string'
+        ? JSON.parse(row.request_headers)
+        : (row.request_headers || null);
+
+      return {
+        id: row.id,
+        deliveryId: row.delivery_id,
+        delivery_id: row.delivery_id,
+        attemptNo: row.attempt_no,
+        attempt_no: row.attempt_no,
+        startedAt: row.started_at ? (row.started_at instanceof Date ? row.started_at.toISOString() : new Date(row.started_at).toISOString()) : null,
+        started_at: row.started_at ? (row.started_at instanceof Date ? row.started_at.toISOString() : new Date(row.started_at).toISOString()) : null,
+        statusCode: row.status_code,
+        status_code: row.status_code,
+        latencyMs: Number(row.latency_ms),
+        latency_ms: Number(row.latency_ms),
+        error: row.error,
+        responseBody: row.response_body || null,
+        response_body: row.response_body || null,
+        responseHeaders: respHeaders,
+        response_headers: respHeaders,
+        requestHeaders: reqHeaders,
+        request_headers: reqHeaders,
+      };
+    });
   } catch (error) {
     logger.error('Failed to find attempts by delivery ID', {
       error: error.message,
@@ -1102,9 +1118,24 @@ export async function recoverExpiredLeasesBatch(now, batchSize = 100, maxAttempt
  */
 export async function recordAttempt(attempt) {
   const sql = `
-    INSERT INTO delivery_attempts (delivery_id, attempt_no, started_at, status_code, latency_ms, error)
-    VALUES ($1, $2, $3, $4, $5, $6)
+    INSERT INTO delivery_attempts (
+      delivery_id, attempt_no, started_at, status_code, latency_ms, error,
+      response_body, response_headers, request_headers
+    )
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   `;
+
+  const respBody = attempt.responseBody ?? attempt.response_body ?? null;
+  const rawRespHeaders = attempt.responseHeaders ?? attempt.response_headers ?? null;
+  const rawReqHeaders = attempt.requestHeaders ?? attempt.request_headers ?? null;
+
+  const respHeaders = rawRespHeaders !== null && rawRespHeaders !== undefined
+    ? (typeof rawRespHeaders === 'string' ? rawRespHeaders : JSON.stringify(rawRespHeaders))
+    : null;
+
+  const reqHeaders = rawReqHeaders !== null && rawReqHeaders !== undefined
+    ? (typeof rawReqHeaders === 'string' ? rawReqHeaders : JSON.stringify(rawReqHeaders))
+    : null;
 
   try {
     await query(sql, [
@@ -1114,11 +1145,48 @@ export async function recordAttempt(attempt) {
       attempt.statusCode,
       attempt.latencyMs,
       attempt.error,
+      respBody,
+      respHeaders,
+      reqHeaders,
     ]);
   } catch (error) {
     logger.error('Failed to record delivery attempt', {
       error: error.message,
       deliveryId: attempt.deliveryId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Atomically claim a delivery for immediate resend execution, setting state to IN_FLIGHT
+ * with an active lease. Rejects if already IN_FLIGHT.
+ *
+ * @param {string} deliveryId - Delivery UUID
+ * @param {number} leaseDurationMs - Lease duration in milliseconds
+ * @returns {Promise<Object|null>} Claimed delivery domain model or null
+ */
+export async function claimForImmediateExecution(deliveryId, leaseDurationMs) {
+  const sql = `
+    UPDATE deliveries
+    SET state = 'IN_FLIGHT',
+        lease_until = now() + (make_interval(secs => $2 / 1000.0)),
+        updated_at = now()
+    WHERE id = $1
+      AND state IN ('DEAD', 'SUCCEEDED', 'CANCELLED', 'PENDING', 'RETRYING')
+    RETURNING *
+  `;
+
+  try {
+    const result = await query(sql, [deliveryId, leaseDurationMs / 1000.0]);
+    if (result.rows.length === 0) {
+      return null;
+    }
+    return mapRowToDelivery(result.rows[0]);
+  } catch (error) {
+    logger.error('Failed to claim delivery for immediate execution', {
+      error: error.message,
+      deliveryId,
     });
     throw error;
   }
@@ -1254,6 +1322,7 @@ export default {
   cancelDelivery,
   promoteDueScheduled,
   claim,
+  claimForImmediateExecution,
   findDueEndpoints,
   enqueueBatch,
   releaseLease,

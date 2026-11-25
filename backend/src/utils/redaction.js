@@ -49,7 +49,7 @@ function _redactRecursive(value, depth, maxDepth, maxStringLen) {
     return value;
   }
 
-  if (depth >= maxDepth) {
+  if (depth > maxDepth) {
     return '[NESTED_OBJECT_TRUNCATED]';
   }
 
@@ -69,7 +69,11 @@ function _redactRecursive(value, depth, maxDepth, maxStringLen) {
     const result = {};
     for (const [k, v] of Object.entries(value)) {
       if (isSensitiveKey(k)) {
-        result[k] = '[REDACTED]';
+        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+          result[k] = _redactRecursive(v, depth + 1, maxDepth, maxStringLen);
+        } else {
+          result[k] = '[REDACTED]';
+        }
       } else {
         result[k] = _redactRecursive(v, depth + 1, maxDepth, maxStringLen);
       }
@@ -229,6 +233,58 @@ export function getFailureRecommendation(category, statusCode) {
   }
 }
 
+const SENSITIVE_HEADERS = new Set([
+  'authorization',
+  'proxy-authorization',
+  'x-webhook-signature',
+  'x-api-key',
+  'api-key',
+  'x-auth-token',
+  'cookie',
+  'set-cookie',
+]);
+
+/**
+ * Sanitize HTTP headers to prevent leaking signatures, auth tokens, or cookies.
+ * @param {Object} headers
+ * @returns {Object}
+ */
+export function sanitizeHeaders(headers) {
+  if (!headers || typeof headers !== 'object') return {};
+  const sanitized = {};
+  for (const [k, v] of Object.entries(headers)) {
+    const lowerKey = k.toLowerCase();
+    if (SENSITIVE_HEADERS.has(lowerKey) || isSensitiveKey(k)) {
+      sanitized[k] = '[REDACTED]';
+    } else {
+      sanitized[k] = v;
+    }
+  }
+  return sanitized;
+}
+
+/**
+ * Sanitize response body content. Truncates oversized bodies to maxLen (default 65536)
+ * and redacts sensitive payload fields if JSON.
+ * @param {string} body
+ * @param {number} [maxLen=65536]
+ * @returns {string|null}
+ */
+export function sanitizeResponseBody(body, maxLen = 65536) {
+  if (!body || typeof body !== 'string') return body ?? null;
+  const trimmed = body.trim();
+  if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const redacted = redactSensitiveData(parsed);
+      return JSON.stringify(redacted);
+    } catch {
+      // not valid JSON, treat as text
+    }
+  }
+  return sanitizeErrorMessage(body, maxLen) || (body.length > maxLen ? body.slice(0, maxLen) + '... [TRUNCATED]' : body);
+}
+
 export default {
   isSensitiveKey,
   redactSensitiveData,
@@ -236,4 +292,6 @@ export default {
   sanitizeUrl,
   classifyFailure,
   getFailureRecommendation,
+  sanitizeHeaders,
+  sanitizeResponseBody,
 };

@@ -31,9 +31,9 @@ const ALLOWED_TRANSITIONS = {
   [PENDING]: new Set([IN_FLIGHT, CANCELLED]),
   [IN_FLIGHT]: new Set([SUCCEEDED, RETRYING, DEAD]),
   [RETRYING]: new Set([IN_FLIGHT]),
-  [SUCCEEDED]: new Set(),
-  [DEAD]: new Set([PENDING]), // manual replay only
-  [CANCELLED]: new Set(),
+  [SUCCEEDED]: new Set([PENDING]), // manual resend
+  [DEAD]: new Set([PENDING]), // manual replay and resend
+  [CANCELLED]: new Set([PENDING]), // manual resend
 };
 
 class DeliveryState {

@@ -16,6 +16,7 @@ vi.mock('../../src/services/delivery/deliveryService.js', () => ({
     getAllDeliveries: vi.fn(),
     getDeliveryById: vi.fn(),
     replayDelivery: vi.fn(),
+    resendDelivery: vi.fn(),
   },
 }));
 
@@ -506,6 +507,132 @@ describe('Delivery Routes', () => {
       const response = await request(app).post('/deliveries/not-a-uuid/replay');
 
       expect(response.status).toBe(400);
+    });
+  });
+
+  describe('POST /deliveries/:id/resend', () => {
+    it('should queue a delivery for resend with default immediate: false', async () => {
+      const mockResult = {
+        delivery: {
+          id: mockDeliveryId,
+          eventId: mockEventId,
+          endpointId: mockEndpointId,
+          endpointUrl: 'https://example.com/webhook',
+          seq: 5,
+          state: deliveryState.PENDING,
+          attemptCount: 0,
+          nextAttemptAt: new Date().toISOString(),
+          lastError: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:10:00Z',
+        },
+        success: true,
+        message: 'Delivery queued for resend',
+      };
+
+      deliveryService.resendDelivery.mockResolvedValue(mockResult);
+
+      const response = await request(app).post(`/deliveries/${mockDeliveryId}/resend`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('Delivery queued for resend');
+      expect(response.body.delivery).toBeDefined();
+      expect(response.body.delivery.id).toBe(mockDeliveryId);
+      expect(response.body.delivery.state).toBe('PENDING');
+      expect(response.body.delivery.seq).toBe(5);
+      expect(deliveryService.resendDelivery).toHaveBeenCalledWith(
+        mockDeliveryId,
+        mockTenantId,
+        { immediate: false }
+      );
+    });
+
+    it('should immediately execute resend when immediate: true', async () => {
+      const mockResult = {
+        delivery: {
+          id: mockDeliveryId,
+          eventId: mockEventId,
+          endpointId: mockEndpointId,
+          endpointUrl: 'https://example.com/webhook',
+          seq: 5,
+          state: deliveryState.SUCCEEDED,
+          attemptCount: 1,
+          nextAttemptAt: null,
+          lastError: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:10:00Z',
+        },
+        attempt: {
+          attemptNo: 1,
+          startedAt: new Date().toISOString(),
+          statusCode: 200,
+          latencyMs: 45,
+          error: null,
+          responseBody: '{"success":true}',
+          responseHeaders: { 'content-type': 'application/json' },
+          requestHeaders: { 'X-Webhook-Id': mockDeliveryId, 'X-Webhook-Signature': '[REDACTED]' },
+        },
+        success: true,
+        message: 'Delivery resent immediately',
+      };
+
+      deliveryService.resendDelivery.mockResolvedValue(mockResult);
+
+      const response = await request(app)
+        .post(`/deliveries/${mockDeliveryId}/resend`)
+        .send({ immediate: true });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('Delivery resent immediately');
+      expect(response.body.attempt).toBeDefined();
+      expect(response.body.attempt.statusCode).toBe(200);
+      expect(response.body.attempt.responseBody).toBe('{"success":true}');
+      expect(deliveryService.resendDelivery).toHaveBeenCalledWith(
+        mockDeliveryId,
+        mockTenantId,
+        { immediate: true }
+      );
+    });
+
+    it('should return 400 for invalid delivery UUID', async () => {
+      const response = await request(app).post('/deliveries/not-a-uuid/resend');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should return 400 when immediate is not a boolean', async () => {
+      const response = await request(app)
+        .post(`/deliveries/${mockDeliveryId}/resend`)
+        .send({ immediate: 'invalid-boolean' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('immediate must be a boolean');
+    });
+
+    it('should return 404 when delivery not found or tenant unauthorized', async () => {
+      const error = new Error('Delivery not found');
+      error.statusCode = 404;
+      deliveryService.resendDelivery.mockRejectedValue(error);
+
+      const response = await request(app).post(`/deliveries/${mockDeliveryId}/resend`);
+
+      expect(response.status).toBe(404);
+      expect(response.body.error).toBe('Not found');
+    });
+
+    it('should return 400 when delivery is currently in flight', async () => {
+      const error = new Error('Delivery is currently in flight and cannot be resent');
+      error.name = 'IllegalStateTransitionError';
+      error.statusCode = 400;
+      deliveryService.resendDelivery.mockRejectedValue(error);
+
+      const response = await request(app).post(`/deliveries/${mockDeliveryId}/resend`);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid state transition');
+      expect(response.body.message).toContain('currently in flight');
     });
   });
 });

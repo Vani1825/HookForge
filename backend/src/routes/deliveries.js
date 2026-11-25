@@ -983,4 +983,66 @@ router.post(
   }
 );
 
+/**
+ * POST /deliveries/:id/resend
+ * Resend an existing delivery (DEAD, SUCCEEDED, or CANCELLED).
+ * Supports optional immediate execution: { "immediate": true|false } (defaults to false).
+ */
+router.post(
+  '/:id/resend',
+  [
+    param('id').isUUID().withMessage('Invalid delivery ID'),
+    body('immediate')
+      .optional()
+      .isBoolean()
+      .withMessage('immediate must be a boolean'),
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          error: 'Validation Error',
+          message: errors.array().map((e) => e.msg).join(', '),
+          errors: errors.array(),
+        });
+      }
+
+      const deliveryId = req.params.id;
+      const tenantId = req.tenantId || req[TENANT_ID_ATTRIBUTE];
+      const immediate = req.body?.immediate === true;
+
+      const result = await deliveryService.resendDelivery(deliveryId, tenantId, { immediate });
+      const deliveryPayload = formatDeliveryPayload(result.delivery || result);
+
+      res.status(200).json({
+        success: result.success !== undefined ? result.success : true,
+        message: result.message || (immediate ? 'Delivery resent immediately' : 'Delivery queued for resend'),
+        ...deliveryPayload,
+        delivery: deliveryPayload,
+        ...(result.attempt ? { attempt: result.attempt } : {}),
+        ...(result.blocked ? { blocked: result.blocked } : {}),
+      });
+    } catch (error) {
+      if (
+        error instanceof IllegalStateTransitionError ||
+        error.name === 'IllegalStateTransitionError' ||
+        error.statusCode === 400
+      ) {
+        return res.status(400).json({
+          error: 'Invalid state transition',
+          message: error.message,
+        });
+      }
+      if (error.statusCode === 404) {
+        return res.status(404).json({
+          error: 'Not found',
+          message: error.message,
+        });
+      }
+      next(error);
+    }
+  }
+);
+
 export default router;
