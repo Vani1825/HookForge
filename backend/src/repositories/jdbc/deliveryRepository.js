@@ -532,44 +532,182 @@ export async function findWithFilters(
   const params = [tenantId];
   let paramIndex = 2;
 
-  if (filters.state && filters.state !== 'ALL') {
-    conditions.push(`d.state = $${paramIndex}`);
-    params.push(filters.state);
+  // 1. Delivery state / status (supports single state or array/comma-separated)
+  const rawState = filters.state || filters.status;
+  if (rawState && rawState !== 'ALL') {
+    const states = Array.isArray(rawState)
+      ? rawState.map((s) => String(s).trim().toUpperCase()).filter(Boolean)
+      : String(rawState)
+          .split(',')
+          .map((s) => s.trim().toUpperCase())
+          .filter(Boolean);
+
+    if (states.length === 1) {
+      conditions.push(`d.state = $${paramIndex}`);
+      params.push(states[0]);
+      paramIndex++;
+    } else if (states.length > 1) {
+      conditions.push(`d.state = ANY($${paramIndex}::text[])`);
+      params.push(states);
+      paramIndex++;
+    }
+  }
+
+  // 2. Endpoint ID filter (supports single UUID or array/comma-separated)
+  const rawEndpointId = filters.endpoint_id || filters.endpointId;
+  if (rawEndpointId) {
+    const epIds = Array.isArray(rawEndpointId)
+      ? rawEndpointId.map((id) => String(id).trim()).filter(Boolean)
+      : String(rawEndpointId)
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean);
+
+    if (epIds.length === 1) {
+      conditions.push(`d.endpoint_id = $${paramIndex}`);
+      params.push(epIds[0]);
+      paramIndex++;
+    } else if (epIds.length > 1) {
+      conditions.push(`d.endpoint_id = ANY($${paramIndex}::uuid[])`);
+      params.push(epIds);
+      paramIndex++;
+    }
+  }
+
+  // 3. Event ID filter (supports single UUID or array/comma-separated)
+  const rawEventId = filters.event_id || filters.eventId;
+  if (rawEventId) {
+    const evIds = Array.isArray(rawEventId)
+      ? rawEventId.map((id) => String(id).trim()).filter(Boolean)
+      : String(rawEventId)
+          .split(',')
+          .map((id) => id.trim())
+          .filter(Boolean);
+
+    if (evIds.length === 1) {
+      conditions.push(`d.event_id = $${paramIndex}`);
+      params.push(evIds[0]);
+      paramIndex++;
+    } else if (evIds.length > 1) {
+      conditions.push(`d.event_id = ANY($${paramIndex}::uuid[])`);
+      params.push(evIds);
+      paramIndex++;
+    }
+  }
+
+  // 4. Event Type filter (matches payload->>'type', payload->>'event', or payload->>'event_type')
+  const rawEventType = filters.event_type || filters.eventType;
+  if (rawEventType && String(rawEventType).trim()) {
+    conditions.push(`(
+      ev.payload->>'type' = $${paramIndex} OR
+      ev.payload->>'event' = $${paramIndex} OR
+      ev.payload->>'event_type' = $${paramIndex}
+    )`);
+    params.push(String(rawEventType).trim());
     paramIndex++;
   }
 
-  if (filters.endpoint_id) {
-    conditions.push(`d.endpoint_id = $${paramIndex}`);
-    params.push(filters.endpoint_id);
-    paramIndex++;
-  }
-
-  if (filters.event_id) {
-    conditions.push(`d.event_id = $${paramIndex}`);
-    params.push(filters.event_id);
-    paramIndex++;
-  }
-
-  if (filters.created_after) {
+  // 5. Date range filters
+  const createdAfter = filters.created_after || filters.from || filters.startDate || filters.start_date;
+  if (createdAfter) {
     conditions.push(`d.created_at >= $${paramIndex}`);
-    params.push(filters.created_after);
+    params.push(createdAfter);
     paramIndex++;
   }
 
-  if (filters.created_before) {
+  const createdBefore = filters.created_before || filters.to || filters.endDate || filters.end_date;
+  if (createdBefore) {
     conditions.push(`d.created_at <= $${paramIndex}`);
-    params.push(filters.created_before);
+    params.push(createdBefore);
     paramIndex++;
   }
 
-  if (filters.q && filters.q.trim()) {
-    const pattern = `%${escapeLikePattern(filters.q.trim())}%`;
+  // 6. HTTP response status code filter (supports exact code e.g. 504, 200, 429 or class e.g. '5xx', '4xx', '2xx')
+  const rawStatusCode =
+    filters.status_code ??
+    filters.statusCode ??
+    filters.last_status_code ??
+    filters.http_status;
+  if (rawStatusCode !== undefined && rawStatusCode !== null && String(rawStatusCode).trim() !== '') {
+    const codeStr = String(rawStatusCode).trim().toLowerCase();
+    if (codeStr === '2xx') {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM delivery_attempts da
+        WHERE da.delivery_id = d.id AND da.status_code >= 200 AND da.status_code <= 299
+      )`);
+    } else if (codeStr === '3xx') {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM delivery_attempts da
+        WHERE da.delivery_id = d.id AND da.status_code >= 300 AND da.status_code <= 399
+      )`);
+    } else if (codeStr === '4xx') {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM delivery_attempts da
+        WHERE da.delivery_id = d.id AND da.status_code >= 400 AND da.status_code <= 499
+      )`);
+    } else if (codeStr === '5xx') {
+      conditions.push(`EXISTS (
+        SELECT 1 FROM delivery_attempts da
+        WHERE da.delivery_id = d.id AND da.status_code >= 500 AND da.status_code <= 599
+      )`);
+    } else {
+      const codeNum = parseInt(codeStr, 10);
+      if (!isNaN(codeNum)) {
+        conditions.push(`EXISTS (
+          SELECT 1 FROM delivery_attempts da
+          WHERE da.delivery_id = d.id AND da.status_code = $${paramIndex}
+        )`);
+        params.push(codeNum);
+        paramIndex++;
+      }
+    }
+  }
+
+  // 7. Attempt count / Retry count filters
+  const exactAttempts = filters.attempt_count ?? filters.attemptCount ?? filters.attempts;
+  if (exactAttempts !== undefined && exactAttempts !== null && String(exactAttempts).trim() !== '') {
+    const num = parseInt(String(exactAttempts), 10);
+    if (!isNaN(num) && num >= 0) {
+      conditions.push(`d.attempt_count = $${paramIndex}`);
+      params.push(num);
+      paramIndex++;
+    }
+  }
+
+  const minAttempts = filters.min_attempts ?? filters.minAttempts;
+  if (minAttempts !== undefined && minAttempts !== null && String(minAttempts).trim() !== '') {
+    const num = parseInt(String(minAttempts), 10);
+    if (!isNaN(num) && num >= 0) {
+      conditions.push(`d.attempt_count >= $${paramIndex}`);
+      params.push(num);
+      paramIndex++;
+    }
+  }
+
+  const maxAttempts = filters.max_attempts ?? filters.maxAttempts;
+  if (maxAttempts !== undefined && maxAttempts !== null && String(maxAttempts).trim() !== '') {
+    const num = parseInt(String(maxAttempts), 10);
+    if (!isNaN(num) && num >= 0) {
+      conditions.push(`d.attempt_count <= $${paramIndex}`);
+      params.push(num);
+      paramIndex++;
+    }
+  }
+
+  // 8. Text search filter
+  const searchQuery = filters.q || filters.search;
+  if (searchQuery && searchQuery.trim()) {
+    const pattern = `%${escapeLikePattern(searchQuery.trim())}%`;
     conditions.push(`(
       d.id::text ILIKE $${paramIndex} OR
       d.event_id::text ILIKE $${paramIndex} OR
       d.endpoint_id::text ILIKE $${paramIndex} OR
       (d.last_error IS NOT NULL AND d.last_error ILIKE $${paramIndex}) OR
-      e.url ILIKE $${paramIndex}
+      e.url ILIKE $${paramIndex} OR
+      ev.idempotency_key ILIKE $${paramIndex} OR
+      (ev.payload->>'type' IS NOT NULL AND ev.payload->>'type' ILIKE $${paramIndex}) OR
+      (ev.payload->>'event' IS NOT NULL AND ev.payload->>'event' ILIKE $${paramIndex}) OR
+      (ev.payload->>'event_type' IS NOT NULL AND ev.payload->>'event_type' ILIKE $${paramIndex})
     )`);
     params.push(pattern);
     paramIndex++;
@@ -581,9 +719,11 @@ export async function findWithFilters(
     SELECT count(*)::int AS count
     FROM deliveries d
     JOIN endpoints e ON d.endpoint_id = e.id
+    JOIN events ev ON d.event_id = ev.id
     WHERE ${whereClause}
   `;
 
+  // Pagination parameters
   let limit = 20;
   if (pagination.pageSize !== undefined) {
     limit = Math.min(100, Math.max(1, parseInt(pagination.pageSize, 10)));
@@ -599,13 +739,51 @@ export async function findWithFilters(
     offset = Math.max(0, parseInt(pagination.offset, 10));
   }
 
+  // Sorting columns
+  const validSortCols = {
+    created_at: 'd.created_at',
+    createdAt: 'd.created_at',
+    updated_at: 'd.updated_at',
+    updatedAt: 'd.updated_at',
+    seq: 'd.seq',
+    attempt_count: 'd.attempt_count',
+    attemptCount: 'd.attempt_count',
+    next_attempt_at: 'd.next_attempt_at',
+    nextAttemptAt: 'd.next_attempt_at',
+  };
+
+  const requestedSortBy = pagination.sortBy || pagination.sort_by || filters.sortBy || filters.sort_by;
+  const sortCol = validSortCols[requestedSortBy] || 'd.created_at';
+
+  const requestedSortOrder = pagination.sortOrder || pagination.sort_order || pagination.order || filters.sortOrder || filters.sort_order || filters.order;
+  const orderDir = String(requestedSortOrder || '').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
   const dataSql = `
-    SELECT d.*
-    FROM deliveries d
-    JOIN endpoints e ON d.endpoint_id = e.id
-    WHERE ${whereClause}
-    ORDER BY d.created_at DESC, d.id DESC
-    LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    WITH filtered_deliveries AS (
+      SELECT
+        d.*,
+        e.url AS endpoint_url
+      FROM deliveries d
+      JOIN endpoints e ON d.endpoint_id = e.id
+      JOIN events ev ON d.event_id = ev.id
+      WHERE ${whereClause}
+      ORDER BY ${sortCol} ${orderDir}, d.id ${orderDir}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    ),
+    latest_attempts AS (
+      SELECT DISTINCT ON (a.delivery_id)
+        a.delivery_id,
+        a.status_code
+      FROM delivery_attempts a
+      JOIN filtered_deliveries fd ON a.delivery_id = fd.id
+      ORDER BY a.delivery_id, a.attempt_no DESC
+    )
+    SELECT
+      fd.*,
+      la.status_code AS last_status_code
+    FROM filtered_deliveries fd
+    LEFT JOIN latest_attempts la ON fd.id = la.delivery_id
+    ORDER BY ${sortCol.replace('d.', 'fd.')} ${orderDir}, fd.id ${orderDir}
   `;
 
   const dataParams = [...params, limit, offset];

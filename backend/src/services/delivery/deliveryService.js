@@ -11,6 +11,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { deliveryState } from '../../domain/deliveryState.js';
 import { IllegalStateTransitionError } from '../../domain/errors/illegalStateTransitionError.js';
 import logger from '../../utils/logger.js';
+import {
+  redactSensitiveData,
+  sanitizeErrorMessage,
+  sanitizeUrl,
+  classifyFailure,
+  getFailureRecommendation,
+} from '../../utils/redaction.js';
 
 /**
  * Get deliveries for an event (tenant-scoped).
@@ -121,20 +128,255 @@ export async function countDeliveries(tenantId, options = {}) {
 }
 
 /**
- * Get delivery by ID with attempts (tenant-scoped).
+ * Helper to format a detailed delivery payload with sanitized attempts,
+ * redacted event payload, sanitized endpoint details, lifecycle metadata,
+ * and actionable diagnostics.
+ */
+function formatDetailedDelivery(delivery, attempts = [], event = null, endpoint = null) {
+  let eventPayload = null;
+  let eventType = null;
+  if (event) {
+    try {
+      const rawPayload =
+        typeof event.payloadJson === 'string'
+          ? JSON.parse(event.payloadJson)
+          : event.payloadJson ||
+            (typeof event.payload === 'string' ? JSON.parse(event.payload) : event.payload);
+      eventPayload = redactSensitiveData(rawPayload);
+      eventType =
+        rawPayload?.type ||
+        rawPayload?.event ||
+        rawPayload?.event_type ||
+        null;
+    } catch {
+      eventPayload = null;
+    }
+  }
+
+  const endpointUrl = endpoint?.url || delivery.endpointUrl || null;
+  const sanitizedUrl = sanitizeUrl(endpointUrl);
+
+  const formattedAttempts = (attempts || []).map((a) => {
+    const lat = Number(a.latencyMs || a.latency_ms || 0);
+    const code = a.statusCode ?? a.status_code ?? null;
+    const err = sanitizeErrorMessage(a.error);
+    const summary = code
+      ? `HTTP ${code}`
+      : err
+        ? err
+        : 'No response';
+
+    return {
+      id: a.id,
+      deliveryId: a.deliveryId || delivery.id,
+      delivery_id: a.deliveryId || delivery.id,
+      attemptNo: a.attemptNo ?? a.attempt_no,
+      attempt_no: a.attemptNo ?? a.attempt_no,
+      startedAt: a.startedAt || a.started_at,
+      started_at: a.startedAt || a.started_at,
+      statusCode: code,
+      status_code: code,
+      latencyMs: lat,
+      latency_ms: lat,
+      durationMs: lat,
+      duration_ms: lat,
+      error: err,
+      responseSummary: summary,
+      response_summary: summary,
+      request: {
+        method: 'POST',
+        url: sanitizedUrl,
+      },
+    };
+  });
+
+  const failureCategory = classifyFailure(delivery.lastError, delivery.lastStatusCode);
+  const recommendation = getFailureRecommendation(failureCategory, delivery.lastStatusCode);
+
+  const maxAttempts = endpoint?.retryMaxAttempts || 8;
+  const remainingAttempts = Math.max(0, maxAttempts - (delivery.attemptCount || 0));
+
+  const createdTime = new Date(delivery.createdAt).getTime();
+  const updatedTime = new Date(delivery.updatedAt).getTime();
+  const lifecycleDurationMs =
+    !isNaN(createdTime) && !isNaN(updatedTime) ? Math.max(0, updatedTime - createdTime) : 0;
+
+  return {
+    ...delivery,
+    endpointUrl: sanitizedUrl,
+    endpoint_url: sanitizedUrl,
+    event: event
+      ? {
+          id: event.id,
+          idempotencyKey: event.idempotencyKey || null,
+          idempotency_key: event.idempotencyKey || null,
+          eventType,
+          event_type: eventType,
+          createdAt: event.createdAt,
+          created_at: event.createdAt,
+          payload: eventPayload,
+        }
+      : null,
+    endpoint: endpoint
+      ? {
+          id: endpoint.id,
+          url: sanitizedUrl,
+          active: endpoint.active,
+          rateLimitRps: endpoint.rateLimitRps || 10,
+          rate_limit_rps: endpoint.rateLimitRps || 10,
+          circuitState: endpoint.circuitState || 'CLOSED',
+          circuit_state: endpoint.circuitState || 'CLOSED',
+          retryPolicy: {
+            strategy: endpoint.retryStrategy || 'EXPONENTIAL',
+            maxAttempts: endpoint.retryMaxAttempts || 8,
+            baseDelayMs: endpoint.retryBaseDelayMs || 5000,
+            maxDelayMs: endpoint.retryMaxDelayMs || 3600000,
+            backoffMultiplier: endpoint.retryBackoffMultiplier
+              ? Number(endpoint.retryBackoffMultiplier)
+              : 2.0,
+          },
+        }
+      : null,
+    retry: {
+      strategy: endpoint?.retryStrategy || 'EXPONENTIAL',
+      maxAttempts,
+      max_attempts: maxAttempts,
+      attemptCount: delivery.attemptCount || 0,
+      attempt_count: delivery.attemptCount || 0,
+      remainingAttempts,
+      remaining_attempts: remainingAttempts,
+      nextAttemptAt: delivery.nextAttemptAt || null,
+      next_attempt_at: delivery.nextAttemptAt || null,
+      scheduledAt: delivery.scheduledAt || null,
+      scheduled_at: delivery.scheduledAt || null,
+      isRetryable: ['PENDING', 'RETRYING', 'DEAD'].includes(
+        delivery.state?.toString() || delivery.state
+      ),
+      is_retryable: ['PENDING', 'RETRYING', 'DEAD'].includes(
+        delivery.state?.toString() || delivery.state
+      ),
+    },
+    lifecycle: {
+      state: delivery.state?.toString() || delivery.state,
+      isTerminal: ['SUCCEEDED', 'DEAD', 'CANCELLED'].includes(
+        delivery.state?.toString() || delivery.state
+      ),
+      is_terminal: ['SUCCEEDED', 'DEAD', 'CANCELLED'].includes(
+        delivery.state?.toString() || delivery.state
+      ),
+      createdAt: delivery.createdAt,
+      created_at: delivery.createdAt,
+      updatedAt: delivery.updatedAt,
+      updated_at: delivery.updatedAt,
+      scheduledAt: delivery.scheduledAt || null,
+      scheduled_at: delivery.scheduledAt || null,
+      nextAttemptAt: delivery.nextAttemptAt || null,
+      next_attempt_at: delivery.nextAttemptAt || null,
+      totalAttempts: delivery.attemptCount || 0,
+      total_attempts: delivery.attemptCount || 0,
+      durationMs: lifecycleDurationMs,
+      duration_ms: lifecycleDurationMs,
+    },
+    request: {
+      method: 'POST',
+      url: sanitizedUrl,
+      seq: delivery.seq,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Webhook-Id': delivery.id,
+        'X-Webhook-Timestamp': '[TIMESTAMP]',
+        'X-Webhook-Signature': '[REDACTED]',
+      },
+    },
+    diagnostics: {
+      lastError: sanitizeErrorMessage(delivery.lastError),
+      last_error: sanitizeErrorMessage(delivery.lastError),
+      failureCategory,
+      failure_category: failureCategory,
+      recommendation,
+    },
+    attempts: formattedAttempts,
+  };
+}
+
+/**
+ * Get delivery by ID with attempts, event payload, endpoint info, and diagnostics (tenant-scoped).
  * @param {string} deliveryId - Delivery UUID
  * @param {string} tenantId - Tenant UUID for access control
- * @returns {Promise<Object|null>} Delivery object with attempts
+ * @returns {Promise<Object|null>} Detailed delivery object
  */
 export async function getDeliveryById(deliveryId, tenantId) {
   const delivery = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
   if (!delivery) return null;
 
-  const attempts = await deliveryRepository.findAttemptsByDeliveryId(deliveryId);
-  return {
-    ...delivery,
-    attempts,
-  };
+  const [attempts, event, endpoint] = await Promise.all([
+    deliveryRepository.findAttemptsByDeliveryId(deliveryId).catch(() => []),
+    delivery.eventId ? eventRepository.findById(delivery.eventId).catch(() => null) : null,
+    delivery.endpointId
+      ? endpointRepository.findByIdAndTenant(delivery.endpointId, tenantId).catch(() => null)
+      : null,
+  ]);
+
+  return formatDetailedDelivery(delivery, attempts || [], event, endpoint);
+}
+
+/**
+ * Get attempt history for a delivery (tenant-scoped).
+ * @param {string} deliveryId - Delivery UUID
+ * @param {string} tenantId - Tenant UUID for access control
+ * @returns {Promise<Array|null>} Array of sanitized attempt objects or null if not found
+ */
+export async function getDeliveryAttempts(deliveryId, tenantId) {
+  const delivery = await deliveryRepository.findByIdAndTenant(deliveryId, tenantId);
+  if (!delivery) return null;
+
+  const [attempts, endpoint] = await Promise.all([
+    deliveryRepository.findAttemptsByDeliveryId(deliveryId).catch(() => []),
+    delivery.endpointId
+      ? endpointRepository.findByIdAndTenant(delivery.endpointId, tenantId).catch(() => null)
+      : null,
+  ]);
+
+  const sanitizedUrl = sanitizeUrl(endpoint?.url || delivery.endpointUrl || '');
+  return (attempts || []).map((a) => {
+    const lat = Number(a.latencyMs || a.latency_ms || 0);
+    const code = a.statusCode ?? a.status_code ?? null;
+    const err = sanitizeErrorMessage(a.error);
+    const summary = code ? `HTTP ${code}` : err || 'No response';
+
+    return {
+      id: a.id,
+      deliveryId: a.deliveryId || delivery.id,
+      delivery_id: a.deliveryId || delivery.id,
+      attemptNo: a.attemptNo ?? a.attempt_no,
+      attempt_no: a.attemptNo ?? a.attempt_no,
+      startedAt: a.startedAt || a.started_at,
+      started_at: a.startedAt || a.started_at,
+      statusCode: code,
+      status_code: code,
+      latencyMs: lat,
+      latency_ms: lat,
+      durationMs: lat,
+      duration_ms: lat,
+      error: err,
+      responseSummary: summary,
+      response_summary: summary,
+      request: {
+        method: 'POST',
+        url: sanitizedUrl,
+      },
+    };
+  });
+}
+
+/**
+ * Get detailed diagnostic logs for a delivery (tenant-scoped).
+ * @param {string} deliveryId - Delivery UUID
+ * @param {string} tenantId - Tenant UUID for access control
+ * @returns {Promise<Object|null>}
+ */
+export async function getDeliveryLogs(deliveryId, tenantId) {
+  return await getDeliveryById(deliveryId, tenantId);
 }
 
 /**
@@ -505,6 +747,8 @@ export default {
   countDeliveries,
   queryDeliveries,
   getDeliveryById,
+  getDeliveryAttempts,
+  getDeliveryLogs,
   replayDelivery,
   scheduleDelivery,
   getScheduledDeliveries,
