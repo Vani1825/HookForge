@@ -12,6 +12,10 @@ import type {
   EndpointTestInput,
   EndpointTestResult,
   RetryStrategy,
+  WebhookTemplate,
+  CreateTemplateInput,
+  UpdateTemplateInput,
+  TemplateApplyResult,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
@@ -24,6 +28,7 @@ import {
   INITIAL_MOCK_DELIVERIES,
   INITIAL_MOCK_ATTEMPTS,
   MOCK_TIME_SERIES,
+  INITIAL_MOCK_TEMPLATES,
 } from './mockData'
 
 class MockStore {
@@ -31,6 +36,7 @@ class MockStore {
   private events: WebhookEvent[] = [...INITIAL_MOCK_EVENTS]
   private deliveries: Delivery[] = [...INITIAL_MOCK_DELIVERIES]
   private attempts: Record<string, DeliveryAttempt[]> = { ...INITIAL_MOCK_ATTEMPTS }
+  private templates: WebhookTemplate[] = [...INITIAL_MOCK_TEMPLATES]
 
   // --- Endpoints ---
   getEndpoints(): Endpoint[] {
@@ -46,25 +52,60 @@ class MockStore {
       Math.floor(Math.random() * 16).toString(16)
     ).join('')
 
-    const strategy = (data.retryStrategy || data.retry_strategy || data.retryPolicy?.strategy || 'EXPONENTIAL') as RetryStrategy
-    const maxAttempts = data.retryMaxAttempts ?? data.retry_max_attempts ?? data.retryPolicy?.maxAttempts ?? 8
-    const baseDelayMs = data.retryBaseDelayMs ?? data.retry_base_delay_ms ?? data.retryPolicy?.baseDelayMs ?? 5000
-    const maxDelayMs = data.retryMaxDelayMs ?? data.retry_max_delay_ms ?? data.retryPolicy?.maxDelayMs ?? (strategy === 'FIXED' ? baseDelayMs : 3600000)
-    const backoffMultiplier = data.retryBackoffMultiplier ?? data.retry_backoff_multiplier ?? data.retryPolicy?.backoffMultiplier ?? (strategy === 'FIXED' ? 1.0 : 2.0)
+    const templateId = data.templateId || data.template_id
+    const template = templateId ? this.getTemplate(templateId) : undefined
+    const effectiveUrl = data.url || template?.url || ''
+    const effectiveRps = data.rate_limit_rps || data.rateLimitRps || template?.rate_limit_rps || 10
+
+    const strategy = (
+      data.retryStrategy ||
+      data.retry_strategy ||
+      data.retryPolicy?.strategy ||
+      template?.retry_strategy ||
+      'EXPONENTIAL'
+    ) as RetryStrategy
+
+    const maxAttempts =
+      data.retryMaxAttempts ??
+      data.retry_max_attempts ??
+      data.retryPolicy?.maxAttempts ??
+      template?.retry_max_attempts ??
+      8
+
+    const baseDelayMs =
+      data.retryBaseDelayMs ??
+      data.retry_base_delay_ms ??
+      data.retryPolicy?.baseDelayMs ??
+      template?.retry_base_delay_ms ??
+      5000
+
+    const maxDelayMs =
+      data.retryMaxDelayMs ??
+      data.retry_max_delay_ms ??
+      data.retryPolicy?.maxDelayMs ??
+      template?.retry_max_delay_ms ??
+      (strategy === 'FIXED' ? baseDelayMs : 3600000)
+
+    const backoffMultiplier =
+      data.retryBackoffMultiplier ??
+      data.retry_backoff_multiplier ??
+      data.retryPolicy?.backoffMultiplier ??
+      template?.retry_backoff_multiplier ??
+      (strategy === 'FIXED' ? 1.0 : 2.0)
 
     const newEndpoint: Endpoint = {
       id: `e1000000-0000-0000-0000-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
       tenant_id: MOCK_TENANT.id,
-      url: data.url,
+      url: effectiveUrl,
       secret: `whsec_${randomHex}`,
       active: true,
-      rate_limit_rps: data.rate_limit_rps || 10,
+      rate_limit_rps: effectiveRps,
       next_seq: 1,
       circuit_state: 'CLOSED',
       circuit_until: null,
       consecutive_failures: 0,
       created_at: new Date().toISOString(),
-      description: data.description || 'Webhook destination',
+      description: data.description || (template ? `Created from ${template.name}` : 'Webhook destination'),
       total_deliveries: 0,
       success_rate: 100,
       retry_strategy: strategy,
@@ -832,6 +873,383 @@ class MockStore {
       { name: 'In Flight', value: counts.IN_FLIGHT, color: '#6366f1' },
       { name: 'Pending', value: counts.PENDING, color: '#3b82f6' },
     ]
+  }
+
+  // --- Webhook Templates ---
+
+  getTemplates(filter?: { type?: 'all' | 'system' | 'custom'; search?: string }): WebhookTemplate[] {
+    let list = [...this.templates]
+
+    if (filter?.type === 'system') {
+      list = list.filter((t) => t.is_system)
+    } else if (filter?.type === 'custom') {
+      list = list.filter((t) => !t.is_system)
+    }
+
+    if (filter?.search && filter.search.trim()) {
+      const q = filter.search.trim().toLowerCase()
+      list = list.filter(
+        (t) =>
+          (t.name && t.name.toLowerCase().includes(q)) ||
+          (t.description && t.description.toLowerCase().includes(q))
+      )
+    }
+
+    return list
+  }
+
+  getTemplate(id: string): WebhookTemplate | undefined {
+    return this.templates.find((t) => t.id === id)
+  }
+
+  createTemplate(data: CreateTemplateInput): WebhookTemplate {
+    const trimmedName = (data.name || '').trim()
+    if (!trimmedName) {
+      throw new Error('Template name is required')
+    }
+    if (trimmedName.length > 100) {
+      throw new Error('Template name must not exceed 100 characters')
+    }
+
+    const strategy = (
+      data.retryStrategy ||
+      data.retry_strategy ||
+      data.retryPolicy?.strategy ||
+      'EXPONENTIAL'
+    ) as RetryStrategy
+
+    const maxAttempts =
+      data.retryMaxAttempts ??
+      data.retry_max_attempts ??
+      data.retryPolicy?.maxAttempts ??
+      8
+
+    const baseDelayMs =
+      data.retryBaseDelayMs ??
+      data.retry_base_delay_ms ??
+      data.retryPolicy?.baseDelayMs ??
+      5000
+
+    const maxDelayMs =
+      data.retryMaxDelayMs ??
+      data.retry_max_delay_ms ??
+      data.retryPolicy?.maxDelayMs ??
+      (strategy === 'FIXED' ? baseDelayMs : 3600000)
+
+    const backoffMultiplier =
+      data.retryBackoffMultiplier ??
+      data.retry_backoff_multiplier ??
+      data.retryPolicy?.backoffMultiplier ??
+      (strategy === 'FIXED' ? 1.0 : 2.0)
+
+    const headers = data.customHeaders ?? data.custom_headers ?? {}
+    const payload = data.defaultPayload !== undefined ? data.defaultPayload : data.default_payload
+    const method = (data.httpMethod || data.http_method || 'POST').toUpperCase()
+    const rateLimit = data.rateLimitRps ?? data.rate_limit_rps ?? 10
+
+    const newTemplate: WebhookTemplate = {
+      id: `tmpl-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      tenant_id: MOCK_TENANT.id,
+      tenantId: MOCK_TENANT.id,
+      name: trimmedName,
+      description: data.description || '',
+      http_method: method,
+      httpMethod: method,
+      url: data.url || null,
+      custom_headers: headers,
+      customHeaders: headers,
+      default_payload: payload,
+      defaultPayload: payload,
+      rate_limit_rps: rateLimit,
+      rateLimitRps: rateLimit,
+      retry_strategy: strategy,
+      retryStrategy: strategy,
+      retry_max_attempts: maxAttempts,
+      retryMaxAttempts: maxAttempts,
+      retry_base_delay_ms: baseDelayMs,
+      retryBaseDelayMs: baseDelayMs,
+      retry_max_delay_ms: maxDelayMs,
+      retryMaxDelayMs: maxDelayMs,
+      retry_backoff_multiplier: backoffMultiplier,
+      retryBackoffMultiplier: backoffMultiplier,
+      retry_policy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
+      retryPolicy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
+      is_system: false,
+      isSystem: false,
+      created_at: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    this.templates.unshift(newTemplate)
+    return newTemplate
+  }
+
+  updateTemplate(id: string, updates: UpdateTemplateInput): WebhookTemplate | null {
+    const idx = this.templates.findIndex((t) => t.id === id)
+    if (idx === -1) return null
+
+    const existing = this.templates[idx]
+    if (existing.is_system) {
+      throw new Error('System templates cannot be modified or deleted')
+    }
+
+    const trimmedName = updates.name !== undefined ? updates.name.trim() : existing.name
+    if (!trimmedName) {
+      throw new Error('Template name cannot be empty')
+    }
+    if (trimmedName.length > 100) {
+      throw new Error('Template name must not exceed 100 characters')
+    }
+
+    const strategy = (
+      updates.retryStrategy ||
+      updates.retry_strategy ||
+      updates.retryPolicy?.strategy ||
+      existing.retry_strategy
+    ) as RetryStrategy
+
+    const maxAttempts =
+      updates.retryMaxAttempts ??
+      updates.retry_max_attempts ??
+      updates.retryPolicy?.maxAttempts ??
+      existing.retry_max_attempts
+
+    const baseDelayMs =
+      updates.retryBaseDelayMs ??
+      updates.retry_base_delay_ms ??
+      updates.retryPolicy?.baseDelayMs ??
+      existing.retry_base_delay_ms
+
+    const maxDelayMs =
+      updates.retryMaxDelayMs ??
+      updates.retry_max_delay_ms ??
+      updates.retryPolicy?.maxDelayMs ??
+      existing.retry_max_delay_ms
+
+    const backoffMultiplier =
+      updates.retryBackoffMultiplier ??
+      updates.retry_backoff_multiplier ??
+      updates.retryPolicy?.backoffMultiplier ??
+      existing.retry_backoff_multiplier
+
+    const headers =
+      updates.customHeaders ??
+      updates.custom_headers ??
+      existing.custom_headers
+
+    const payload =
+      updates.defaultPayload !== undefined
+        ? updates.defaultPayload
+        : updates.default_payload !== undefined
+        ? updates.default_payload
+        : existing.default_payload
+
+    const method = (
+      updates.httpMethod ||
+      updates.http_method ||
+      existing.http_method
+    ).toUpperCase()
+
+    const rateLimit =
+      updates.rateLimitRps ??
+      updates.rate_limit_rps ??
+      existing.rate_limit_rps
+
+    const updated: WebhookTemplate = {
+      ...existing,
+      name: trimmedName,
+      description: updates.description !== undefined ? updates.description : existing.description,
+      http_method: method,
+      httpMethod: method,
+      url: updates.url !== undefined ? updates.url : existing.url,
+      custom_headers: headers,
+      customHeaders: headers,
+      default_payload: payload,
+      defaultPayload: payload,
+      rate_limit_rps: rateLimit,
+      rateLimitRps: rateLimit,
+      retry_strategy: strategy,
+      retryStrategy: strategy,
+      retry_max_attempts: maxAttempts,
+      retryMaxAttempts: maxAttempts,
+      retry_base_delay_ms: baseDelayMs,
+      retryBaseDelayMs: baseDelayMs,
+      retry_max_delay_ms: maxDelayMs,
+      retryMaxDelayMs: maxDelayMs,
+      retry_backoff_multiplier: backoffMultiplier,
+      retryBackoffMultiplier: backoffMultiplier,
+      retry_policy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
+      retryPolicy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
+      updated_at: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    this.templates[idx] = updated
+    return updated
+  }
+
+  deleteTemplate(id: string): { success: boolean; id: string; message: string } | null {
+    const idx = this.templates.findIndex((t) => t.id === id)
+    if (idx === -1) return null
+
+    const existing = this.templates[idx]
+    if (existing.is_system) {
+      throw new Error('System templates cannot be modified or deleted')
+    }
+
+    this.templates.splice(idx, 1)
+    return {
+      success: true,
+      id,
+      message: 'Template deleted successfully',
+    }
+  }
+
+  applyTemplate(id: string, overrides: Record<string, any> = {}): TemplateApplyResult {
+    const template = this.getTemplate(id)
+    if (!template) {
+      throw new Error('Template not found')
+    }
+
+    const nested = overrides.retryPolicy || overrides.retry_policy || {}
+    const strategy = (
+      overrides.retryStrategy ||
+      overrides.retry_strategy ||
+      nested.strategy ||
+      template.retry_strategy
+    ) as RetryStrategy
+
+    const maxAttempts =
+      overrides.retryMaxAttempts ??
+      overrides.retry_max_attempts ??
+      nested.maxAttempts ??
+      template.retry_max_attempts
+
+    const baseDelayMs =
+      overrides.retryBaseDelayMs ??
+      overrides.retry_base_delay_ms ??
+      nested.baseDelayMs ??
+      template.retry_base_delay_ms
+
+    const maxDelayMs =
+      overrides.retryMaxDelayMs ??
+      overrides.retry_max_delay_ms ??
+      nested.maxDelayMs ??
+      template.retry_max_delay_ms
+
+    const backoffMultiplier =
+      overrides.retryBackoffMultiplier ??
+      overrides.retry_backoff_multiplier ??
+      nested.backoffMultiplier ??
+      template.retry_backoff_multiplier
+
+    const effectiveUrl =
+      overrides.url !== undefined && overrides.url !== null && String(overrides.url).trim()
+        ? String(overrides.url).trim()
+        : template.url
+
+    const overrideHeaders =
+      overrides.customHeaders || overrides.custom_headers || overrides.headers || {}
+    const mergedHeaders: Record<string, string> = {
+      ...template.custom_headers,
+      ...overrideHeaders,
+    }
+
+    // Redact sensitive headers
+    const sanitizedHeaders: Record<string, string> = {}
+    const sensitiveRegex = /^(authorization|x-api-key|cookie|x-webhook-secret|token|api-key)/i
+    for (const [key, val] of Object.entries(mergedHeaders)) {
+      if (sensitiveRegex.test(key)) {
+        sanitizedHeaders[key] = '[REDACTED]'
+      } else {
+        sanitizedHeaders[key] = String(val)
+      }
+    }
+
+    const payload =
+      overrides.defaultPayload !== undefined
+        ? overrides.defaultPayload
+        : overrides.default_payload !== undefined
+        ? overrides.default_payload
+        : template.default_payload
+
+    const rateLimit =
+      overrides.rateLimitRps ??
+      overrides.rate_limit_rps ??
+      template.rate_limit_rps
+
+    const method = (
+      overrides.httpMethod ||
+      overrides.http_method ||
+      template.http_method
+    ).toUpperCase()
+
+    return {
+      templateId: template.id,
+      templateName: template.name,
+      url: effectiveUrl,
+      httpMethod: method,
+      customHeaders: sanitizedHeaders,
+      defaultPayload: payload,
+      rateLimitRps: rateLimit,
+      retryStrategy: strategy,
+      retryMaxAttempts: maxAttempts,
+      retryBaseDelayMs: baseDelayMs,
+      retryMaxDelayMs: maxDelayMs,
+      retryBackoffMultiplier: backoffMultiplier,
+      retryPolicy: {
+        strategy,
+        maxAttempts,
+        baseDelayMs,
+        maxDelayMs,
+        backoffMultiplier,
+      },
+    }
+  }
+
+  createEndpointFromTemplate(id: string, overrides: Record<string, any> = {}): Endpoint {
+    const applied = this.applyTemplate(id, overrides)
+    if (!applied.url) {
+      throw new Error('Destination URL is required to create an endpoint from template')
+    }
+
+    return this.createEndpoint({
+      url: applied.url,
+      rate_limit_rps: applied.rateLimitRps,
+      description: `Created from template: ${applied.templateName}`,
+      retryStrategy: applied.retryStrategy,
+      retryMaxAttempts: applied.retryMaxAttempts,
+      retryBaseDelayMs: applied.retryBaseDelayMs,
+      retryMaxDelayMs: applied.retryMaxDelayMs,
+      retryBackoffMultiplier: applied.retryBackoffMultiplier,
+      templateId: id,
+    })
   }
 }
 

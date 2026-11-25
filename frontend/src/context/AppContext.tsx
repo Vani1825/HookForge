@@ -5,6 +5,7 @@ import * as endpointsApi from '../api/endpoints'
 import * as eventsApi from '../api/events'
 import * as deliveriesApi from '../api/deliveries'
 import * as metricsApi from '../api/metrics'
+import * as templatesApi from '../api/templates'
 import type {
   Endpoint,
   WebhookEvent,
@@ -16,6 +17,10 @@ import type {
   ScheduleDeliveryInput,
   BulkReplayResult,
   EndpointTestResult,
+  WebhookTemplate,
+  CreateTemplateInput,
+  UpdateTemplateInput,
+  TemplateApplyResult,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -75,6 +80,13 @@ interface AppContextValue {
     getOverviewMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<OverviewMetrics>
     getTimeSeriesMetrics: (filter?: metricsApi.MetricsQueryParams | string) => Promise<TimeSeriesDataPoint[]>
     getStatusDistribution: (filter?: metricsApi.MetricsQueryParams | string) => Promise<StatusDistribution[]>
+    getTemplates: (filter?: templatesApi.TemplateQueryParams) => Promise<WebhookTemplate[]>
+    getTemplateById: (id: string) => Promise<WebhookTemplate | undefined>
+    createTemplate: (data: CreateTemplateInput) => Promise<WebhookTemplate>
+    updateTemplate: (id: string, data: UpdateTemplateInput) => Promise<WebhookTemplate>
+    deleteTemplate: (id: string) => Promise<{ success: boolean; id: string; message: string }>
+    applyTemplate: (id: string, overrides?: Record<string, unknown>) => Promise<TemplateApplyResult>
+    createEndpointFromTemplate: (id: string, overrides?: Record<string, unknown>) => Promise<Endpoint>
   }
 }
 
@@ -385,6 +397,59 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return mockStore.getStatusDistribution(normalized)
       }
       return metricsApi.fetchStatusDistribution(normalized)
+    },
+
+    getTemplates: async (filter?: templatesApi.TemplateQueryParams): Promise<WebhookTemplate[]> => {
+      if (mode === 'demo') {
+        return mockStore.getTemplates(filter)
+      }
+      return templatesApi.fetchTemplates(filter)
+    },
+
+    getTemplateById: async (id: string): Promise<WebhookTemplate | undefined> => {
+      if (mode === 'demo') {
+        return mockStore.getTemplate(id)
+      }
+      return templatesApi.fetchTemplateById(id)
+    },
+
+    createTemplate: async (data: CreateTemplateInput): Promise<WebhookTemplate> => {
+      if (mode === 'demo') {
+        return mockStore.createTemplate(data)
+      }
+      return templatesApi.createTemplate(data)
+    },
+
+    updateTemplate: async (id: string, data: UpdateTemplateInput): Promise<WebhookTemplate> => {
+      if (mode === 'demo') {
+        const updated = mockStore.updateTemplate(id, data)
+        if (!updated) throw new Error('Template not found')
+        return updated
+      }
+      return templatesApi.updateTemplate(id, data)
+    },
+
+    deleteTemplate: async (id: string): Promise<{ success: boolean; id: string; message: string }> => {
+      if (mode === 'demo') {
+        const res = mockStore.deleteTemplate(id)
+        if (!res) throw new Error('Template not found')
+        return res
+      }
+      return templatesApi.deleteTemplate(id)
+    },
+
+    applyTemplate: async (id: string, overrides?: Record<string, unknown>): Promise<TemplateApplyResult> => {
+      if (mode === 'demo') {
+        return mockStore.applyTemplate(id, overrides)
+      }
+      return templatesApi.applyTemplate(id, overrides)
+    },
+
+    createEndpointFromTemplate: async (id: string, overrides?: Record<string, unknown>): Promise<Endpoint> => {
+      if (mode === 'demo') {
+        return mockStore.createEndpointFromTemplate(id, overrides)
+      }
+      return templatesApi.createEndpointFromTemplate(id, overrides)
     },
   }
 

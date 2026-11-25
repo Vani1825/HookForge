@@ -15,6 +15,7 @@ import {
   ChevronRight,
   CalendarClock,
   FlaskConical,
+  LayoutTemplate,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { useApp } from '../context/AppContext'
@@ -37,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Overview', path: '/', icon: LayoutDashboard },
       { label: 'Endpoints', path: '/endpoints', icon: Globe2 },
+      { label: 'Templates', path: '/templates', icon: LayoutTemplate },
       { label: 'Events', path: '/events', icon: Inbox },
       { label: 'Deliveries', path: '/deliveries', icon: Send },
       { label: 'Scheduled', path: '/scheduled-deliveries', icon: CalendarClock },
