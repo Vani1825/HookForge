@@ -287,6 +287,12 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 200,
       latency_ms: 38,
       error: null,
+      response_headers: {
+        'content-type': 'application/json',
+        'server': 'nginx/1.24.0',
+        'x-request-id': 'req_live_abc123',
+      },
+      response_body: '{"status":"ok","acknowledged":true}',
     },
   ],
   'del-02': [
@@ -298,6 +304,11 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 200,
       latency_ms: 64,
       error: null,
+      response_headers: {
+        'content-type': 'application/json',
+        'server': 'cloudflare',
+      },
+      response_body: '{"success":true,"message":"Event ingested"}',
     },
   ],
   'del-03': [
@@ -309,6 +320,11 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 503,
       latency_ms: 120,
       error: 'HTTP 503 Service Unavailable: upstream queue congested',
+      response_headers: {
+        'content-type': 'application/json',
+        'retry-after': '30',
+      },
+      response_body: '{"error":"Service Unavailable","code":"UPSTREAM_CONGESTION"}',
     },
     {
       id: 104,
@@ -318,6 +334,11 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 503,
       latency_ms: 95,
       error: 'HTTP 503 Service Unavailable: downstream rate ceiling reached',
+      response_headers: {
+        'content-type': 'application/json',
+        'retry-after': '60',
+      },
+      response_body: '{"error":"Service Unavailable","code":"RATE_LIMIT_EXCEEDED"}',
     },
   ],
   'del-04': [
@@ -329,6 +350,10 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 500,
       latency_ms: 310,
       error: 'HTTP 500 Internal Server Error: unhandled database deadlock in receiver',
+      response_headers: {
+        'content-type': 'application/json',
+      },
+      response_body: '{"error":"Internal Server Error","detail":"Transaction deadlock"}',
     },
     {
       id: 106,
@@ -338,6 +363,10 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 500,
       latency_ms: 280,
       error: 'HTTP 500 Internal Server Error: database transaction timeout',
+      response_headers: {
+        'content-type': 'application/json',
+      },
+      response_body: '{"error":"Internal Server Error","detail":"Query timeout exceeded"}',
     },
     {
       id: 107,
@@ -347,6 +376,10 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 500,
       latency_ms: 295,
       error: 'HTTP 500 Internal Server Error: connection pool exhausted',
+      response_headers: {
+        'content-type': 'application/json',
+      },
+      response_body: '{"error":"Internal Server Error","detail":"Pool empty"}',
     },
     {
       id: 108,
@@ -356,6 +389,10 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: 500,
       latency_ms: 340,
       error: 'HTTP 500 Internal Server Error: unhandled exception (budget exhausted)',
+      response_headers: {
+        'content-type': 'application/json',
+      },
+      response_body: '{"error":"Internal Server Error","detail":"Exhausted retries"}',
     },
   ],
   'del-05': [
@@ -367,6 +404,8 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: null,
       latency_ms: 3004,
       error: 'connect ETIMEDOUT 198.51.100.24:443 after 3000ms socket timeout',
+      response_headers: null,
+      response_body: null,
     },
     {
       id: 110,
@@ -376,6 +415,8 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: null,
       latency_ms: 3001,
       error: 'connect ETIMEDOUT 198.51.100.24:443 after 3000ms socket timeout',
+      response_headers: null,
+      response_body: null,
     },
     {
       id: 111,
@@ -385,6 +426,8 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: null,
       latency_ms: 3002,
       error: 'connect ETIMEDOUT 198.51.100.24:443 after 3000ms socket timeout',
+      response_headers: null,
+      response_body: null,
     },
     {
       id: 112,
@@ -394,6 +437,8 @@ export const INITIAL_MOCK_ATTEMPTS: Record<string, DeliveryAttempt[]> = {
       status_code: null,
       latency_ms: 3005,
       error: 'connect ETIMEDOUT 198.51.100.24:443 (max attempts reached, routed to DLQ)',
+      response_headers: null,
+      response_body: null,
     },
   ],
   'del-06': [

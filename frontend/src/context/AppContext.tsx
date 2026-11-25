@@ -20,6 +20,8 @@ import type {
   CreateTemplateInput,
   UpdateTemplateInput,
   TemplateApplyResult,
+  DeliveryAttemptsResponse,
+  DeliveryLogsResponse,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -61,6 +63,8 @@ interface AppContextValue {
     ingestEvent: (data: eventsApi.IngestEventInput) => Promise<{ duplicate: boolean; deliveriesEnqueued: number; eventId?: string }>
     getDeliveries: (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }) => Promise<deliveriesApi.PaginatedList<Delivery>>
     getDeliveryById: (id: string) => Promise<Delivery | undefined>
+    getDeliveryAttempts: (id: string) => Promise<DeliveryAttemptsResponse>
+    getDeliveryLogs: (id: string) => Promise<DeliveryLogsResponse>
     getDeadLetters: () => Promise<Delivery[]>
     replayDelivery: (id: string) => Promise<{ success: boolean; message: string; delivery?: Delivery }>
     scheduleDelivery: (data: ScheduleDeliveryInput) => Promise<Delivery>
@@ -257,6 +261,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return mockStore.getDelivery(id)
       }
       return deliveriesApi.fetchDeliveryById(id)
+    },
+
+    getDeliveryAttempts: async (id: string): Promise<DeliveryAttemptsResponse> => {
+      if (mode === 'demo') {
+        return mockStore.getDeliveryAttempts(id)
+      }
+      return deliveriesApi.fetchDeliveryAttempts(id)
+    },
+
+    getDeliveryLogs: async (id: string): Promise<DeliveryLogsResponse> => {
+      if (mode === 'demo') {
+        return mockStore.getDeliveryLogs(id)
+      }
+      return deliveriesApi.fetchDeliveryLogs(id)
     },
 
     getDeadLetters: async (): Promise<Delivery[]> => {

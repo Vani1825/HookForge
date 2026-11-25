@@ -16,6 +16,10 @@ import type {
   CreateTemplateInput,
   UpdateTemplateInput,
   TemplateApplyResult,
+  DeliveryAttemptsResponse,
+  DeliveryLogsResponse,
+  DeliveryLogEntry,
+  DeliveryDiagnostics,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
@@ -448,42 +452,175 @@ class MockStore {
     }
   }
 
+  // Helper for redacting sensitive payload fields in demo mode
+  private redactPayload(data: unknown): unknown {
+    if (!data || typeof data !== 'object') return data
+    if (Array.isArray(data)) return data.map((item) => this.redactPayload(item))
+    const res: Record<string, unknown> = {}
+    const sensitive = /^(password|secret|token|api_?key|auth|credential|card|cvv|ssn)$/i
+    for (const [k, v] of Object.entries(data as Record<string, unknown>)) {
+      if (sensitive.test(k)) {
+        res[k] = '[REDACTED]'
+      } else if (v && typeof v === 'object') {
+        res[k] = this.redactPayload(v)
+      } else {
+        res[k] = v
+      }
+    }
+    return res
+  }
+
   // --- Deliveries ---
   getDeliveries(filter?: DeliveryQueryParams & { search?: string }): PaginatedList<Delivery> {
     let result = [...this.deliveries]
 
+    // 1. State filter (single or comma-separated multi-state)
     if (filter?.state && filter.state !== 'ALL') {
-      result = result.filter((d) => d.state === filter.state)
+      const states = filter.state
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean)
+      if (states.length > 0) {
+        result = result.filter((d) => states.includes(d.state.toUpperCase()))
+      }
     }
 
-    if (filter?.endpoint_id) {
-      result = result.filter((d) => d.endpoint_id === filter.endpoint_id)
+    // 2. Endpoint ID filter (single or comma-separated)
+    const epId = filter?.endpoint_id || filter?.endpointId
+    if (epId) {
+      const ids = epId.split(',').map((s) => s.trim()).filter(Boolean)
+      if (ids.length > 0) {
+        result = result.filter((d) => ids.includes(d.endpoint_id))
+      }
     }
 
-    if (filter?.event_id) {
-      result = result.filter((d) => d.event_id === filter.event_id)
+    // 3. Event ID filter (single or comma-separated)
+    const evId = filter?.event_id || filter?.eventId
+    if (evId) {
+      const ids = evId.split(',').map((s) => s.trim()).filter(Boolean)
+      if (ids.length > 0) {
+        result = result.filter((d) => ids.includes(d.event_id))
+      }
     }
 
-    if (filter?.created_after) {
-      const after = new Date(filter.created_after).getTime()
-      result = result.filter((d) => new Date(d.created_at).getTime() >= after)
+    // 4. Event Type filter
+    const evType = filter?.event_type || filter?.eventType
+    if (evType) {
+      const targetType = evType.trim().toLowerCase()
+      result = result.filter((d) => {
+        const ev = this.getEvent(d.event_id)
+        const typeStr = ev?.event_type || (ev?.payload as any)?.type || (ev?.payload as any)?.event || ''
+        return String(typeStr).toLowerCase() === targetType
+      })
     }
 
-    if (filter?.created_before) {
-      const before = new Date(filter.created_before).getTime()
-      result = result.filter((d) => new Date(d.created_at).getTime() <= before)
+    // 5. Date range bounds
+    const afterParam = filter?.created_after || filter?.from || filter?.startDate
+    if (afterParam) {
+      const after = new Date(afterParam).getTime()
+      if (!isNaN(after)) {
+        result = result.filter((d) => new Date(d.created_at).getTime() >= after)
+      }
     }
 
+    const beforeParam = filter?.created_before || filter?.to || filter?.endDate
+    if (beforeParam) {
+      const before = new Date(beforeParam).getTime()
+      if (!isNaN(before)) {
+        result = result.filter((d) => new Date(d.created_at).getTime() <= before)
+      }
+    }
+
+    // 6. HTTP Status Code or Class (e.g., 2xx, 3xx, 4xx, 5xx or exact integer 504)
+    const sc = filter?.status_code !== undefined ? filter.status_code : filter?.statusCode
+    if (sc !== undefined && sc !== null && sc !== '') {
+      const scStr = String(sc).trim().toLowerCase()
+      if (['2xx', '3xx', '4xx', '5xx'].includes(scStr)) {
+        const classPrefix = scStr[0]
+        result = result.filter((d) => {
+          const code = d.last_status_code !== undefined ? d.last_status_code : d.lastStatusCode
+          if (code !== null && code !== undefined && String(code).startsWith(classPrefix)) {
+            return true
+          }
+          const atts = this.attempts[d.id] || []
+          return atts.some(
+            (a) =>
+              (a.status_code !== null && a.status_code !== undefined && String(a.status_code).startsWith(classPrefix)) ||
+              (a.statusCode !== null && a.statusCode !== undefined && String(a.statusCode).startsWith(classPrefix))
+          )
+        })
+      } else {
+        const num = parseInt(scStr, 10)
+        if (!isNaN(num)) {
+          result = result.filter((d) => {
+            const code = d.last_status_code !== undefined ? d.last_status_code : d.lastStatusCode
+            if (code === num) return true
+            const atts = this.attempts[d.id] || []
+            return atts.some((a) => a.status_code === num || a.statusCode === num)
+          })
+        }
+      }
+    }
+
+    // 7. Attempt counts and range bounds
+    const exactAttempts: any = filter?.attempt_count !== undefined ? filter.attempt_count : filter?.attempts
+    if (exactAttempts !== undefined && exactAttempts !== null && String(exactAttempts).trim() !== '') {
+      const num = Number(exactAttempts)
+      if (!isNaN(num)) {
+        result = result.filter((d) => (d.attempt_count ?? d.attemptCount ?? 0) === num)
+      }
+    }
+
+    const minAtt: any = filter?.min_attempts !== undefined ? filter.min_attempts : filter?.minAttempts
+    if (minAtt !== undefined && minAtt !== null && String(minAtt).trim() !== '') {
+      const num = Number(minAtt)
+      if (!isNaN(num)) {
+        result = result.filter((d) => (d.attempt_count ?? d.attemptCount ?? 0) >= num)
+      }
+    }
+
+    const maxAtt: any = filter?.max_attempts !== undefined ? filter.max_attempts : filter?.maxAttempts
+    if (maxAtt !== undefined && maxAtt !== null && String(maxAtt).trim() !== '') {
+      const num = Number(maxAtt)
+      if (!isNaN(num)) {
+        result = result.filter((d) => (d.attempt_count ?? d.attemptCount ?? 0) <= num)
+      }
+    }
+
+    // 8. Text search across fields
     const searchQuery = filter?.q || filter?.search
     if (searchQuery) {
-      const q = searchQuery.toLowerCase()
-      result = result.filter(
-        (d) =>
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter((d) => {
+        const ev = this.getEvent(d.event_id)
+        const ep = this.getEndpoint(d.endpoint_id)
+        return (
           d.id.toLowerCase().includes(q) ||
           d.event_id.toLowerCase().includes(q) ||
-          d.endpoint_url?.toLowerCase().includes(q) ||
-          (d.last_error && d.last_error.toLowerCase().includes(q))
-      )
+          d.endpoint_id.toLowerCase().includes(q) ||
+          (d.endpoint_url && d.endpoint_url.toLowerCase().includes(q)) ||
+          (ep?.url && ep.url.toLowerCase().includes(q)) ||
+          (d.last_error && d.last_error.toLowerCase().includes(q)) ||
+          (ev?.idempotency_key && ev.idempotency_key.toLowerCase().includes(q)) ||
+          (ev?.event_type && ev.event_type.toLowerCase().includes(q)) ||
+          (ev?.payload && JSON.stringify(ev.payload).toLowerCase().includes(q))
+        )
+      })
+    }
+
+    // 9. Sorting
+    if (filter?.sortBy) {
+      const col = filter.sortBy
+      const order = (filter.sortOrder || 'DESC').toUpperCase()
+      const mult = order === 'ASC' ? 1 : -1
+      result.sort((a: any, b: any) => {
+        const valA = a[col] ?? ''
+        const valB = b[col] ?? ''
+        if (typeof valA === 'number' && typeof valB === 'number') {
+          return (valA - valB) * mult
+        }
+        return String(valA).localeCompare(String(valB)) * mult
+      })
     }
 
     const totalRecords = result.length
@@ -501,6 +638,8 @@ class MockStore {
       hasNext: offset + pageSize < totalRecords,
       hasPrev: totalRecords > 0 && offset > 0,
       ...(filter?.offset !== undefined && filter?.page === undefined ? { offset } : {}),
+      ...(filter?.sortBy ? { sortBy: filter.sortBy } : {}),
+      ...(filter?.sortOrder ? { sortOrder: filter.sortOrder } : {}),
     }
 
     return createPaginatedList(sliced, pagination)
@@ -510,15 +649,211 @@ class MockStore {
     const delivery = this.deliveries.find((d) => d.id === id)
     if (!delivery) return undefined
 
-    const endpoint = this.getEndpoint(delivery.endpoint_id)
-    const event = this.getEvent(delivery.event_id)
+    const rawEndpoint = this.getEndpoint(delivery.endpoint_id)
+    const rawEvent = this.getEvent(delivery.event_id)
     const attempts = this.attempts[id] || []
+
+    // Endpoint stripped of secrets
+    const endpoint = rawEndpoint
+      ? {
+          ...rawEndpoint,
+          secret: undefined,
+        }
+      : undefined
+
+    // Event with redacted payload
+    const event = rawEvent
+      ? {
+          ...rawEvent,
+          payload: this.redactPayload(rawEvent.payload) as Record<string, unknown>,
+        }
+      : undefined
+
+    // Diagnostics calculation
+    let diagnostics: DeliveryDiagnostics | undefined = undefined
+    if (delivery.state === 'DEAD') {
+      const lastErr = (delivery.last_error || '').toLowerCase()
+      const lastCode = delivery.last_status_code ?? delivery.lastStatusCode
+      if (lastErr.includes('timeout') || lastCode === 504) {
+        diagnostics = {
+          category: 'TIMEOUT',
+          recommendation:
+            'The target server took too long to acknowledge the webhook. Verify server load, network latency, or increase the read timeout.',
+        }
+      } else if (lastCode === 429) {
+        diagnostics = {
+          category: 'RATE_LIMITED_429',
+          recommendation:
+            'Target endpoint is rate-limiting webhook dispatches. Reduce concurrency or adjust the endpoint rate limit.',
+        }
+      } else if (lastCode && lastCode >= 500) {
+        diagnostics = {
+          category: 'SERVER_ERROR_5XX',
+          recommendation: `Target server returned HTTP ${lastCode} Internal Error. Check receiver application health and error logs.`,
+        }
+      } else if (lastCode && lastCode >= 400) {
+        diagnostics = {
+          category: 'CLIENT_ERROR_4XX',
+          recommendation: `Target server returned HTTP ${lastCode} Client Error. Verify the webhook payload schema, authentication, and endpoint URL path.`,
+        }
+      } else {
+        diagnostics = {
+          category: 'NETWORK_ERROR',
+          recommendation:
+            'Failed to establish network connection with target server. Verify DNS records, firewall configurations, and endpoint host availability.',
+        }
+      }
+    } else if (delivery.state === 'SUCCEEDED') {
+      diagnostics = {
+        category: 'SUCCESS',
+        recommendation: 'Webhook delivered and acknowledged successfully.',
+      }
+    }
+
+    // Retry policy
+    const retryPolicy = rawEndpoint?.retryPolicy || {
+      strategy: (rawEndpoint?.retry_strategy || rawEndpoint?.retryStrategy || 'EXPONENTIAL') as any,
+      maxAttempts: rawEndpoint?.retry_max_attempts || rawEndpoint?.retryMaxAttempts || 8,
+      baseDelayMs: rawEndpoint?.retry_base_delay_ms || rawEndpoint?.retryBaseDelayMs || 5000,
+      maxDelayMs: rawEndpoint?.retry_max_delay_ms || rawEndpoint?.retryMaxDelayMs || 3600000,
+      backoffMultiplier: rawEndpoint?.retry_backoff_multiplier || rawEndpoint?.retryBackoffMultiplier || 2.0,
+    }
+
+    // Lifecycle
+    const lifecycle = {
+      scheduledAt: delivery.scheduled_at || delivery.scheduledAt || null,
+      leaseUntil: delivery.lease_until || null,
+      createdAt: delivery.created_at || delivery.createdAt,
+      updatedAt: delivery.updated_at || delivery.updatedAt,
+      nextAttemptAt: delivery.next_attempt_at || delivery.nextAttemptAt || null,
+    }
+
+    // Request metadata
+    const request = {
+      url: delivery.endpoint_url || rawEndpoint?.url || 'https://api.example.com/webhook',
+      method: 'POST',
+      timestamp: delivery.created_at,
+    }
 
     return {
       ...delivery,
       endpoint,
       event,
       attempts,
+      diagnostics,
+      retry: retryPolicy,
+      lifecycle,
+      request,
+    }
+  }
+
+  getDeliveryAttempts(id: string): DeliveryAttemptsResponse {
+    const attempts = this.attempts[id] || []
+    return {
+      deliveryId: id,
+      totalAttempts: attempts.length,
+      attempts: [...attempts],
+    }
+  }
+
+  getDeliveryLogs(id: string): DeliveryLogsResponse {
+    const delivery = this.getDelivery(id)
+    if (!delivery) {
+      return {
+        deliveryId: id,
+        state: 'UNKNOWN',
+        attemptCount: 0,
+        logs: [],
+      }
+    }
+
+    const logs: DeliveryLogEntry[] = []
+
+    // 1. Initial creation log
+    logs.push({
+      timestamp: delivery.created_at,
+      level: 'INFO',
+      event: 'DELIVERY_CREATED',
+      message: `Delivery created and queued in state ${delivery.state === 'SCHEDULED' ? 'SCHEDULED' : 'PENDING'}`,
+    })
+
+    // 2. Scheduled log if scheduled
+    if (delivery.scheduled_at) {
+      logs.push({
+        timestamp: delivery.created_at,
+        level: 'INFO',
+        event: 'DELIVERY_SCHEDULED',
+        message: `Delivery execution scheduled for ${delivery.scheduled_at}`,
+      })
+    }
+
+    // 3. Attempt logs
+    const attempts = this.attempts[id] || []
+    attempts.forEach((att) => {
+      const code = att.status_code ?? att.statusCode
+      const num = att.attempt_no ?? att.attemptNumber ?? 1
+      const lat = att.latency_ms ?? att.latencyMs ?? 0
+      const err = att.error ?? att.errorMessage
+
+      if (code && code >= 200 && code <= 299) {
+        logs.push({
+          timestamp: att.started_at,
+          level: 'INFO',
+          event: 'DISPATCH_ATTEMPT_SUCCEEDED',
+          attemptNumber: num,
+          attempt_no: num,
+          statusCode: code,
+          status_code: code,
+          latencyMs: lat,
+          latency_ms: lat,
+          message: `Attempt ${num} succeeded with HTTP ${code} (${lat}ms)`,
+        })
+      } else {
+        logs.push({
+          timestamp: att.started_at,
+          level: 'ERROR',
+          event: 'DISPATCH_ATTEMPT_FAILED',
+          attemptNumber: num,
+          attempt_no: num,
+          statusCode: code || null,
+          status_code: code || null,
+          latencyMs: lat,
+          latency_ms: lat,
+          message: `Attempt ${num} failed with status ${code || 'TIMEOUT'} (${lat}ms): ${err || 'Delivery attempt failed'}`,
+        })
+      }
+    })
+
+    // 4. Terminal state log
+    if (delivery.state === 'DEAD') {
+      logs.push({
+        timestamp: delivery.updated_at,
+        level: 'ERROR',
+        event: 'DELIVERY_TERMINATED_DEAD',
+        message: `Delivery marked DEAD: maximum retry attempts (${delivery.attempt_count}) exhausted.`,
+      })
+    } else if (delivery.state === 'CANCELLED') {
+      logs.push({
+        timestamp: delivery.updated_at,
+        level: 'WARN',
+        event: 'DELIVERY_CANCELLED',
+        message: 'Delivery was cancelled by user request.',
+      })
+    } else if (delivery.state === 'RETRYING') {
+      logs.push({
+        timestamp: delivery.updated_at,
+        level: 'INFO',
+        event: 'DELIVERY_RETRY_SCHEDULED',
+        message: `Delivery queued for retry. Next attempt scheduled at ${delivery.next_attempt_at}.`,
+      })
+    }
+
+    return {
+      deliveryId: id,
+      state: delivery.state,
+      attemptCount: delivery.attempt_count,
+      diagnostics: delivery.diagnostics,
+      logs,
     }
   }
 

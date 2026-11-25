@@ -72,10 +72,66 @@ export interface DeliveryAttempt {
   id: number | string
   delivery_id: string
   attempt_no: number
+  attemptNumber?: number
   started_at: string
+  attemptedAt?: string
   status_code?: number | null // null on network error / timeout
+  statusCode?: number | null
   latency_ms: number
+  latencyMs?: number
   error?: string | null
+  errorMessage?: string | null
+  response_body?: string | null
+  responseBody?: string | null
+  response_headers?: Record<string, string> | null
+  responseHeaders?: Record<string, string> | null
+}
+
+export interface DeliveryDiagnostics {
+  category: string
+  recommendation: string
+}
+
+export interface DeliveryLifecycle {
+  scheduledAt?: string | null
+  leaseUntil?: string | null
+  createdAt?: string
+  updatedAt?: string
+  nextAttemptAt?: string | null
+}
+
+export interface DeliveryRequestInfo {
+  url: string
+  method: string
+  timestamp?: string
+  headers?: Record<string, string>
+}
+
+export interface DeliveryLogEntry {
+  timestamp: string
+  level: 'INFO' | 'WARN' | 'ERROR' | 'DEBUG'
+  event: string
+  message: string
+  attemptNumber?: number
+  attempt_no?: number
+  statusCode?: number | null
+  status_code?: number | null
+  latencyMs?: number
+  latency_ms?: number
+}
+
+export interface DeliveryAttemptsResponse {
+  deliveryId: string
+  totalAttempts: number
+  attempts: DeliveryAttempt[]
+}
+
+export interface DeliveryLogsResponse {
+  deliveryId: string
+  state: string
+  attemptCount: number
+  diagnostics?: DeliveryDiagnostics
+  logs: DeliveryLogEntry[]
 }
 
 export interface Delivery {
@@ -108,6 +164,11 @@ export interface Delivery {
   updatedAt?: string
   scheduled_at?: string | null
   scheduledAt?: string | null
+  // Diagnostics & Enrichments
+  diagnostics?: DeliveryDiagnostics
+  retry?: RetryPolicy
+  lifecycle?: DeliveryLifecycle
+  request?: DeliveryRequestInfo
 }
 
 export interface IngestRequest {
