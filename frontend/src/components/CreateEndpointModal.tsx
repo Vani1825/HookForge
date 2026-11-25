@@ -11,19 +11,21 @@ import {
 } from './RetryPolicyConfigForm'
 import { useApp } from '../context/AppContext'
 import { copyToClipboard } from '../utils/formatters'
-import { KeyRound, ShieldAlert, Check, Copy, AlertCircle } from 'lucide-react'
-import type { Endpoint } from '../types'
+import { KeyRound, ShieldAlert, Check, Copy, AlertCircle, Bookmark } from 'lucide-react'
+import type { Endpoint, WebhookTemplate } from '../types'
 
 interface CreateEndpointModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: (newEndpoint: Endpoint) => void
+  initialTemplate?: WebhookTemplate | null
 }
 
 export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
   isOpen,
   onClose,
   onSuccess,
+  initialTemplate,
 }) => {
   const { service, addToast } = useApp()
 
@@ -40,6 +42,35 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
   // Secret display phase once created
   const [createdEndpoint, setCreatedEndpoint] = useState<Endpoint | null>(null)
   const [copiedSecret, setCopiedSecret] = useState(false)
+
+  // Sync state when modal opens or initialTemplate changes
+  React.useEffect(() => {
+    if (isOpen) {
+      if (initialTemplate) {
+        setUrl(initialTemplate.url || '')
+        setRateLimitRps(String(initialTemplate.rate_limit_rps || initialTemplate.rateLimitRps || 10))
+        setDescription(initialTemplate.description || '')
+        setRetryData({
+          retryStrategy: initialTemplate.retry_strategy || initialTemplate.retryStrategy || 'EXPONENTIAL',
+          retryMaxAttempts: String(initialTemplate.retry_max_attempts ?? initialTemplate.retryMaxAttempts ?? 8),
+          retryBaseDelayMs: String(initialTemplate.retry_base_delay_ms ?? initialTemplate.retryBaseDelayMs ?? 5000),
+          retryMaxDelayMs: String(initialTemplate.retry_max_delay_ms ?? initialTemplate.retryMaxDelayMs ?? 3600000),
+          retryBackoffMultiplier: String(initialTemplate.retry_backoff_multiplier ?? initialTemplate.retryBackoffMultiplier ?? 2.0),
+        })
+      } else {
+        setUrl('')
+        setRateLimitRps('10')
+        setDescription('')
+        setRetryData(DEFAULT_RETRY_FORM_DATA)
+      }
+      setRetryErrors({})
+      setUrlError(null)
+      setRateLimitError(null)
+      setApiError(null)
+      setCreatedEndpoint(null)
+      setCopiedSecret(false)
+    }
+  }, [isOpen, initialTemplate])
 
   const handleReset = () => {
     setUrl('')
@@ -110,7 +141,7 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
     setApiError(null)
 
     try {
-      const endpoint = await service.createEndpoint({
+      const endpointPayload = {
         url: url.trim(),
         rate_limit_rps: parseInt(rateLimitRps, 10),
         description: description.trim() || undefined,
@@ -119,7 +150,11 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
         retryBaseDelayMs: cleanValues.retryBaseDelayMs,
         retryMaxDelayMs: cleanValues.retryMaxDelayMs,
         retryBackoffMultiplier: cleanValues.retryBackoffMultiplier,
-      })
+      }
+
+      const endpoint = initialTemplate
+        ? await service.createEndpointFromTemplate(initialTemplate.id, endpointPayload)
+        : await service.createEndpoint(endpointPayload)
 
       addToast({
         title: 'Endpoint Created',
@@ -235,6 +270,25 @@ export const CreateEndpointModal: React.FC<CreateEndpointModalProps> = ({
       }
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
+        {initialTemplate && (
+          <div className="p-3 bg-indigo-50/80 border border-indigo-200 rounded-lg flex items-start gap-2.5 text-xs text-indigo-900">
+            <Bookmark className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <div className="font-semibold flex items-center gap-1.5">
+                <span>Applying Template: {initialTemplate.name}</span>
+                {initialTemplate.is_system && (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-indigo-100 text-indigo-700">
+                    System
+                  </span>
+                )}
+              </div>
+              <p className="text-indigo-700 mt-0.5">
+                Default configuration and retry settings have been prefilled. You can customize any field before saving.
+              </p>
+            </div>
+          </div>
+        )}
+
         {apiError && (
           <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-xs text-rose-700">
             <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />

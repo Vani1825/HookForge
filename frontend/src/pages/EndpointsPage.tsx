@@ -12,6 +12,7 @@ import {
   Edit3,
   Zap,
   Clock,
+  LayoutTemplate,
 } from 'lucide-react'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -138,6 +139,14 @@ export const EndpointsPage: React.FC = () => {
               leftIcon={<FlaskConical className="w-3.5 h-3.5 text-[#5277D9]" />}
             >
               Testing Console
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/templates')}
+              leftIcon={<LayoutTemplate className="w-3.5 h-3.5 text-indigo-600" />}
+            >
+              Templates
             </Button>
             <Button
               variant="primary"

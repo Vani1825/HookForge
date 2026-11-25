@@ -12,6 +12,8 @@ export type { EndpointTestInput, EndpointTestResult, EndpointTestResponseData }
 
 export interface CreateEndpointInput {
   url: string
+  templateId?: string
+  template_id?: string
   rate_limit_rps?: number
   rateLimitRps?: number
   description?: string

@@ -4,6 +4,7 @@ import { DashboardLayout } from './layouts/DashboardLayout'
 import { DashboardPage } from './pages/DashboardPage'
 import { EndpointsPage } from './pages/EndpointsPage'
 import { EndpointTestingPage } from './pages/EndpointTestingPage'
+import { TemplatesPage } from './pages/TemplatesPage'
 import { EventsPage } from './pages/EventsPage'
 import { DeliveriesPage } from './pages/DeliveriesPage'
 import { ScheduledDeliveriesPage } from './pages/ScheduledDeliveriesPage'
@@ -22,6 +23,7 @@ export function App() {
             <Route index element={<DashboardPage />} />
             <Route path="dashboard" element={<Navigate to="/" replace />} />
             <Route path="endpoints" element={<EndpointsPage />} />
+            <Route path="templates" element={<TemplatesPage />} />
             <Route path="endpoint-testing" element={<EndpointTestingPage />} />
             <Route path="events" element={<EventsPage />} />
             <Route path="deliveries" element={<DeliveriesPage />} />

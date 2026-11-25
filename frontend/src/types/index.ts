@@ -267,3 +267,108 @@ export interface EndpointTestResult {
   testedAt: string
   tested_at?: string
 }
+
+// --- Webhook Templates ---
+
+export interface WebhookTemplate {
+  id: string
+  tenant_id?: string | null
+  tenantId?: string | null
+  name: string
+  description?: string | null
+  http_method: string
+  httpMethod: string
+  url?: string | null
+  custom_headers: Record<string, string>
+  customHeaders: Record<string, string>
+  default_payload?: unknown
+  defaultPayload?: unknown
+  rate_limit_rps: number
+  rateLimitRps: number
+  retry_strategy: RetryStrategy
+  retryStrategy: RetryStrategy
+  retry_max_attempts: number
+  retryMaxAttempts: number
+  retry_base_delay_ms: number
+  retryBaseDelayMs: number
+  retry_max_delay_ms: number
+  retryMaxDelayMs: number
+  retry_backoff_multiplier: number
+  retryBackoffMultiplier: number
+  retry_policy?: RetryPolicy
+  retryPolicy?: RetryPolicy
+  is_system: boolean
+  isSystem: boolean
+  created_at: string
+  createdAt: string
+  updated_at: string
+  updatedAt: string
+}
+
+export interface CreateTemplateInput {
+  name: string
+  description?: string
+  httpMethod?: string
+  http_method?: string
+  url?: string
+  customHeaders?: Record<string, string>
+  custom_headers?: Record<string, string>
+  defaultPayload?: unknown
+  default_payload?: unknown
+  rateLimitRps?: number
+  rate_limit_rps?: number
+  retryStrategy?: RetryStrategy
+  retry_strategy?: RetryStrategy
+  retryMaxAttempts?: number
+  retry_max_attempts?: number
+  retryBaseDelayMs?: number
+  retry_base_delay_ms?: number
+  retryMaxDelayMs?: number
+  retry_max_delay_ms?: number
+  retryBackoffMultiplier?: number
+  retry_backoff_multiplier?: number
+  retryPolicy?: Partial<RetryPolicy>
+  retry_policy?: Partial<RetryPolicy>
+}
+
+export interface UpdateTemplateInput {
+  name?: string
+  description?: string
+  httpMethod?: string
+  http_method?: string
+  url?: string
+  customHeaders?: Record<string, string>
+  custom_headers?: Record<string, string>
+  defaultPayload?: unknown
+  default_payload?: unknown
+  rateLimitRps?: number
+  rate_limit_rps?: number
+  retryStrategy?: RetryStrategy
+  retry_strategy?: RetryStrategy
+  retryMaxAttempts?: number
+  retry_max_attempts?: number
+  retryBaseDelayMs?: number
+  retry_base_delay_ms?: number
+  retryMaxDelayMs?: number
+  retry_max_delay_ms?: number
+  retryBackoffMultiplier?: number
+  retry_backoff_multiplier?: number
+  retryPolicy?: Partial<RetryPolicy>
+  retry_policy?: Partial<RetryPolicy>
+}
+
+export interface TemplateApplyResult {
+  templateId: string
+  templateName: string
+  url?: string | null
+  httpMethod: string
+  customHeaders: Record<string, string>
+  defaultPayload?: unknown
+  rateLimitRps: number
+  retryStrategy: RetryStrategy
+  retryMaxAttempts: number
+  retryBaseDelayMs: number
+  retryMaxDelayMs: number
+  retryBackoffMultiplier: number
+  retryPolicy?: RetryPolicy
+}
