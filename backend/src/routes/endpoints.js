@@ -23,8 +23,31 @@ router.post(
   apiKeyAuth,
   [
     body('url')
-      .isURL({ protocols: ['http', 'https'], require_protocol: true })
-      .withMessage('URL must be a valid HTTP or HTTPS URL'),
+      .custom((val, { req }) => {
+        if ((req.body?.templateId || req.body?.template_id) && (val === undefined || val === null || val === '')) {
+          return true;
+        }
+        if (!val || typeof val !== 'string') {
+          throw new Error('URL must be a valid HTTP or HTTPS URL');
+        }
+        try {
+          const u = new URL(val);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') {
+            throw new Error('URL must be a valid HTTP or HTTPS URL');
+          }
+        } catch {
+          throw new Error('URL must be a valid HTTP or HTTPS URL');
+        }
+        return true;
+      }),
+    body('templateId')
+      .optional()
+      .isUUID()
+      .withMessage('Invalid template ID'),
+    body('template_id')
+      .optional()
+      .isUUID()
+      .withMessage('Invalid template_id'),
     body('rateLimitRps')
       .optional()
       .isInt({ min: 1 })
