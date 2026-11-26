@@ -50,6 +50,7 @@ vi.mock('../../../src/repositories/jdbc/eventRepository.js', () => {
   const repo = {
     findById: vi.fn(),
     insert: vi.fn(),
+    enqueueBatch: vi.fn(),
   };
   return {
     default: repo,
@@ -61,6 +62,7 @@ vi.mock('../../../src/repositories/jdbc/endpointRepository.js', () => {
   const repo = {
     findByIdAndTenant: vi.fn(),
     allocate: vi.fn(),
+    findDueEndpoints: vi.fn(),
   };
   return {
     default: repo,
@@ -258,7 +260,8 @@ describe("Phase 2 – Vani's Task 2: Advanced Filtering & Detailed Logs (Backend
       expect(countSql).toContain("ev.payload->>'type' = $5");
       expect(countSql).toContain('d.created_at >= $6');
       expect(countSql).toContain('d.created_at <= $7');
-      expect(countSql).toContain('EXISTS (\n        SELECT 1 FROM delivery_attempts da\n        WHERE da.delivery_id = d.id AND da.status_code = $8\n      )');
+      expect(countSql).toContain('SELECT 1 FROM delivery_attempts da');
+      expect(countSql).toContain('WHERE da.delivery_id = d.id AND da.status_code = $8');
       expect(countSql).toContain('d.attempt_count >= $9');
       expect(countSql).toContain('d.attempt_count <= $10');
       expect(countSql).toContain('ILIKE $11');

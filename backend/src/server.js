@@ -7,6 +7,7 @@ import app from './app.js';
 import config from './config/index.js';
 import logger from './utils/logger.js';
 import { testConnection, closePool } from './config/database.js';
+import { initRedis, closeRedis } from './config/redis.js';
 import { start as startDispatcher, stop as stopDispatcher } from './services/delivery/dispatcher.js';
 
 let server;
@@ -38,6 +39,10 @@ async function startServer() {
     // Start delivery dispatcher after successful server & DB initialization
     logger.info('Starting delivery dispatcher...');
     startDispatcher();
+
+    // Initialize Redis client safely (non-blocking)
+    logger.info('Initializing Redis connection...');
+    await initRedis();
 
     // Handle graceful shutdown
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
@@ -102,6 +107,14 @@ async function gracefulShutdown(signal) {
         logger.error('Error closing database pool', { error: error.message });
       }
 
+      // Close Redis connection
+      try {
+        await closeRedis();
+        logger.info('Redis connection closed');
+      } catch (error) {
+        logger.error('Error closing Redis connection', { error: error.message });
+      }
+
       process.exit(err ? 1 : 0);
     });
   } else {
@@ -110,6 +123,13 @@ async function gracefulShutdown(signal) {
       logger.info('Database pool closed');
     } catch (error) {
       logger.error('Error closing database pool', { error: error.message });
+    }
+
+    try {
+      await closeRedis();
+      logger.info('Redis connection closed');
+    } catch (error) {
+      logger.error('Error closing Redis connection', { error: error.message });
     }
     process.exit(0);
   }

@@ -321,3 +321,41 @@ npm test
 npm run test:e2e
 ```
 
+---
+
+## 6. Phase 3: Redis Integration (Caching & Distributed Rate Limiting)
+
+### 6.1 Overview
+HookForge incorporates Redis 7 as a distributed cache and sliding-window rate limit store. The design provides zero-downtime resilience: if Redis is unavailable or unconfigured, the application gracefully degrades to PostgreSQL direct queries and in-memory rate limiting.
+
+### 6.2 Key Features
+- **Atomic Sliding-Window Rate Limiting**: Redis sorted sets (`ZSET`) and Lua scripts prevent race conditions across horizontally scaled application replicas while guaranteeing precise sliding-window enforcement.
+- **Tenant-Isolated Caching**:
+  - `tenant:{tenantId}:endpoints:list`: Cached endpoint summaries (TTL: 300s). Automatically invalidated on endpoint creation, update, or deactivation.
+  - `tenant:{tenantId}:endpoint:{endpointId}`: Cached endpoint metadata (TTL: 300s). Automatically invalidated on update or deactivation.
+  - `tenant:{tenantId}:analytics:overview:{startDate}:{endDate}`: Aggregated dashboard analytics (TTL: 60s).
+- **Security Invariant**: Signing secrets are never cached; only sanitized public endpoint DTOs are stored in Redis.
+- **Graceful Degradation**: All Redis operations (cache reads/writes and distributed rate limiting) are protected by error boundaries. If Redis fails, the system logs structured warnings and transparently falls back to process-local in-memory storage and PostgreSQL queries without dropping requests.
+- **Health Check Observability**: `GET /health` reports `checks.redis` status (`up`, `down`, or `disabled`) alongside latency metrics.
+
+### 6.3 Local Redis Setup
+To start Redis and PostgreSQL using Docker Compose:
+```bash
+# Start all infrastructure services (PostgreSQL + Redis)
+docker-compose up -d postgres redis
+
+# Verify Redis health
+docker-compose exec redis redis-cli ping
+# Expected output: PONG
+
+# Check Redis connection logs and keys
+docker-compose exec redis redis-cli monitor
+```
+
+To run with Redis enabled locally via `.env`:
+```env
+REDIS_ENABLED=true
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+

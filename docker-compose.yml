@@ -15,10 +15,25 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - redisdata:/data
+
   app:
     build: ./backend
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DATABASE_HOST: postgres
@@ -27,6 +42,9 @@ services:
       DATABASE_PASSWORD: webhooks
       DATABASE_NAME: webhooks
       DATABASE_URL: "postgresql://webhooks:webhooks@postgres:5432/webhooks"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 8080
       HOST: 0.0.0.0
@@ -44,3 +62,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:

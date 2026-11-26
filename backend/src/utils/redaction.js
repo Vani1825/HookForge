@@ -49,7 +49,7 @@ function _redactRecursive(value, depth, maxDepth, maxStringLen) {
     return value;
   }
 
-  if (depth >= maxDepth) {
+  if (depth > maxDepth) {
     return '[NESTED_OBJECT_TRUNCATED]';
   }
 
@@ -69,7 +69,11 @@ function _redactRecursive(value, depth, maxDepth, maxStringLen) {
     const result = {};
     for (const [k, v] of Object.entries(value)) {
       if (isSensitiveKey(k)) {
-        result[k] = '[REDACTED]';
+        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
+          result[k] = _redactRecursive(v, depth + 1, maxDepth, maxStringLen);
+        } else {
+          result[k] = '[REDACTED]';
+        }
       } else {
         result[k] = _redactRecursive(v, depth + 1, maxDepth, maxStringLen);
       }
