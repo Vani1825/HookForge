@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState, useMemo } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -48,7 +48,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     groupTitle: 'OPERATIONS',
     items: [
-      { label: 'Dead Letter Queue', path: '/dead-letters', icon: AlertOctagon, badge: '3' },
+      { label: 'Dead Letter Queue', path: '/dead-letters', icon: AlertOctagon },
       { label: 'Replay Queue', path: '/replay', icon: RotateCw },
       { label: 'Endpoint Testing', path: '/endpoint-testing', icon: FlaskConical },
       { label: 'System Monitoring', path: '/monitoring', icon: Activity },
@@ -81,7 +81,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   onToggleCollapse,
 }) => {
-  const { backendHealth } = useApp()
+  const { backendHealth, service, mode } = useApp()
+  const [deadLetterCount, setDeadLetterCount] = useState<number | null>(null)
+
+  // Fetch real dead letters count dynamically
+  useEffect(() => {
+    let isCancelled = false
+
+    const loadDeadLettersCount = async () => {
+      if (!service?.getDeadLetters) return
+      try {
+        const deadLetters = await service.getDeadLetters()
+        if (!isCancelled) {
+          setDeadLetterCount(Array.isArray(deadLetters) ? deadLetters.length : 0)
+        }
+      } catch {
+        if (!isCancelled) {
+          setDeadLetterCount(0)
+        }
+      }
+    }
+
+    loadDeadLettersCount()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [service, mode])
+
+  const navGroups = useMemo(() => {
+    return NAV_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.map((item) => {
+        if (item.path === '/dead-letters') {
+          return {
+            ...item,
+            badge: deadLetterCount && deadLetterCount > 0 ? String(deadLetterCount) : undefined,
+          }
+        }
+        return item
+      }),
+    }))
+  }, [deadLetterCount])
+
   const isHealthy = backendHealth.status === 'up'
   const isChecking = backendHealth.status === 'checking'
   const isDbUp =
@@ -211,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             aria-label="Workspace Navigation"
             className={cn('pt-4 pb-6 space-y-5 px-3', isCollapsed && 'lg:px-2')}
           >
-            {NAV_GROUPS.map((group) => (
+            {navGroups.map((group) => (
               <div key={group.groupTitle} className="space-y-1">
                 {/* Group Title: always visible on mobile drawer; hidden only when desktop is collapsed */}
                 <div
