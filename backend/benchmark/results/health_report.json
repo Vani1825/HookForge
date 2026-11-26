@@ -1,0 +1,120 @@
+{
+  "scenario": "health",
+  "description": "Health check endpoint latency and throughput (DB + Redis connectivity)",
+  "timestamp": "2026-11-26T12:01:05.689Z",
+  "target": {
+    "url": "http://127.0.0.1:8081/health",
+    "path": "/health",
+    "method": "GET",
+    "headers": {}
+  },
+  "configuration": {
+    "requests": 10,
+    "concurrency": 2,
+    "timeoutMs": 5000
+  },
+  "stats": {
+    "totalRequests": 10,
+    "successfulRequests": 0,
+    "failedRequests": 10,
+    "throttledRequests": 0,
+    "successRatePct": 0,
+    "totalDurationMs": 139.59,
+    "throughputRps": 71.64,
+    "latencies": {
+      "minMs": 10,
+      "maxMs": 76.65,
+      "avgMs": 26.78,
+      "p50Ms": 17.9,
+      "p90Ms": 65.41,
+      "p95Ms": 71.03,
+      "p99Ms": 75.53
+    },
+    "statusDistribution": {
+      "503": 10
+    },
+    "errorDistribution": {}
+  },
+  "sampleResults": [
+    {
+      "latencyMs": 76.6536,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 64.1643,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 18.862,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 19.7097,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 17.5302,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 15.2926,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 10.2875,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 9.996,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 18.2736,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 16.9875,
+      "statusCode": 503,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    }
+  ]
+}

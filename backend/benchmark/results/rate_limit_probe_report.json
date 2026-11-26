@@ -1,0 +1,130 @@
+{
+  "scenario": "rate_limit_probe",
+  "description": "Rate limiting burst evaluation measuring HTTP 429 throttling & latency under load",
+  "timestamp": "2026-11-26T12:01:05.937Z",
+  "target": {
+    "url": "http://127.0.0.1:8081/health",
+    "path": "/health",
+    "method": "GET",
+    "headers": {}
+  },
+  "configuration": {
+    "requests": 35,
+    "concurrency": 5,
+    "timeoutMs": 5000
+  },
+  "stats": {
+    "totalRequests": 35,
+    "successfulRequests": 0,
+    "failedRequests": 35,
+    "throttledRequests": 35,
+    "successRatePct": 0,
+    "totalDurationMs": 81.88,
+    "throughputRps": 427.45,
+    "latencies": {
+      "minMs": 6.15,
+      "maxMs": 19.86,
+      "avgMs": 11.28,
+      "p50Ms": 10.84,
+      "p90Ms": 16.98,
+      "p95Ms": 18.78,
+      "p99Ms": 19.63
+    },
+    "statusDistribution": {
+      "429": 35
+    },
+    "errorDistribution": {}
+  },
+  "sampleResults": [
+    {
+      "latencyMs": 10.4945,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 12.4002,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 14.3008,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 16.5599,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 19.1938,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 19.8577,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 18.603,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 17.2554,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 15.6957,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 13.9773,
+      "statusCode": 429,
+      "success": false,
+      "headers": {
+        "retry-after": "60",
+        "content-type": "application/json; charset=utf-8"
+      }
+    }
+  ]
+}

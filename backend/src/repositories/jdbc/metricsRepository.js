@@ -1,16 +1,17 @@
 /**
- * JdbcMetricsRepository - Database queries for tenant-scoped metrics.
- * Strictly enforces tenant isolation on all queries and supports
- * dynamic date filtering across overview, time-series, and distribution metrics.
+ * JdbcMetricsRepository - Database queries for operational metrics and telemetry.
+ * Supports tenant-scoped queries as well as system-wide aggregation when tenantId
+ * is omitted, and provides dynamic date filtering across overview, time-series,
+ * and status distribution metrics.
  */
 
 import { query } from '../../config/database.js';
 import logger from '../../utils/logger.js';
 
 /**
- * Get aggregated overview metrics for a tenant with optional date filtering.
+ * Get aggregated overview metrics with optional date filtering and tenant scoping.
  *
- * @param {string} tenantId - Tenant UUID
+ * @param {string|null} [tenantId] - Optional Tenant UUID
  * @param {Object} [filters={}] - Date filters
  * @param {string} [filters.created_after] - Start ISO date
  * @param {string} [filters.created_before] - End ISO date
@@ -18,10 +19,15 @@ import logger from '../../utils/logger.js';
  */
 export async function getOverview(tenantId, filters = {}) {
   try {
-    // 1. Events count (tenant-scoped)
-    const eventConditions = ['tenant_id = $1'];
-    const eventParams = [tenantId];
-    let eIdx = 2;
+    // 1. Events count
+    const eventConditions = [];
+    const eventParams = [];
+    let eIdx = 1;
+
+    if (tenantId) {
+      eventConditions.push(`tenant_id = $${eIdx++}`);
+      eventParams.push(tenantId);
+    }
     if (filters.created_after) {
       eventConditions.push(`created_at >= $${eIdx++}`);
       eventParams.push(filters.created_after);
@@ -31,16 +37,22 @@ export async function getOverview(tenantId, filters = {}) {
       eventParams.push(filters.created_before);
     }
 
+    const eventWhere = eventConditions.length ? `WHERE ${eventConditions.join(' AND ')}` : '';
     const eventsResult = await query(
-      `SELECT count(*)::int AS count FROM events WHERE ${eventConditions.join(' AND ')}`,
+      `SELECT count(*)::int AS count FROM events ${eventWhere}`,
       eventParams
     );
     const totalEvents = eventsResult.rows[0]?.count || 0;
 
-    // 2. Deliveries count and states (tenant-scoped via endpoints join)
-    const delConditions = ['ep.tenant_id = $1'];
-    const delParams = [tenantId];
-    let dIdx = 2;
+    // 2. Deliveries count and states
+    const delConditions = [];
+    const delParams = [];
+    let dIdx = 1;
+
+    if (tenantId) {
+      delConditions.push(`ep.tenant_id = $${dIdx++}`);
+      delParams.push(tenantId);
+    }
     if (filters.created_after) {
       delConditions.push(`d.created_at >= $${dIdx++}`);
       delParams.push(filters.created_after);
@@ -50,6 +62,7 @@ export async function getOverview(tenantId, filters = {}) {
       delParams.push(filters.created_before);
     }
 
+    const delWhere = delConditions.length ? `WHERE ${delConditions.join(' AND ')}` : '';
     const deliveriesResult = await query(
       `SELECT
          count(*)::int AS total,
@@ -61,7 +74,7 @@ export async function getOverview(tenantId, filters = {}) {
          count(CASE WHEN d.state = 'RETRYING' THEN 1 END)::int AS retrying
        FROM deliveries d
        JOIN endpoints ep ON d.endpoint_id = ep.id
-       WHERE ${delConditions.join(' AND ')}`,
+       ${delWhere}`,
       delParams
     );
     const delRow = deliveriesResult.rows[0] || {};
@@ -78,10 +91,15 @@ export async function getOverview(tenantId, filters = {}) {
       ? Math.round((succeededDeliveries / totalDeliveries) * 1000) / 10
       : 100;
 
-    // 3. Average latency (tenant-scoped via deliveries -> endpoints)
-    const latConditions = ['ep.tenant_id = $1'];
-    const latParams = [tenantId];
-    let lIdx = 2;
+    // 3. Average latency
+    const latConditions = [];
+    const latParams = [];
+    let lIdx = 1;
+
+    if (tenantId) {
+      latConditions.push(`ep.tenant_id = $${lIdx++}`);
+      latParams.push(tenantId);
+    }
     if (filters.created_after) {
       latConditions.push(`d.created_at >= $${lIdx++}`);
       latParams.push(filters.created_after);
@@ -91,25 +109,33 @@ export async function getOverview(tenantId, filters = {}) {
       latParams.push(filters.created_before);
     }
 
+    const latWhere = latConditions.length ? `WHERE ${latConditions.join(' AND ')}` : '';
     const latencyResult = await query(
       `SELECT COALESCE(ROUND(AVG(da.latency_ms)), 0)::int AS avg_latency
        FROM delivery_attempts da
        JOIN deliveries d ON da.delivery_id = d.id
        JOIN endpoints ep ON d.endpoint_id = ep.id
-       WHERE ${latConditions.join(' AND ')}`,
+       ${latWhere}`,
       latParams
     );
     const averageLatencyMs = latencyResult.rows[0]?.avg_latency || 0;
 
-    // 4. Endpoints summary (tenant-scoped inventory)
+    // 4. Endpoints summary
+    const epConditions = [];
+    const epParams = [];
+    if (tenantId) {
+      epConditions.push('tenant_id = $1');
+      epParams.push(tenantId);
+    }
+    const epWhere = epConditions.length ? `WHERE ${epConditions.join(' AND ')}` : '';
     const endpointsResult = await query(
       `SELECT
          count(*)::int AS total,
          count(CASE WHEN active = true THEN 1 END)::int AS active,
          count(CASE WHEN circuit_state = 'OPEN' THEN 1 END)::int AS open_circuits
        FROM endpoints
-       WHERE tenant_id = $1`,
-      [tenantId]
+       ${epWhere}`,
+      epParams
     );
     const epRow = endpointsResult.rows[0] || {};
     const totalEndpoints = epRow.total || 0;
@@ -144,7 +170,7 @@ export async function getOverview(tenantId, filters = {}) {
  * Get time-series throughput with consistent date boundaries and gap-filling
  * for empty periods.
  *
- * @param {string} tenantId - Tenant UUID
+ * @param {string|null} [tenantId] - Optional Tenant UUID
  * @param {Object} [filters={}] - Date filters
  * @param {string} [filters.created_after] - Start ISO date
  * @param {string} [filters.created_before] - End ISO date
@@ -153,9 +179,14 @@ export async function getOverview(tenantId, filters = {}) {
  */
 export async function getTimeSeries(tenantId, filters = {}) {
   try {
-    const conditions = ['ep.tenant_id = $1'];
-    const params = [tenantId];
-    let idx = 2;
+    const conditions = [];
+    const params = [];
+    let idx = 1;
+
+    if (tenantId) {
+      conditions.push(`ep.tenant_id = $${idx++}`);
+      params.push(tenantId);
+    }
 
     let startDate;
     let endDate;
@@ -191,6 +222,7 @@ export async function getTimeSeries(tenantId, filters = {}) {
     const isDaily = spanMs > 25 * 60 * 60 * 1000;
     const truncUnit = isDaily ? 'day' : 'hour';
 
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const sql = `SELECT
          date_trunc('${truncUnit}', d.created_at) AS bucket_time,
          count(*)::int AS total,
@@ -199,7 +231,7 @@ export async function getTimeSeries(tenantId, filters = {}) {
          count(CASE WHEN d.state IN ('PENDING', 'IN_FLIGHT', 'RETRYING') THEN 1 END)::int AS pending
        FROM deliveries d
        JOIN endpoints ep ON d.endpoint_id = ep.id
-       WHERE ${conditions.join(' AND ')}
+       ${whereClause}
        GROUP BY date_trunc('${truncUnit}', d.created_at)
        ORDER BY date_trunc('${truncUnit}', d.created_at) ASC`;
 
@@ -273,9 +305,9 @@ export async function getTimeSeries(tenantId, filters = {}) {
 }
 
 /**
- * Get delivery status distribution for a tenant with optional date filtering.
+ * Get delivery status distribution with optional date filtering and tenant scoping.
  *
- * @param {string} tenantId - Tenant UUID
+ * @param {string|null} [tenantId] - Optional Tenant UUID
  * @param {Object} [filters={}] - Date filters
  * @param {string} [filters.created_after] - Start ISO date
  * @param {string} [filters.created_before] - End ISO date
@@ -283,9 +315,14 @@ export async function getTimeSeries(tenantId, filters = {}) {
  */
 export async function getStatusDistribution(tenantId, filters = {}) {
   try {
-    const conditions = ['ep.tenant_id = $1'];
-    const params = [tenantId];
-    let idx = 2;
+    const conditions = [];
+    const params = [];
+    let idx = 1;
+
+    if (tenantId) {
+      conditions.push(`ep.tenant_id = $${idx++}`);
+      params.push(tenantId);
+    }
     if (filters.created_after) {
       conditions.push(`d.created_at >= $${idx++}`);
       params.push(filters.created_after);
@@ -295,13 +332,14 @@ export async function getStatusDistribution(tenantId, filters = {}) {
       params.push(filters.created_before);
     }
 
+    const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
     const result = await query(
       `SELECT
          d.state,
          count(*)::int AS count
        FROM deliveries d
        JOIN endpoints ep ON d.endpoint_id = ep.id
-       WHERE ${conditions.join(' AND ')}
+       ${whereClause}
        GROUP BY d.state`,
       params
     );

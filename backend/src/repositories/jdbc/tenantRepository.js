@@ -123,9 +123,37 @@ export async function findAll() {
   }
 }
 
+/**
+ * Find the primary/default development tenant.
+ * @returns {Promise<Object|null>} Tenant object or null
+ */
+export async function findFirst() {
+  const sql = `
+    SELECT id, name
+    FROM tenants
+    ORDER BY created_at ASC
+    LIMIT 1
+  `;
+
+  try {
+    const result = await query(sql);
+    if (result.rows.length === 0) return null;
+    return {
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+    };
+  } catch (error) {
+    logger.error('Failed to find first tenant', {
+      error: error.message,
+    });
+    return null;
+  }
+}
+
 export default {
   findByApiKeyHash,
   findAll,
+  findFirst,
   clearCache,
   invalidateCache,
   getCacheStats,

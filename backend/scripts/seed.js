@@ -77,12 +77,11 @@ export async function initDevTenant(options = {}) {
       };
     }
 
-    // 1. Generate a cryptographically random API key
-    // Using a clear whkey_ prefix followed by 48 hex characters (192 bits of entropy)
+    // 1. Generate or use standard development API key (matches frontend default)
     const rawApiKey =
       process.env.DEV_API_KEY ||
       options.apiKey ||
-      `whkey_${crypto.randomBytes(24).toString('hex')}`;
+      'whkey_3b854015a87163e6fee3be10377355fb7afb74e0109740e8';
 
     // 3. Store only the SHA-256 hash in api_key_hash
     const apiKeyHash = crypto.createHash('sha256').update(rawApiKey).digest('hex');

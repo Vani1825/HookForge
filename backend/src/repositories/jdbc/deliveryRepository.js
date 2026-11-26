@@ -97,7 +97,7 @@ export async function claim(endpointId, leaseDurationMs) {
     const claimSql = `
       UPDATE deliveries
       SET state = 'IN_FLIGHT',
-          lease_until = now() + (make_interval(secs => $2 / 1000.0)),
+          lease_until = now() + (make_interval(secs => $2)),
           updated_at = now()
       WHERE id = (
         SELECT id
@@ -1170,7 +1170,7 @@ export async function claimForImmediateExecution(deliveryId, leaseDurationMs) {
   const sql = `
     UPDATE deliveries
     SET state = 'IN_FLIGHT',
-        lease_until = now() + (make_interval(secs => $2 / 1000.0)),
+        lease_until = now() + (make_interval(secs => $2)),
         updated_at = now()
     WHERE id = $1
       AND state IN ('DEAD', 'SUCCEEDED', 'CANCELLED', 'PENDING', 'RETRYING')

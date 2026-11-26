@@ -11,6 +11,8 @@ import {
   XCircle,
   AlertTriangle,
   ChevronRight,
+  Layers,
+  Code2,
 } from 'lucide-react'
 import type { Endpoint, EndpointTestResult, EndpointTestHttpMethod } from '../types'
 import { useNavigate } from 'react-router-dom'
@@ -49,6 +51,7 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
   const [result, setResult] = useState<EndpointTestResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'request' | 'response'>('request')
+  const [responseSubTab, setResponseSubTab] = useState<'body' | 'headers'>('body')
 
   useEffect(() => {
     if (isOpen) {
@@ -329,15 +332,77 @@ export const EndpointTestModal: React.FC<EndpointTestModalProps> = ({
                 </div>
 
                 {result.error && (
-                  <p className="text-2xs text-[#E76B64] font-medium">{result.error}</p>
+                  <p className="text-2xs text-[#E76B64] font-medium p-2 bg-[#E76B64]/10 rounded border border-[#E76B64]/20">{result.error}</p>
                 )}
 
-                {result.response?.body && (
+                {/* Response sub-tabs: Body vs Headers */}
+                <div className="flex items-center justify-between border-b border-[#E7E8EC] pt-1">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setResponseSubTab('body')}
+                      className={`px-2.5 py-1 text-2xs font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-1 ${
+                        responseSubTab === 'body'
+                          ? 'border-[#5277D9] text-[#5277D9]'
+                          : 'border-transparent text-[#64748B] hover:text-[#202938]'
+                      }`}
+                    >
+                      <Code2 className="w-3 h-3" />
+                      <span>Body</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResponseSubTab('headers')}
+                      className={`px-2.5 py-1 text-2xs font-semibold border-b-2 transition-all cursor-pointer flex items-center gap-1 ${
+                        responseSubTab === 'headers'
+                          ? 'border-[#5277D9] text-[#5277D9]'
+                          : 'border-transparent text-[#64748B] hover:text-[#202938]'
+                      }`}
+                    >
+                      <Layers className="w-3 h-3" />
+                      <span>Headers ({Object.keys(result.response?.headers || {}).length})</span>
+                    </button>
+                  </div>
+                </div>
+
+                {responseSubTab === 'body' && (
                   <div>
-                    <span className="text-2xs font-semibold text-[#64748B] block mb-1">
-                      Response Body:
-                    </span>
-                    <JsonViewer data={result.response.body} maxHeight="max-h-56" />
+                    {result.response?.body ? (
+                      <JsonViewer data={result.response.body} title="Response Body" maxHeight="max-h-56" />
+                    ) : (
+                      <div className="p-4 text-center text-xs text-[#64748B] bg-[#F7F6F2] rounded-lg border border-dashed border-[#E7E8EC]">
+                        {result.statusCode ? `Empty response body (HTTP ${result.statusCode})` : 'No response body received'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {responseSubTab === 'headers' && (
+                  <div className="space-y-2">
+                    {result.response?.headers && Object.keys(result.response.headers).length > 0 ? (
+                      <div className="max-h-56 overflow-y-auto border border-[#E7E8EC] rounded-lg">
+                        <table className="w-full text-left text-2xs">
+                          <thead className="bg-[#F7F6F2] text-[#64748B] font-semibold sticky top-0 border-b border-[#E7E8EC]">
+                            <tr>
+                              <th className="py-1.5 px-3">Header</th>
+                              <th className="py-1.5 px-3">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#E7E8EC] font-mono">
+                            {Object.entries(result.response.headers).map(([k, v]) => (
+                              <tr key={k} className="hover:bg-[#F7F6F2]/50">
+                                <td className="py-1.5 px-3 font-semibold text-[#202938]">{k}</td>
+                                <td className="py-1.5 px-3 text-[#64748B] break-all">{v}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-xs text-[#64748B] bg-[#F7F6F2] rounded-lg border border-dashed border-[#E7E8EC]">
+                        No response headers captured.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

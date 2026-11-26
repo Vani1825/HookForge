@@ -1,0 +1,122 @@
+{
+  "scenario": "analytics_overview",
+  "description": "Analytics overview endpoint (Redis cache-enabled, 60s TTL)",
+  "timestamp": "2026-11-26T12:01:05.779Z",
+  "target": {
+    "url": "http://127.0.0.1:8081/metrics/overview",
+    "path": "/metrics/overview",
+    "method": "GET",
+    "headers": {
+      "x-api-key": "[REDACTED]"
+    }
+  },
+  "configuration": {
+    "requests": 10,
+    "concurrency": 2,
+    "timeoutMs": 5000
+  },
+  "stats": {
+    "totalRequests": 10,
+    "successfulRequests": 0,
+    "failedRequests": 10,
+    "throttledRequests": 0,
+    "successRatePct": 0,
+    "totalDurationMs": 40.67,
+    "throughputRps": 245.91,
+    "latencies": {
+      "minMs": 7.11,
+      "maxMs": 9.16,
+      "avgMs": 7.96,
+      "p50Ms": 7.94,
+      "p90Ms": 8.89,
+      "p95Ms": 9.03,
+      "p99Ms": 9.14
+    },
+    "statusDistribution": {
+      "500": 10
+    },
+    "errorDistribution": {}
+  },
+  "sampleResults": [
+    {
+      "latencyMs": 8.2235,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 9.1644,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 7.6714,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 7.17,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 7.1967,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 7.1111,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 7.8734,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 7.9977,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 8.8634,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "latencyMs": 8.3154,
+      "statusCode": 500,
+      "success": false,
+      "headers": {
+        "content-type": "application/json; charset=utf-8"
+      }
+    }
+  ]
+}

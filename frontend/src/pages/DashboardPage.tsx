@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   Inbox,
   CheckCircle2,
@@ -41,6 +41,7 @@ export const DashboardPage: React.FC = () => {
   const { service, mode, toggleMode, backendHealth, checkHealth } = useApp()
 
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<OverviewMetrics | null>(null)
   const [timeSeries, setTimeSeries] = useState<TimeSeriesDataPoint[]>([])
@@ -51,34 +52,64 @@ export const DashboardPage: React.FC = () => {
   const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true)
+  // Real-time lifecycle activity polling state
+  const [isLivePolling, setIsLivePolling] = useState(true)
+  const [pollInterval, setPollInterval] = useState<number>(5)
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null)
+  const isPollingRef = useRef(false)
+
+  const loadData = useCallback(async (isInitial = false) => {
+    if (isInitial) {
+      setIsLoading(true)
+    } else {
+      setIsRefreshing(true)
+    }
     setError(null)
     try {
       const [m, ts, sd, delivs, eps] = await Promise.all([
         service.getOverviewMetrics(),
         service.getTimeSeriesMetrics(),
         service.getStatusDistribution(),
-        service.getDeliveries({ limit: 6 }),
+        service.getDeliveries({ limit: 8 }),
         service.getEndpoints(),
         checkHealth(),
       ])
       setMetrics(m)
       setTimeSeries(ts)
       setStatusDistribution(sd)
-      setRecentDeliveries(delivs.slice(0, 6))
+      setRecentDeliveries(delivs.slice(0, 8))
       setEndpoints(eps)
+      setLastRefreshedAt(new Date())
     } catch (err: unknown) {
       const msg = formatErrorMessage(err)
       setError(msg)
     } finally {
-      setIsLoading(false)
+      if (isInitial) {
+        setIsLoading(false)
+      }
+      setIsRefreshing(false)
     }
-  }, [service])
+  }, [service, checkHealth])
 
   useEffect(() => {
-    loadData()
+    loadData(true)
   }, [loadData, mode])
+
+  // Periodic real-time background refresh
+  useEffect(() => {
+    if (!isLivePolling || pollInterval <= 0) return
+
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible' && !isPollingRef.current) {
+        isPollingRef.current = true
+        loadData(false).finally(() => {
+          isPollingRef.current = false
+        })
+      }
+    }, pollInterval * 1000)
+
+    return () => clearInterval(intervalId)
+  }, [isLivePolling, pollInterval, loadData])
 
   const handleInspect = (del: Delivery) => {
     setSelectedDelivery(del)
@@ -93,20 +124,82 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6 text-left">
-      {/* Header Refresh Bar */}
+      {/* Header Refresh Bar with Real-time Feed Controls */}
       <PageHeader
         title="System Reliability Overview"
         description="Real-time webhook delivery pipelines, head-of-line durability, and circuit breaker status."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadData}
-            isLoading={isLoading}
-            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          >
-            Refresh
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Live activity indicator badge */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#F7F6F2] border border-[#E7E8EC] text-2xs text-[#64748B]">
+              <span
+                className={`w-2 h-2 rounded-full shrink-0 ${isLivePolling ? 'bg-[#159B78] animate-pulse' : 'bg-gray-400'
+                  }`}
+              />
+              <span className="font-semibold text-[#202938]">
+                {isLivePolling ? 'LIVE FEED' : 'PAUSED'}
+              </span>
+              {lastRefreshedAt && (
+                <span className="text-[#64748B] text-3xs font-mono hidden sm:inline">
+                  • {lastRefreshedAt.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+
+            {/* Polling Interval Selector */}
+            <div
+              role="group"
+              aria-label="Activity polling interval"
+              className="inline-flex rounded-lg border border-[#E7E8EC] bg-white p-0.5 text-3xs font-medium shadow-2xs"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLivePolling(true)
+                  setPollInterval(5)
+                }}
+                className={`px-2 py-1 rounded cursor-pointer transition-colors ${isLivePolling && pollInterval === 5
+                  ? 'bg-[#5277D9] text-white font-semibold shadow-xs'
+                  : 'text-[#64748B] hover:text-[#202938]'
+                  }`}
+              >
+                5s
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLivePolling(true)
+                  setPollInterval(10)
+                }}
+                className={`px-2 py-1 rounded cursor-pointer transition-colors ${isLivePolling && pollInterval === 10
+                  ? 'bg-[#5277D9] text-white font-semibold shadow-xs'
+                  : 'text-[#64748B] hover:text-[#202938]'
+                  }`}
+              >
+                10s
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLivePolling(false)}
+                className={`px-2 py-1 rounded cursor-pointer transition-colors ${!isLivePolling
+                  ? 'bg-gray-200 text-[#202938] font-semibold'
+                  : 'text-[#64748B] hover:text-[#202938]'
+                  }`}
+              >
+                Off
+              </button>
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => loadData(true)}
+              isLoading={isLoading || isRefreshing}
+              leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            >
+              Refresh
+            </Button>
+          </div>
         }
       />
 
@@ -140,7 +233,7 @@ export const DashboardPage: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={loadData}
+                onClick={() => loadData(true)}
                 isLoading={isLoading}
                 leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
               >
@@ -397,8 +490,16 @@ export const DashboardPage: React.FC = () => {
         <Card className="lg:col-span-2 overflow-hidden min-w-0">
           <CardHeader className="flex flex-row items-center justify-between border-b border-[#E7E8EC] bg-[#F7F6F2] py-3.5">
             <div>
-              <CardTitle>Recent Delivery Activity</CardTitle>
-              <p className="text-xs text-[#64748B]">Latest webhook dispatches through the queue</p>
+              <div className="flex items-center gap-2">
+                <CardTitle>Recent Delivery Activity</CardTitle>
+                {isLivePolling && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#159B78]/10 text-[#159B78] border border-[#159B78]/25 text-3xs font-bold font-mono">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#159B78] animate-pulse" />
+                    LIVE {pollInterval}s
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-[#64748B]">Real-time webhook lifecycle states, timestamps, and delivery outcomes</p>
             </div>
             <NavLink
               to="/deliveries"
@@ -420,8 +521,8 @@ export const DashboardPage: React.FC = () => {
                   <tr>
                     <th className="py-2.5 px-4">Delivery ID</th>
                     <th className="py-2.5 px-4">Destination Endpoint</th>
-                    <th className="py-2.5 px-4">State</th>
-                    <th className="py-2.5 px-4">HTTP</th>
+                    <th className="py-2.5 px-4">Lifecycle State</th>
+                    <th className="py-2.5 px-4">Outcome</th>
                     <th className="py-2.5 px-4">Attempt</th>
                     <th className="py-2.5 px-4">Time</th>
                     <th className="py-2.5 px-4 text-right">Action</th>
@@ -444,7 +545,7 @@ export const DashboardPage: React.FC = () => {
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-[#64748B] max-w-xs truncate font-mono">
+                        <td className="py-3 px-4 text-[#64748B] max-w-xs truncate font-mono" title={del.endpoint_url || del.endpoint_id}>
                           {del.endpoint_url || del.endpoint_id}
                         </td>
                         <td className="py-3 px-4">
@@ -452,21 +553,22 @@ export const DashboardPage: React.FC = () => {
                         </td>
                         <td className="py-3 px-4">
                           <span
-                            className={`px-2 py-0.5 rounded text-2xs font-semibold border ${
-                              statusInfo.category === 'success'
-                                ? 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25'
-                                : statusInfo.category === 'client-error'
+                            className={`px-2 py-0.5 rounded text-2xs font-semibold border ${statusInfo.category === 'success'
+                              ? 'bg-[#159B78]/10 text-[#159B78] border-[#159B78]/25'
+                              : statusInfo.category === 'client-error'
                                 ? 'bg-[#E5B34B]/15 text-[#B8871E] border-[#E5B34B]/30'
-                                : 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25'
-                            }`}
+                                : del.last_status_code
+                                  ? 'bg-[#E76B64]/10 text-[#E76B64] border-[#E76B64]/25'
+                                  : 'bg-gray-100 text-gray-600 border-gray-200'
+                              }`}
                           >
-                            {del.last_status_code ?? 'Timeout'}
+                            {del.last_status_code ? `HTTP ${del.last_status_code}` : del.state === 'PENDING' ? 'Queued' : 'In Flight'}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-[#64748B]">
+                        <td className="py-3 px-4 text-[#64748B] font-mono">
                           #{del.attempt_count}
                         </td>
-                        <td className="py-3 px-4 text-[#64748B]">
+                        <td className="py-3 px-4 text-[#64748B]" title={del.updated_at}>
                           {formatRelativeTime(del.updated_at)}
                         </td>
                         <td className="py-3 px-4 text-right">

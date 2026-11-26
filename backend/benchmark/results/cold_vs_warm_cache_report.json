@@ -1,0 +1,55 @@
+{
+  "scenario": "cold_vs_warm_cache",
+  "description": "Cold vs Warm Cache comparison for /health",
+  "timestamp": "2026-11-26T12:01:05.853Z",
+  "target": {
+    "url": "http://127.0.0.1:8081/health",
+    "path": "/health",
+    "method": "GET",
+    "headers": {}
+  },
+  "stats": {
+    "totalRequests": 10,
+    "successfulRequests": 0,
+    "failedRequests": 10,
+    "throttledRequests": 0,
+    "successRatePct": 0,
+    "totalDurationMs": 34.4,
+    "throughputRps": 290.66,
+    "latencies": {
+      "minMs": 5.18,
+      "maxMs": 7.61,
+      "avgMs": 6.76,
+      "p50Ms": 7.05,
+      "p90Ms": 7.57,
+      "p95Ms": 7.59,
+      "p99Ms": 7.61
+    },
+    "statusDistribution": {
+      "503": 10
+    },
+    "errorDistribution": {}
+  },
+  "coldRequest": {
+    "latencyMs": 7.08,
+    "statusCode": 503,
+    "success": false
+  },
+  "warmBenchmark": {
+    "requests": 10,
+    "concurrency": 2,
+    "avgLatencyMs": 6.76,
+    "p50LatencyMs": 7.05,
+    "p95LatencyMs": 7.59,
+    "throughputRps": 290.66,
+    "statusDistribution": {
+      "503": 10
+    }
+  },
+  "comparison": {
+    "coldLatencyMs": 7.08,
+    "warmAvgLatencyMs": 6.76,
+    "speedupRatio": 1.05,
+    "latencyReductionPct": 4.52
+  }
+}

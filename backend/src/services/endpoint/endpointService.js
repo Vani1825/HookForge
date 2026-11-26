@@ -465,8 +465,13 @@ export async function testEndpoint(tenantId, options = {}) {
     );
   }
 
+  const allowLocal =
+    options.allowLocal !== undefined
+      ? Boolean(options.allowLocal)
+      : Boolean(config?.ssrf?.allowLocal);
+
   try {
-    await validateUrl(targetUrl.trim(), { allowLocal: options.allowLocal });
+    await validateUrl(targetUrl.trim(), { allowLocal });
   } catch (ssrfErr) {
     throw new ValidationError(`SSRF validation failed: ${ssrfErr.message}`);
   }
@@ -558,7 +563,7 @@ export async function testEndpoint(tenantId, options = {}) {
     timeoutMs,
     {
       method,
-      allowLocal: options.allowLocal,
+      allowLocal,
       dnsLookup: options.dnsLookup,
       maxResponseBytes: options.maxResponseBytes,
       maxCaptureBytes: options.maxCaptureBytes ?? 65536,

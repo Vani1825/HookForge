@@ -129,7 +129,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [apiKey, setApiKeyState] = useState<string>(() => {
     const saved = localStorage.getItem(STORAGE_KEY_API_KEY)
     if (saved && saved.trim()) return saved.trim()
-    return import.meta.env.VITE_API_KEY || ''
+    return import.meta.env.VITE_API_KEY || 'whkey_3b854015a87163e6fee3be10377355fb7afb74e0109740e8'
   })
 
   const [backendHealth, setBackendHealth] = useState<{
@@ -266,241 +266,241 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const service = useMemo(
     () => ({
       getEndpoints: async (): Promise<Endpoint[]> => {
-      if (mode === 'demo') {
-        return mockStore.getEndpoints()
-      }
-      return endpointsApi.fetchEndpoints()
-    },
+        if (mode === 'demo') {
+          return mockStore.getEndpoints()
+        }
+        return endpointsApi.fetchEndpoints()
+      },
 
-    createEndpoint: async (data: endpointsApi.CreateEndpointInput): Promise<Endpoint> => {
-      if (mode === 'demo') {
-        return mockStore.createEndpoint(data)
-      }
-      return endpointsApi.createEndpoint(data)
-    },
+      createEndpoint: async (data: endpointsApi.CreateEndpointInput): Promise<Endpoint> => {
+        if (mode === 'demo') {
+          return mockStore.createEndpoint(data)
+        }
+        return endpointsApi.createEndpoint(data)
+      },
 
-    updateEndpoint: async (id: string, data: endpointsApi.UpdateEndpointInput): Promise<Endpoint> => {
-      if (mode === 'demo') {
-        const updated = mockStore.updateEndpoint(id, data)
-        if (!updated) throw new Error('Endpoint not found in mock store')
-        return updated
-      }
-      return endpointsApi.updateEndpoint(id, data)
-    },
+      updateEndpoint: async (id: string, data: endpointsApi.UpdateEndpointInput): Promise<Endpoint> => {
+        if (mode === 'demo') {
+          const updated = mockStore.updateEndpoint(id, data)
+          if (!updated) throw new Error('Endpoint not found in mock store')
+          return updated
+        }
+        return endpointsApi.updateEndpoint(id, data)
+      },
 
-    toggleEndpoint: async (id: string, active: boolean): Promise<Endpoint> => {
-      if (mode === 'demo') {
-        const toggled = mockStore.toggleEndpoint(id)
-        if (!toggled) throw new Error('Endpoint not found')
-        return toggled
-      }
-      return endpointsApi.toggleEndpointActive(id, active)
-    },
+      toggleEndpoint: async (id: string, active: boolean): Promise<Endpoint> => {
+        if (mode === 'demo') {
+          const toggled = mockStore.toggleEndpoint(id)
+          if (!toggled) throw new Error('Endpoint not found')
+          return toggled
+        }
+        return endpointsApi.toggleEndpointActive(id, active)
+      },
 
-    deleteEndpoint: async (id: string): Promise<{ success: boolean }> => {
-      if (mode === 'demo') {
-        const deleted = mockStore.deleteEndpoint(id)
-        if (!deleted) throw new Error('Endpoint not found in mock store')
-        return { success: true }
-      }
-      return endpointsApi.deleteEndpoint(id)
-    },
+      deleteEndpoint: async (id: string): Promise<{ success: boolean }> => {
+        if (mode === 'demo') {
+          const deleted = mockStore.deleteEndpoint(id)
+          if (!deleted) throw new Error('Endpoint not found in mock store')
+          return { success: true }
+        }
+        return endpointsApi.deleteEndpoint(id)
+      },
 
-    testEndpoint: async (input: endpointsApi.EndpointTestInput): Promise<EndpointTestResult> => {
-      if (mode === 'demo') {
-        return mockStore.testEndpoint(input)
-      }
-      return endpointsApi.testEndpoint(input)
-    },
+      testEndpoint: async (input: endpointsApi.EndpointTestInput): Promise<EndpointTestResult> => {
+        if (mode === 'demo') {
+          return mockStore.testEndpoint(input)
+        }
+        return endpointsApi.testEndpoint(input)
+      },
 
-    getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {
-      if (mode === 'demo') {
-        return mockStore.getEvents(filter)
-      }
-      return eventsApi.fetchEvents(filter)
-    },
+      getEvents: async (filter?: eventsApi.EventQueryParams): Promise<deliveriesApi.PaginatedList<WebhookEvent>> => {
+        if (mode === 'demo') {
+          return mockStore.getEvents(filter)
+        }
+        return eventsApi.fetchEvents(filter)
+      },
 
-    getEventById: async (id: string): Promise<WebhookEvent | undefined> => {
-      if (mode === 'demo') {
-        return mockStore.getEvent(id)
-      }
-      return eventsApi.fetchEventById(id)
-    },
+      getEventById: async (id: string): Promise<WebhookEvent | undefined> => {
+        if (mode === 'demo') {
+          return mockStore.getEvent(id)
+        }
+        return eventsApi.fetchEventById(id)
+      },
 
-    ingestEvent: async (data: eventsApi.IngestEventInput) => {
-      if (mode === 'demo') {
-        return mockStore.ingestEvent(data)
-      }
-      return eventsApi.ingestEvent(data)
-    },
+      ingestEvent: async (data: eventsApi.IngestEventInput) => {
+        if (mode === 'demo') {
+          return mockStore.ingestEvent(data)
+        }
+        return eventsApi.ingestEvent(data)
+      },
 
-    getDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }): Promise<deliveriesApi.PaginatedList<Delivery>> => {
-      if (mode === 'demo') {
-        return mockStore.getDeliveries(filter)
-      }
-      return deliveriesApi.fetchDeliveries(filter)
-    },
+      getDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams & { search?: string }): Promise<deliveriesApi.PaginatedList<Delivery>> => {
+        if (mode === 'demo') {
+          return mockStore.getDeliveries(filter)
+        }
+        return deliveriesApi.fetchDeliveries(filter)
+      },
 
-    getDeliveryById: async (id: string): Promise<Delivery | undefined> => {
-      if (mode === 'demo') {
-        return mockStore.getDelivery(id)
-      }
-      return deliveriesApi.fetchDeliveryById(id)
-    },
+      getDeliveryById: async (id: string): Promise<Delivery | undefined> => {
+        if (mode === 'demo') {
+          return mockStore.getDelivery(id)
+        }
+        return deliveriesApi.fetchDeliveryById(id)
+      },
 
-    getDeliveryAttempts: async (id: string): Promise<DeliveryAttemptsResponse> => {
-      if (mode === 'demo') {
-        return mockStore.getDeliveryAttempts(id)
-      }
-      return deliveriesApi.fetchDeliveryAttempts(id)
-    },
+      getDeliveryAttempts: async (id: string): Promise<DeliveryAttemptsResponse> => {
+        if (mode === 'demo') {
+          return mockStore.getDeliveryAttempts(id)
+        }
+        return deliveriesApi.fetchDeliveryAttempts(id)
+      },
 
-    getDeliveryLogs: async (id: string): Promise<DeliveryLogsResponse> => {
-      if (mode === 'demo') {
-        return mockStore.getDeliveryLogs(id)
-      }
-      return deliveriesApi.fetchDeliveryLogs(id)
-    },
+      getDeliveryLogs: async (id: string): Promise<DeliveryLogsResponse> => {
+        if (mode === 'demo') {
+          return mockStore.getDeliveryLogs(id)
+        }
+        return deliveriesApi.fetchDeliveryLogs(id)
+      },
 
-    getDeadLetters: async (): Promise<Delivery[]> => {
-      if (mode === 'demo') {
-        return mockStore.getDeadLetters()
-      }
-      return deliveriesApi.fetchDeadLetterDeliveries()
-    },
+      getDeadLetters: async (): Promise<Delivery[]> => {
+        if (mode === 'demo') {
+          return mockStore.getDeadLetters()
+        }
+        return deliveriesApi.fetchDeadLetterDeliveries()
+      },
 
-    replayDelivery: async (id: string) => {
-      if (mode === 'demo') {
-        return mockStore.replayDelivery(id)
-      }
-      return deliveriesApi.replayDelivery(id)
-    },
+      replayDelivery: async (id: string) => {
+        if (mode === 'demo') {
+          return mockStore.replayDelivery(id)
+        }
+        return deliveriesApi.replayDelivery(id)
+      },
 
-    resendDelivery: async (id: string, options?: ResendDeliveryOptions): Promise<ResendDeliveryResult> => {
-      if (mode === 'demo') {
-        return mockStore.resendDelivery(id, options)
-      }
-      return deliveriesApi.resendDelivery(id, options)
-    },
+      resendDelivery: async (id: string, options?: ResendDeliveryOptions): Promise<ResendDeliveryResult> => {
+        if (mode === 'demo') {
+          return mockStore.resendDelivery(id, options)
+        }
+        return deliveriesApi.resendDelivery(id, options)
+      },
 
-    scheduleDelivery: async (data: ScheduleDeliveryInput): Promise<Delivery> => {
-      if (mode === 'demo') {
-        return mockStore.scheduleDelivery(data)
-      }
-      return deliveriesApi.scheduleDelivery(data)
-    },
+      scheduleDelivery: async (data: ScheduleDeliveryInput): Promise<Delivery> => {
+        if (mode === 'demo') {
+          return mockStore.scheduleDelivery(data)
+        }
+        return deliveriesApi.scheduleDelivery(data)
+      },
 
-    getScheduledDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams): Promise<deliveriesApi.PaginatedList<Delivery>> => {
-      if (mode === 'demo') {
-        return mockStore.getScheduledDeliveries(filter)
-      }
-      return deliveriesApi.fetchScheduledDeliveries(filter)
-    },
+      getScheduledDeliveries: async (filter?: deliveriesApi.DeliveryQueryParams): Promise<deliveriesApi.PaginatedList<Delivery>> => {
+        if (mode === 'demo') {
+          return mockStore.getScheduledDeliveries(filter)
+        }
+        return deliveriesApi.fetchScheduledDeliveries(filter)
+      },
 
-    getScheduledDeliveryById: async (id: string): Promise<Delivery | undefined> => {
-      if (mode === 'demo') {
-        return mockStore.getDelivery(id)
-      }
-      return deliveriesApi.fetchScheduledDeliveryById(id)
-    },
+      getScheduledDeliveryById: async (id: string): Promise<Delivery | undefined> => {
+        if (mode === 'demo') {
+          return mockStore.getDelivery(id)
+        }
+        return deliveriesApi.fetchScheduledDeliveryById(id)
+      },
 
-    cancelScheduledDelivery: async (id: string) => {
-      if (mode === 'demo') {
-        return mockStore.cancelScheduledDelivery(id)
-      }
-      return deliveriesApi.cancelScheduledDelivery(id)
-    },
+      cancelScheduledDelivery: async (id: string) => {
+        if (mode === 'demo') {
+          return mockStore.cancelScheduledDelivery(id)
+        }
+        return deliveriesApi.cancelScheduledDelivery(id)
+      },
 
-    bulkReplayDeliveries: async (deliveryIds: string[]) => {
-      if (mode === 'demo') {
-        return mockStore.bulkReplayDeliveries(deliveryIds)
-      }
-      return deliveriesApi.bulkReplayDeliveries(deliveryIds)
-    },
+      bulkReplayDeliveries: async (deliveryIds: string[]) => {
+        if (mode === 'demo') {
+          return mockStore.bulkReplayDeliveries(deliveryIds)
+        }
+        return deliveriesApi.bulkReplayDeliveries(deliveryIds)
+      },
 
-    getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<OverviewMetrics> => {
-      const normalized = typeof filter === 'string' ? { range: filter } : filter
-      if (mode === 'demo') {
-        return mockStore.getOverviewMetrics(normalized)
-      }
-      return metricsApi.fetchOverviewMetrics(normalized)
-    },
+      getOverviewMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<OverviewMetrics> => {
+        const normalized = typeof filter === 'string' ? { range: filter } : filter
+        if (mode === 'demo') {
+          return mockStore.getOverviewMetrics(normalized)
+        }
+        return metricsApi.fetchOverviewMetrics(normalized)
+      },
 
-    getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<TimeSeriesDataPoint[]> => {
-      const normalized = typeof filter === 'string' ? { range: filter } : filter
-      if (mode === 'demo') {
-        return mockStore.getTimeSeriesMetrics(normalized)
-      }
-      return metricsApi.fetchTimeSeriesMetrics(normalized)
-    },
+      getTimeSeriesMetrics: async (filter?: metricsApi.MetricsQueryParams | string): Promise<TimeSeriesDataPoint[]> => {
+        const normalized = typeof filter === 'string' ? { range: filter } : filter
+        if (mode === 'demo') {
+          return mockStore.getTimeSeriesMetrics(normalized)
+        }
+        return metricsApi.fetchTimeSeriesMetrics(normalized)
+      },
 
-    getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams | string): Promise<StatusDistribution[]> => {
-      const normalized = typeof filter === 'string' ? { range: filter } : filter
-      if (mode === 'demo') {
-        return mockStore.getStatusDistribution(normalized)
-      }
-      return metricsApi.fetchStatusDistribution(normalized)
-    },
+      getStatusDistribution: async (filter?: metricsApi.MetricsQueryParams | string): Promise<StatusDistribution[]> => {
+        const normalized = typeof filter === 'string' ? { range: filter } : filter
+        if (mode === 'demo') {
+          return mockStore.getStatusDistribution(normalized)
+        }
+        return metricsApi.fetchStatusDistribution(normalized)
+      },
 
-    getTemplates: async (filter?: templatesApi.TemplateQueryParams): Promise<WebhookTemplate[]> => {
-      if (mode === 'demo') {
-        return mockStore.getTemplates(filter)
-      }
-      return templatesApi.fetchTemplates(filter)
-    },
+      getTemplates: async (filter?: templatesApi.TemplateQueryParams): Promise<WebhookTemplate[]> => {
+        if (mode === 'demo') {
+          return mockStore.getTemplates(filter)
+        }
+        return templatesApi.fetchTemplates(filter)
+      },
 
-    getTemplateById: async (id: string): Promise<WebhookTemplate | undefined> => {
-      if (mode === 'demo') {
-        return mockStore.getTemplate(id)
-      }
-      return templatesApi.fetchTemplateById(id)
-    },
+      getTemplateById: async (id: string): Promise<WebhookTemplate | undefined> => {
+        if (mode === 'demo') {
+          return mockStore.getTemplate(id)
+        }
+        return templatesApi.fetchTemplateById(id)
+      },
 
-    createTemplate: async (data: CreateTemplateInput): Promise<WebhookTemplate> => {
-      if (mode === 'demo') {
-        return mockStore.createTemplate(data)
-      }
-      return templatesApi.createTemplate(data)
-    },
+      createTemplate: async (data: CreateTemplateInput): Promise<WebhookTemplate> => {
+        if (mode === 'demo') {
+          return mockStore.createTemplate(data)
+        }
+        return templatesApi.createTemplate(data)
+      },
 
-    updateTemplate: async (id: string, data: UpdateTemplateInput): Promise<WebhookTemplate> => {
-      if (mode === 'demo') {
-        const updated = mockStore.updateTemplate(id, data)
-        if (!updated) throw new Error('Template not found')
-        return updated
-      }
-      return templatesApi.updateTemplate(id, data)
-    },
+      updateTemplate: async (id: string, data: UpdateTemplateInput): Promise<WebhookTemplate> => {
+        if (mode === 'demo') {
+          const updated = mockStore.updateTemplate(id, data)
+          if (!updated) throw new Error('Template not found')
+          return updated
+        }
+        return templatesApi.updateTemplate(id, data)
+      },
 
-    deleteTemplate: async (id: string): Promise<{ success: boolean; id: string; message: string }> => {
-      if (mode === 'demo') {
-        const res = mockStore.deleteTemplate(id)
-        if (!res) throw new Error('Template not found')
-        return res
-      }
-      return templatesApi.deleteTemplate(id)
-    },
+      deleteTemplate: async (id: string): Promise<{ success: boolean; id: string; message: string }> => {
+        if (mode === 'demo') {
+          const res = mockStore.deleteTemplate(id)
+          if (!res) throw new Error('Template not found')
+          return res
+        }
+        return templatesApi.deleteTemplate(id)
+      },
 
-    applyTemplate: async (id: string, overrides?: Record<string, unknown>): Promise<TemplateApplyResult> => {
-      if (mode === 'demo') {
-        return mockStore.applyTemplate(id, overrides)
-      }
-      return templatesApi.applyTemplate(id, overrides)
-    },
+      applyTemplate: async (id: string, overrides?: Record<string, unknown>): Promise<TemplateApplyResult> => {
+        if (mode === 'demo') {
+          return mockStore.applyTemplate(id, overrides)
+        }
+        return templatesApi.applyTemplate(id, overrides)
+      },
 
-    createEndpointFromTemplate: async (id: string, overrides?: Record<string, unknown>): Promise<Endpoint> => {
-      if (mode === 'demo') {
-        return mockStore.createEndpointFromTemplate(id, overrides)
-      }
-      return templatesApi.createEndpointFromTemplate(id, overrides)
-    },
-    getRedisMonitoring: async (): Promise<RedisMonitoringOverview> => {
-      if (mode === 'demo') {
-        return mockStore.getRedisMonitoring()
-      }
-      return monitoringApi.getRedisMonitoring()
-    },
-  }), [mode])
+      createEndpointFromTemplate: async (id: string, overrides?: Record<string, unknown>): Promise<Endpoint> => {
+        if (mode === 'demo') {
+          return mockStore.createEndpointFromTemplate(id, overrides)
+        }
+        return templatesApi.createEndpointFromTemplate(id, overrides)
+      },
+      getRedisMonitoring: async (): Promise<RedisMonitoringOverview> => {
+        if (mode === 'demo') {
+          return mockStore.getRedisMonitoring()
+        }
+        return monitoringApi.getRedisMonitoring()
+      },
+    }), [mode])
 
   return (
     <AppContext.Provider

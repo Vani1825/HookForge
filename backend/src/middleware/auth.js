@@ -42,6 +42,17 @@ function isActuatorPath(pathStr) {
 }
 
 /**
+ * Check whether a path matches the metrics telemetry endpoint (/metrics or /metrics/*)
+ * @param {string} pathStr
+ * @returns {boolean}
+ */
+function isMetricsPath(pathStr) {
+  if (!pathStr || typeof pathStr !== 'string') return false;
+  const cleanPath = pathStr.split('?')[0];
+  return cleanPath === '/metrics' || cleanPath.startsWith('/metrics/');
+}
+
+/**
  * Compute SHA-256 hash of API key (hex string)
  * @param {string} apiKey - The raw API key
  * @returns {string} Hex-encoded SHA-256 hash
@@ -159,6 +170,22 @@ export async function apiKeyAuth(req, res, next) {
       return await setAuthHeaderAndRespond401('Empty API key');
     }
   } else {
+    // If unauthenticated request is hitting /metrics, fall back to default dev tenant or proceed system-wide
+    if (isMetricsPath(currentPath) || isMetricsPath(originalPath)) {
+      try {
+        const defaultTenant = typeof tenantRepository.findFirst === 'function'
+          ? await tenantRepository.findFirst()
+          : null;
+        if (defaultTenant) {
+          req[TENANT_ID_ATTRIBUTE] = defaultTenant.id;
+          req.tenantId = defaultTenant.id;
+        }
+      } catch (err) {
+        logger.debug('Default tenant lookup skipped for /metrics', { error: err.message });
+      }
+      return next();
+    }
+
     logger.warn('Missing Authorization header', {
       path: req.path,
       method: req.method,
