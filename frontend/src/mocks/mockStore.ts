@@ -20,6 +20,7 @@ import type {
   DeliveryLogsResponse,
   DeliveryLogEntry,
   DeliveryDiagnostics,
+  RedisMonitoringOverview,
 } from '../types'
 import { createPaginatedList, type PaginatedList, type DeliveryQueryParams } from '../api/deliveries'
 import type { EventQueryParams } from '../api/events'
@@ -33,6 +34,7 @@ import {
   INITIAL_MOCK_ATTEMPTS,
   MOCK_TIME_SERIES,
   INITIAL_MOCK_TEMPLATES,
+  INITIAL_MOCK_REDIS_MONITORING,
 } from './mockData'
 
 class MockStore {
@@ -1571,6 +1573,62 @@ class MockStore {
       retryBackoffMultiplier: applied.retryBackoffMultiplier,
       templateId: id,
     })
+  }
+
+  // --- Redis & System Monitoring Simulation ---
+  private redisSimulatedState: 'healthy' | 'degraded' | 'offline' = 'healthy'
+
+  setRedisSimulatedState(state: 'healthy' | 'degraded' | 'offline'): void {
+    this.redisSimulatedState = state
+  }
+
+  getRedisSimulatedState(): 'healthy' | 'degraded' | 'offline' {
+    return this.redisSimulatedState
+  }
+
+  getRedisMonitoring(): RedisMonitoringOverview {
+    const base = { ...INITIAL_MOCK_REDIS_MONITORING }
+    const now = new Date().toISOString()
+
+    if (this.redisSimulatedState === 'degraded') {
+      return {
+        ...base,
+        timestamp: now,
+        systemStatus: 'degraded',
+        isFallbackActive: true,
+        fallbackReason: 'High Redis latency detected (2,450ms). Read lookups temporarily degraded to PostgreSQL transactions.',
+        health: {
+          status: 'down',
+          latencyMs: 2450,
+          error: 'Redis latency spike (2,450ms) - cluster resharding in progress',
+        },
+      }
+    }
+
+    if (this.redisSimulatedState === 'offline') {
+      return {
+        ...base,
+        timestamp: now,
+        systemStatus: 'degraded',
+        isFallbackActive: true,
+        fallbackReason: 'Redis daemon is offline (ECONNREFUSED). Resilient fallback active: all lookups served by PostgreSQL ACID engine and in-memory sliding-window rate limiters. Zero dropped deliveries.',
+        health: {
+          status: 'down',
+          error: 'ECONNREFUSED 127.0.0.1:6379 - Connection to Redis server failed',
+        },
+      }
+    }
+
+    return {
+      ...base,
+      timestamp: now,
+      systemStatus: 'up',
+      isFallbackActive: false,
+      health: {
+        status: 'up',
+        latencyMs: 2,
+      },
+    }
   }
 }
 

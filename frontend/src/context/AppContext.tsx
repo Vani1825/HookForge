@@ -6,6 +6,7 @@ import * as eventsApi from '../api/events'
 import * as deliveriesApi from '../api/deliveries'
 import * as metricsApi from '../api/metrics'
 import * as templatesApi from '../api/templates'
+import * as monitoringApi from '../api/monitoring'
 import type {
   Endpoint,
   WebhookEvent,
@@ -22,6 +23,8 @@ import type {
   TemplateApplyResult,
   DeliveryAttemptsResponse,
   DeliveryLogsResponse,
+  RedisMonitoringOverview,
+  RedisHealthInfo,
 } from '../types'
 
 export type AppMode = 'live' | 'demo'
@@ -42,9 +45,11 @@ interface AppContextValue {
   apiKey: string
   setApiKey: (key: string) => void
   backendHealth: {
-    status: 'checking' | 'up' | 'down'
+    status: 'checking' | 'up' | 'down' | 'degraded'
     error?: string
     timestamp?: string
+    database?: { status: 'up' | 'down'; error?: string }
+    redis?: RedisHealthInfo
   }
   checkHealth: () => Promise<void>
   toasts: ToastMessage[]
@@ -82,6 +87,7 @@ interface AppContextValue {
     deleteTemplate: (id: string) => Promise<{ success: boolean; id: string; message: string }>
     applyTemplate: (id: string, overrides?: Record<string, unknown>) => Promise<TemplateApplyResult>
     createEndpointFromTemplate: (id: string, overrides?: Record<string, unknown>) => Promise<Endpoint>
+    getRedisMonitoring: () => Promise<RedisMonitoringOverview>
   }
 }
 
@@ -113,9 +119,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   })
 
   const [backendHealth, setBackendHealth] = useState<{
-    status: 'checking' | 'up' | 'down'
+    status: 'checking' | 'up' | 'down' | 'degraded'
     error?: string
     timestamp?: string
+    database?: { status: 'up' | 'down'; error?: string }
+    redis?: RedisHealthInfo
   }>({ status: 'checking' })
 
   const [toasts, setToasts] = useState<ToastMessage[]>([])
@@ -157,17 +165,21 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   const checkHealth = useCallback(async () => {
     try {
-      setBackendHealth({ status: 'checking' })
+      setBackendHealth((prev) => ({ ...prev, status: 'checking' }))
       const res = await checkBackendHealth()
-      if (res.status === 'up') {
-        setBackendHealth({ status: 'up', timestamp: res.timestamp })
-      } else {
-        setBackendHealth({
-          status: 'down',
-          error: res.checks?.database?.error || 'Backend reported unhealthy status',
-          timestamp: res.timestamp,
-        })
-      }
+      const redisStatus = res.checks?.redis?.status
+      const dbStatus = res.checks?.database?.status
+      const overallStatus =
+        res.status ||
+        (dbStatus === 'up' ? (redisStatus === 'down' ? 'degraded' : 'up') : 'down')
+
+      setBackendHealth({
+        status: overallStatus,
+        timestamp: res.timestamp,
+        database: res.checks?.database,
+        redis: res.checks?.redis,
+        error: res.checks?.database?.error || res.checks?.redis?.error,
+      })
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : 'Cannot reach backend server'
       setBackendHealth({
@@ -401,6 +413,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         return mockStore.createEndpointFromTemplate(id, overrides)
       }
       return templatesApi.createEndpointFromTemplate(id, overrides)
+    },
+
+    getRedisMonitoring: async (): Promise<RedisMonitoringOverview> => {
+      if (mode === 'demo') {
+        return mockStore.getRedisMonitoring()
+      }
+      return monitoringApi.getRedisMonitoring()
     },
   }
 
