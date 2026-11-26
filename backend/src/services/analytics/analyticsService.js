@@ -5,6 +5,8 @@
 
 import analyticsRepository from '../../repositories/jdbc/analyticsRepository.js';
 import logger from '../../utils/logger.js';
+import config from '../../config/index.js';
+import cacheService from '../cache/cacheService.js';
 
 /**
  * Helper to parse and resolve date range boundaries.
@@ -86,13 +88,25 @@ export async function getOverviewMetrics(tenantId, queryOptions = {}) {
 
   const { startDate, endDate } = resolveDateRange(queryOptions, null);
 
+  const startKey = startDate ? startDate.toISOString() : 'all';
+  const endKey = endDate ? endDate.toISOString() : 'all';
+  const cacheKey = `tenant:${tenantId}:analytics:overview:${startKey}:${endKey}`;
+
+  const cached = await cacheService.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   logger.debug('Fetching overview metrics', {
     tenantId,
     startDate: startDate?.toISOString(),
     endDate: endDate?.toISOString(),
   });
 
-  return analyticsRepository.getOverviewMetrics(tenantId, { startDate, endDate });
+  const metrics = await analyticsRepository.getOverviewMetrics(tenantId, { startDate, endDate });
+  const ttl = config.redis?.cacheTtlSeconds?.analyticsOverview || 60;
+  await cacheService.set(cacheKey, metrics, ttl);
+  return metrics;
 }
 
 /**

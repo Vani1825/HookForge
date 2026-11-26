@@ -12,6 +12,7 @@ import httpWebhookSender from '../delivery/httpWebhookSender.js';
 import { ValidationError, NotFoundError } from '../../middleware/errorHandler.js';
 import config from '../../config/index.js';
 import logger from '../../utils/logger.js';
+import cacheService from '../cache/cacheService.js';
 
 /**
  * Generate a webhook signing secret.
@@ -211,6 +212,9 @@ export async function create(tenantId, request) {
     retryStrategy: endpoint.retryStrategy,
   });
 
+  // Invalidate tenant endpoints list cache
+  await cacheService.del(`tenant:${tenantId}:endpoints:list`);
+
   // Return endpoint with secret (shown only on create)
   return endpoint;
 }
@@ -222,10 +226,17 @@ export async function create(tenantId, request) {
  * @returns {Promise<Array>} Array of endpoint DTOs (without secret)
  */
 export async function list(tenantId) {
-  const endpoints = await endpointRepository.findAllByTenant(tenantId);
+  const cacheKey = `tenant:${tenantId}:endpoints:list`;
+  const cached = await cacheService.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
 
-  // Convert to response DTOs (exclude secret)
-  return endpoints.map(toResponseDTO);
+  const endpoints = await endpointRepository.findAllByTenant(tenantId);
+  const dtos = endpoints.map(toResponseDTO);
+  const ttl = config.redis?.cacheTtlSeconds?.endpointsList || 300;
+  await cacheService.set(cacheKey, dtos, ttl);
+  return dtos;
 }
 
 /**
@@ -236,6 +247,12 @@ export async function list(tenantId) {
  * @returns {Promise<Object|null>} Endpoint DTO (without secret) or null if not found
  */
 export async function getById(tenantId, endpointId) {
+  const cacheKey = `tenant:${tenantId}:endpoint:${endpointId}`;
+  const cached = await cacheService.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   const endpoint = await endpointRepository.findByIdAndTenant(
     endpointId,
     tenantId
@@ -249,7 +266,10 @@ export async function getById(tenantId, endpointId) {
     return null;
   }
 
-  return toResponseDTO(endpoint);
+  const dto = toResponseDTO(endpoint);
+  const ttl = config.redis?.cacheTtlSeconds?.endpoint || 300;
+  await cacheService.set(cacheKey, dto, ttl);
+  return dto;
 }
 
 /**
@@ -313,6 +333,12 @@ export async function update(tenantId, endpointId, request) {
     tenantId,
   });
 
+  // Invalidate caches
+  await Promise.all([
+    cacheService.del(`tenant:${tenantId}:endpoint:${endpointId}`),
+    cacheService.del(`tenant:${tenantId}:endpoints:list`),
+  ]);
+
   // Return DTO without secret
   return toResponseDTO(updated);
 }
@@ -325,11 +351,7 @@ export async function update(tenantId, endpointId, request) {
  * @returns {Promise<Object|null>} Endpoint DTO (without secret) or null if not found
  */
 export async function get(tenantId, endpointId) {
-  const endpoint = await endpointRepository.findByIdAndTenant(endpointId, tenantId);
-  if (!endpoint) {
-    return null;
-  }
-  return toResponseDTO(endpoint);
+  return getById(tenantId, endpointId);
 }
 
 /**
@@ -345,6 +367,10 @@ export async function remove(tenantId, endpointId) {
     return null;
   }
   await endpointRepository.deactivate(endpointId);
+  await Promise.all([
+    cacheService.del(`tenant:${tenantId}:endpoint:${endpointId}`),
+    cacheService.del(`tenant:${tenantId}:endpoints:list`),
+  ]);
   return { success: true, id: endpointId, active: false };
 }
 
