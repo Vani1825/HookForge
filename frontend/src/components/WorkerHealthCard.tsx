@@ -17,7 +17,7 @@ import type { WorkerHealth } from '../types'
 
 interface WorkerHealthCardProps {
   health: {
-    status: 'checking' | 'up' | 'down'
+    status: 'checking' | 'up' | 'down' | 'degraded'
     error?: string
     timestamp?: string
     checks?: {

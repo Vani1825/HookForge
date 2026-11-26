@@ -936,3 +936,65 @@ export const INITIAL_MOCK_TEMPLATES: WebhookTemplate[] = [
     updatedAt: new Date(Date.now() - 5 * 86400000).toISOString(),
   },
 ]
+
+export const INITIAL_MOCK_REDIS_MONITORING = {
+  health: {
+    status: 'up' as const,
+    latencyMs: 2,
+  },
+  systemStatus: 'up' as const,
+  timestamp: new Date().toISOString(),
+  isFallbackActive: false,
+  cache: {
+    hits: 18450,
+    misses: 1820,
+    totalLookups: 20270,
+    hitRatio: 91.0,
+    sets: 2150,
+    deletes: 320,
+    keysCount: 148,
+    ttlConfig: {
+      endpointTtlSeconds: 300,
+      endpointsListTtlSeconds: 300,
+      analyticsOverviewTtlSeconds: 60,
+    },
+  },
+  rateLimiting: {
+    allowedRequests: 42580,
+    throttledRequests: 142,
+    totalEvaluated: 42722,
+    throttleRate: 0.33,
+    policies: [
+      {
+        name: 'Tenant API Rate Limit',
+        type: 'tenant' as const,
+        limit: 100,
+        windowMs: 1000,
+        unit: '100 req/sec',
+        description: 'Distributed sliding window limit per authenticated tenant key',
+        currentUsage: 14,
+      },
+      {
+        name: 'Failed Authentication Protection',
+        type: 'auth_fail' as const,
+        limit: 10,
+        windowMs: 60000,
+        unit: '10 failures/min',
+        description: 'IP-based brute-force throttle on failed API key verifications',
+        currentUsage: 0,
+      },
+      {
+        name: 'Health Check Rate Limit',
+        type: 'health' as const,
+        limit: 30,
+        windowMs: 60000,
+        unit: '30 req/min',
+        description: 'IP-based rate limit protecting PostgreSQL connection pool from health probes',
+        currentUsage: 2,
+      },
+    ],
+  },
+  connectedClients: 12,
+  memoryUsedMb: 24.6,
+  mode: 'demo' as const,
+}

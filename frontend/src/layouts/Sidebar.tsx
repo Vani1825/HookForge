@@ -16,6 +16,7 @@ import {
   CalendarClock,
   FlaskConical,
   LayoutTemplate,
+  Activity,
 } from 'lucide-react'
 import { cn } from '../utils/cn'
 import { useApp } from '../context/AppContext'
@@ -50,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Dead Letter Queue', path: '/dead-letters', icon: AlertOctagon, badge: '3' },
       { label: 'Replay Queue', path: '/replay', icon: RotateCw },
       { label: 'Endpoint Testing', path: '/endpoint-testing', icon: FlaskConical },
+      { label: 'System Monitoring', path: '/monitoring', icon: Activity },
     ],
   },
   {
@@ -80,8 +82,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onToggleCollapse,
 }) => {
   const { backendHealth } = useApp()
-  const isDbUp = backendHealth.status === 'up'
+  const isHealthy = backendHealth.status === 'up'
   const isChecking = backendHealth.status === 'checking'
+  const isDbUp =
+    backendHealth.database?.status === 'up' ||
+    backendHealth.checks?.database?.status === 'up' ||
+    (!backendHealth.database && !backendHealth.checks?.database && isHealthy)
+  const isRedisUp =
+    backendHealth.redis?.status === 'up' ||
+    backendHealth.checks?.redis?.status === 'up'
+  const isRedisDisabled =
+    backendHealth.redis?.status === 'disabled' ||
+    backendHealth.checks?.redis?.status === 'disabled'
 
   // Close mobile drawer on Escape key press
   useEffect(() => {
@@ -337,25 +349,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Full status view on mobile drawer and expanded desktop */}
-          <div
+          <NavLink
+            to="/monitoring"
             className={cn(
-              'p-2 rounded-md bg-[#F7F6F2] border border-[#E7E8EC] space-y-1.5 text-3xs',
+              'block p-2 rounded-md bg-[#F7F6F2] hover:bg-[#F0EFEA] border border-[#E7E8EC] space-y-1.5 text-3xs transition-colors group cursor-pointer',
               isCollapsed && 'lg:hidden'
             )}
+            title="View detailed Redis & System Monitoring"
           >
             <div className="flex items-center justify-between text-[#64748B]">
-              <span className="font-semibold uppercase tracking-wider text-3xs text-[#64748B] select-none">
+              <span className="font-semibold uppercase tracking-wider text-3xs text-[#64748B] select-none group-hover:text-[#5277D9]">
                 SYSTEM STATUS
               </span>
               <span className="inline-flex items-center gap-1 font-medium whitespace-nowrap">
                 <span
                   className={cn(
                     'w-1.5 h-1.5 rounded-full inline-block shrink-0',
-                    isDbUp ? 'bg-[#159B78]' : isChecking ? 'bg-[#E5B34B]' : 'bg-[#E76B64]'
+                    isHealthy ? 'bg-[#159B78]' : isChecking ? 'bg-[#E5B34B]' : 'bg-[#E76B64]'
                   )}
                 />
-                <span className={cn(isDbUp ? 'text-[#159B78]' : isChecking ? 'text-[#E5B34B]' : 'text-[#E76B64]')}>
-                  {isDbUp ? 'Healthy' : isChecking ? 'Checking' : 'Degraded'}
+                <span className={cn(isHealthy ? 'text-[#159B78]' : isChecking ? 'text-[#E5B34B]' : 'text-[#E76B64]')}>
+                  {isHealthy ? 'Healthy' : isChecking ? 'Checking' : 'Degraded'}
                 </span>
               </span>
             </div>
@@ -369,13 +383,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-[#64748B]">
+                <span>Redis Cache</span>
+                <span
+                  className={cn(
+                    'font-medium whitespace-nowrap',
+                    isRedisUp
+                      ? 'text-[#159B78]'
+                      : isRedisDisabled
+                      ? 'text-[#64748B]'
+                      : 'text-[#E5B34B]'
+                  )}
+                >
+                  {isRedisUp ? 'Active' : isRedisDisabled ? 'Disabled' : 'Fallback'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-[#64748B]">
                 <span>Delivery Engine</span>
                 <span className={cn('font-medium whitespace-nowrap', isDbUp ? 'text-[#202938]' : 'text-[#E76B64]')}>
                   {isDbUp ? 'Active' : 'Halted'}
                 </span>
               </div>
             </div>
-          </div>
+          </NavLink>
         </div>
       </aside>
     </>

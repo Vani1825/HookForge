@@ -13,6 +13,7 @@ import { DeadLettersPage } from './pages/DeadLettersPage'
 import { ReplayPage } from './pages/ReplayPage'
 import { AnalyticsPage } from './pages/AnalyticsPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { RedisMonitoringPage } from './pages/RedisMonitoringPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 export function App() {
@@ -33,6 +34,8 @@ export function App() {
               <Route path="dead-letters" element={<DeadLettersPage />} />
               <Route path="replay" element={<ReplayPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="monitoring" element={<RedisMonitoringPage />} />
+              <Route path="redis" element={<Navigate to="/monitoring" replace />} />
               <Route path="settings" element={<SettingsPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>

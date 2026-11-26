@@ -192,8 +192,14 @@ export interface WorkerHealth {
   error?: string
 }
 
+export interface RedisHealthInfo {
+  status: 'up' | 'down' | 'disabled'
+  latencyMs?: number
+  error?: string
+}
+
 export interface HealthResponse {
-  status: 'up' | 'down'
+  status: 'up' | 'down' | 'degraded'
   timestamp: string
   checks?: {
     database?: {
@@ -201,7 +207,54 @@ export interface HealthResponse {
       error?: string
     }
     worker?: WorkerHealth
+    redis?: RedisHealthInfo
   }
+}
+
+export interface CacheTelemetry {
+  hits: number
+  misses: number
+  totalLookups: number
+  hitRatio: number
+  sets: number
+  deletes: number
+  keysCount?: number
+  ttlConfig: {
+    endpointTtlSeconds: number
+    endpointsListTtlSeconds: number
+    analyticsOverviewTtlSeconds: number
+  }
+}
+
+export interface RateLimitPolicy {
+  name: string
+  type: 'tenant' | 'auth_fail' | 'health'
+  limit: number
+  windowMs: number
+  unit: string
+  description: string
+  currentUsage?: number
+}
+
+export interface RateLimitTelemetry {
+  allowedRequests: number
+  throttledRequests: number
+  totalEvaluated: number
+  throttleRate: number
+  policies: RateLimitPolicy[]
+}
+
+export interface RedisMonitoringOverview {
+  health: RedisHealthInfo
+  systemStatus: 'up' | 'down' | 'degraded'
+  timestamp: string
+  isFallbackActive: boolean
+  fallbackReason?: string
+  cache: CacheTelemetry
+  rateLimiting: RateLimitTelemetry
+  connectedClients?: number
+  memoryUsedMb?: number
+  mode: 'live' | 'demo'
 }
 
 export interface OverviewMetrics {
