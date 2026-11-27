@@ -60,6 +60,8 @@ describe('Auth Routes (SaaS)', () => {
     app.use(express.json());
     app.use(cookieParser());
     app.use('/auth', authRouter);
+    app.use('/api/v1/auth', authRouter);
+    app.use('/api/auth', authRouter);
     app.use(errorHandler);
   });
 
@@ -131,6 +133,46 @@ describe('Auth Routes (SaaS)', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error.type).toBe('validation_error');
+    });
+
+    it('should reject registration when email already exists with 409 Conflict', async () => {
+      const { ConflictError } = await import('../../src/middleware/errorHandler.js');
+      mockService.register.mockRejectedValue(new ConflictError('An account with this email already exists'));
+
+      const res = await request(app)
+        .post('/auth/register')
+        .send({
+          fullName: 'Duplicate User',
+          email: 'duplicate@example.com',
+          password: 'Password123!',
+        });
+
+      expect(res.status).toBe(409);
+      expect(res.body.error.type).toBe('conflict');
+      expect(res.body.error.message).toContain('already exists');
+    });
+
+    it('should support registration via /api/v1/auth/register alias', async () => {
+      mockService.register.mockResolvedValue({
+        user: mockUser,
+        currentWorkspace: mockWorkspace,
+        workspaces: [mockWorkspace],
+        sessionToken: 'sess_token_v1',
+        apiKey: 'whkey_v1_secret',
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/register')
+        .send({
+          fullName: 'Test User',
+          email: 'test@example.com',
+          password: 'Password123!',
+          workspaceName: 'Test Workspace',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.user.email).toBe('test@example.com');
+      expect(res.body.sessionToken).toBe('sess_token_v1');
     });
   });
 

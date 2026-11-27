@@ -53,6 +53,8 @@ const jsonParser = express.json({ limit: config.ingest.maxPayloadBytes });
 
 // SaaS Authentication and Account Lifecycle Routes
 app.use('/auth', jsonParser, authRouter);
+app.use('/api/v1/auth', jsonParser, authRouter);
+app.use('/api/auth', jsonParser, authRouter);
 
 // API routes with rate limiting, JSON body parsing, session or API key authentication:
 // Execution order:

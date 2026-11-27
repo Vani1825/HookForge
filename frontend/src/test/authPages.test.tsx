@@ -8,6 +8,7 @@ import { RegisterPage } from '../pages/RegisterPage'
 import { AuthGuard } from '../components/AuthGuard'
 import { AuthProvider } from '../context/AuthContext'
 import { AppProvider } from '../context/AppContext'
+import * as authApi from '../api/auth'
 
 describe('SaaS Auth Pages', () => {
   afterEach(() => {
@@ -117,6 +118,34 @@ describe('SaaS Auth Pages', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Passwords do not match.')).toBeDefined()
+      })
+    })
+
+    it('displays error banner when registration fails with duplicate email', async () => {
+      vi.spyOn(authApi, 'registerUser').mockRejectedValue(
+        new Error('An account with this email already exists')
+      )
+
+      render(
+        <AppProvider>
+          <AuthProvider>
+            <MemoryRouter>
+              <RegisterPage />
+            </MemoryRouter>
+          </AuthProvider>
+        </AppProvider>
+      )
+
+      fireEvent.change(screen.getByLabelText(/Full Name/i), { target: { value: 'Duplicate User' } })
+      fireEvent.change(screen.getByLabelText(/Work Email/i), { target: { value: 'duplicate@example.com' } })
+      fireEvent.change(screen.getByLabelText(/^Password \(min 8 characters\)/i), { target: { value: 'Password123' } })
+      fireEvent.change(screen.getByLabelText(/Confirm Password/i), { target: { value: 'Password123' } })
+
+      const submitBtn = screen.getByRole('button', { name: /Create Workspace/i })
+      fireEvent.click(submitBtn)
+
+      await waitFor(() => {
+        expect(screen.getByText('An account with this email already exists')).toBeDefined()
       })
     })
   })

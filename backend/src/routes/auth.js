@@ -261,7 +261,11 @@ router.post(
 router.get('/api-keys', requireSessionAuth, async (req, res, next) => {
   try {
     const keys = await authService.listApiKeysForTenant(req.tenantId);
-    res.status(200).json(keys);
+    if (keys && typeof keys === 'object' && Array.isArray(keys.apiKeys)) {
+      return res.status(200).json(keys);
+    }
+    const apiKeysList = Array.isArray(keys) ? keys : [];
+    res.status(200).json({ apiKeys: apiKeysList });
   } catch (err) {
     next(err);
   }
