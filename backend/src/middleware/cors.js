@@ -12,7 +12,8 @@
 import config from '../config/index.js';
 
 export const ALLOWED_METHODS = 'GET, POST, PATCH, PUT, DELETE, OPTIONS';
-export const ALLOWED_HEADERS = 'Content-Type, Authorization, Idempotency-Key, X-Api-Key, Accept';
+export const ALLOWED_HEADERS =
+  'Content-Type, Authorization, Idempotency-Key, X-Api-Key, X-Session-Token, X-Tenant-Id, Accept';
 export const MAX_AGE_SECONDS = '86400';
 
 /**
@@ -62,8 +63,9 @@ export function corsMiddleware(req, res, next) {
   const origin = req.headers.origin;
   const isProduction = config.nodeEnv === 'production';
 
+  const requestHeaders = req.headers['access-control-request-headers'];
   res.setHeader('Access-Control-Allow-Methods', ALLOWED_METHODS);
-  res.setHeader('Access-Control-Allow-Headers', ALLOWED_HEADERS);
+  res.setHeader('Access-Control-Allow-Headers', requestHeaders || ALLOWED_HEADERS);
   res.setHeader('Access-Control-Max-Age', MAX_AGE_SECONDS);
 
   if (origin) {

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Menu, Plus, Send, Search, MoreVertical, Bell } from 'lucide-react'
+import { Menu, Plus, Send, Search, MoreVertical, Bell, LogOut, Settings as SettingsIcon } from 'lucide-react'
 import { ModeToggle } from '../components/ModeToggle'
 import { Button } from '../components/ui/Button'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link, useNavigate } from 'react-router-dom'
 import { useNotifications } from '../context/NotificationContext'
 import { NotificationPanel } from '../components/NotificationPanel'
+import { useAuth } from '../context/AuthContext'
 
 interface HeaderProps {
   onOpenMobileMenu: () => void
@@ -20,19 +21,30 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSearch,
 }) => {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, currentWorkspace, logout } = useAuth()
   const { unreadCount, isPanelOpen, setIsPanelOpen, togglePanel } = useNotifications()
   const [mobileOverflowOpen, setMobileOverflowOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
 
-  // Close mobile overflow menu on Escape key press
+  const handleLogout = async () => {
+    setUserMenuOpen(false)
+    setMobileOverflowOpen(false)
+    await logout()
+    navigate('/login')
+  }
+
+  // Close mobile overflow menu and user menu on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && mobileOverflowOpen) {
-        setMobileOverflowOpen(false)
+      if (e.key === 'Escape') {
+        if (mobileOverflowOpen) setMobileOverflowOpen(false)
+        if (userMenuOpen) setUserMenuOpen(false)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [mobileOverflowOpen])
+  }, [mobileOverflowOpen, userMenuOpen])
 
   const getPageSectionAndTitle = (pathname: string) => {
     switch (pathname) {
@@ -156,12 +168,71 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Live / Demo Mode Switcher */}
         <ModeToggle />
 
-        {/* Developer Profile Avatar */}
-        <div
-          className="w-8 h-8 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] flex items-center justify-center font-bold text-xs select-none shadow-2xs shrink-0 cursor-default"
-          title="Developer Workspace (Default Dev Tenant)"
-        >
-          DEV
+        {/* User Profile Avatar & Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            className="w-8 h-8 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA] hover:border-[#5277D9] flex items-center justify-center font-bold text-xs select-none shadow-2xs shrink-0 cursor-pointer transition-colors"
+            title={user ? `${user.fullName} (${currentWorkspace?.name || 'Workspace'})` : 'Developer Workspace'}
+            aria-label="User Account Menu"
+            aria-expanded={userMenuOpen}
+          >
+            {user?.fullName
+              ? user.fullName
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .substring(0, 2)
+                  .toUpperCase()
+              : 'DEV'}
+          </button>
+
+          {userMenuOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setUserMenuOpen(false)}
+                aria-hidden="true"
+              />
+              <div className="absolute right-0 top-10 z-50 w-64 bg-white border border-[#E7E8EC] rounded-xl shadow-xl py-2 px-3 text-xs space-y-2">
+                <div className="border-b border-[#E7E8EC] pb-2">
+                  <p className="font-bold text-[#202938] truncate">{user?.fullName || 'Developer Admin'}</p>
+                  <p className="text-2xs text-[#64748B] truncate">{user?.email || 'developer@hookforge.dev'}</p>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <span className="text-3xs font-semibold px-2 py-0.5 rounded-full bg-[#EAF0FF] text-[#5277D9] border border-[#DCE5FA]">
+                      {currentWorkspace?.name || 'Default Workspace'}
+                    </span>
+                    {currentWorkspace?.role && (
+                      <span className="text-3xs font-semibold px-1.5 py-0.5 rounded-md bg-[#F7F6F2] text-[#64748B]">
+                        {currentWorkspace.role}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Link
+                    to="/settings"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-[#64748B] hover:text-[#202938] hover:bg-[#F7F6F2] transition-colors"
+                  >
+                    <SettingsIcon className="w-3.5 h-3.5" />
+                    <span>Workspace Settings</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-[#E76B64] hover:bg-[#FDF1F0] transition-colors cursor-pointer text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -301,6 +372,14 @@ export const Header: React.FC<HeaderProps> = ({
                   >
                     <Plus className="w-3.5 h-3.5 text-[#5277D9] shrink-0" />
                     <span>Add Webhook Endpoint</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg hover:bg-[#FDF1F0] text-[#E76B64] font-medium transition-colors cursor-pointer text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5 shrink-0" />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>
