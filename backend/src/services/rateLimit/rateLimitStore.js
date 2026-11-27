@@ -254,13 +254,67 @@ export class MemoryRateLimitStore extends RateLimitStore {
   }
 }
 
+let redisStoreInstance = null;
+
 /**
- * Singleton in-memory rate limit store used across the application.
+ * Delegating rate limit store that dynamically delegates to RedisRateLimitStore
+ * when Redis is configured and available, and falls back to MemoryRateLimitStore.
  */
-export const defaultRateLimitStore = new MemoryRateLimitStore();
+export class DelegatingRateLimitStore extends RateLimitStore {
+  constructor() {
+    super();
+    this.memoryStore = new MemoryRateLimitStore();
+  }
+
+  async getStore() {
+    if (!redisStoreInstance) {
+      try {
+        const { RedisRateLimitStore } = await import('./redisRateLimitStore.js');
+        redisStoreInstance = new RedisRateLimitStore({ fallbackStore: this.memoryStore });
+      } catch {
+        redisStoreInstance = this.memoryStore;
+      }
+    }
+    return redisStoreInstance;
+  }
+
+  async consume(type, key, limit, windowMs) {
+    const store = await this.getStore();
+    return store.consume(type, key, limit, windowMs);
+  }
+
+  async get(type, key, limit, windowMs) {
+    const store = await this.getStore();
+    return store.get(type, key, limit, windowMs);
+  }
+
+  async reset(type, key) {
+    const store = await this.getStore();
+    return store.reset(type, key);
+  }
+
+  cleanup() {
+    this.memoryStore.cleanup();
+  }
+
+  destroy() {
+    this.memoryStore.destroy();
+    if (redisStoreInstance && typeof redisStoreInstance.destroy === 'function') {
+      redisStoreInstance.destroy();
+    }
+    redisStoreInstance = null;
+  }
+}
+
+/**
+ * Singleton rate limit store used across the application.
+ * Automatically utilizes Redis distributed rate limiting when available.
+ */
+export const defaultRateLimitStore = new DelegatingRateLimitStore();
 
 export default {
   RateLimitStore,
   MemoryRateLimitStore,
+  DelegatingRateLimitStore,
   defaultRateLimitStore,
 };

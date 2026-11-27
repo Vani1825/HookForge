@@ -69,7 +69,7 @@ function _redactRecursive(value, depth, maxDepth, maxStringLen) {
     const result = {};
     for (const [k, v] of Object.entries(value)) {
       if (isSensitiveKey(k)) {
-        if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
+        if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
           result[k] = _redactRecursive(v, depth + 1, maxDepth, maxStringLen);
         } else {
           result[k] = '[REDACTED]';

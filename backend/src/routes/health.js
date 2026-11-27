@@ -7,17 +7,22 @@ import { Router } from 'express';
 import pool from '../config/database.js';
 import logger from '../utils/logger.js';
 import { getWorkerStatus } from '../services/delivery/dispatcher.js';
+import { isRedisHealthy } from '../config/redis.js';
 
 const router = Router();
 
 /**
  * GET /health
- * Returns health status including database connectivity and worker status
+ * Returns health status including database connectivity, Redis, and worker status
  */
 router.get('/', async (req, res, next) => {
   try {
-    // Check database connection
-    const dbResult = await pool.query('SELECT NOW()');
+    // Check database connection and Redis status in parallel
+    const [dbResult, redisCheck] = await Promise.all([
+      pool.query('SELECT NOW()'),
+      isRedisHealthy().catch((err) => ({ status: 'down', error: err?.message })),
+    ]);
+
     const dbStatus = dbResult.rows[0] ? 'up' : 'down';
 
     // Query active in-flight deliveries count from PostgreSQL queue
@@ -50,10 +55,12 @@ router.get('/', async (req, res, next) => {
           currentlyProcessing: Math.max(inFlightCount, workerTelemetry?.currentlyProcessing ?? 0),
           lastHeartbeat: workerTelemetry?.lastHeartbeat ?? null,
         },
+        redis: redisCheck,
       },
     });
   } catch (error) {
     logger.error('Health check failed', { error: error.message });
+    const redisCheck = await isRedisHealthy().catch(() => ({ status: 'down' }));
     res.status(503).json({
       status: 'down',
       timestamp: new Date().toISOString(),
@@ -69,6 +76,7 @@ router.get('/', async (req, res, next) => {
           currentlyProcessing: 0,
           lastHeartbeat: null,
         },
+        redis: redisCheck,
       },
     });
   }

@@ -114,11 +114,29 @@ class ApiClient {
       ...((customHeaders as Record<string, string>) || {}),
     }
 
-    const apiKey = this.getApiKey()
-    if (apiKey) {
-      headers['X-Api-Key'] = apiKey
-      // Also provide standard Bearer authorization header if preferred
-      headers['Authorization'] = `Bearer ${apiKey}`
+    const isPublicAuthRoute =
+      cleanEndpoint.startsWith('/auth/login') || cleanEndpoint.startsWith('/auth/register')
+
+    if (!isPublicAuthRoute) {
+      const apiKey = this.getApiKey()
+      if (apiKey) {
+        headers['X-Api-Key'] = apiKey
+        // Also provide standard Bearer authorization header if preferred
+        headers['Authorization'] = `Bearer ${apiKey}`
+      }
+
+      const sessionToken = localStorage.getItem('hookforge_session_token')
+      if (sessionToken) {
+        headers['X-Session-Token'] = sessionToken
+        if (!apiKey) {
+          headers['Authorization'] = `Session ${sessionToken}`
+        }
+      }
+
+      const currentWorkspaceId = localStorage.getItem('hookforge_workspace_id')
+      if (currentWorkspaceId) {
+        headers['X-Tenant-Id'] = currentWorkspaceId
+      }
     }
 
     const controller = new AbortController()
@@ -126,6 +144,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, {
+        credentials: fetchOptions.credentials || 'include',
         ...fetchOptions,
         headers,
         signal: controller.signal,

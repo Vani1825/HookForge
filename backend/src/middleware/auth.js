@@ -13,6 +13,7 @@
 
 import crypto from 'crypto';
 import tenantRepository from '../repositories/jdbc/tenantRepository.js';
+import apiKeyRepository from '../repositories/jdbc/apiKeyRepository.js';
 import logger from '../utils/logger.js';
 import config from '../config/index.js';
 import { getClientIp, recordAuthFailure } from './rateLimiter.js';
@@ -170,7 +171,14 @@ export async function apiKeyAuth(req, res, next) {
   const apiKeyHash = hashApiKey(apiKey);
 
   try {
-    const tenant = await tenantRepository.findByApiKeyHash(apiKeyHash);
+    let tenant = await tenantRepository.findByApiKeyHash(apiKeyHash);
+
+    if (!tenant) {
+      const activeKey = await apiKeyRepository.findActiveByKeyHash(apiKeyHash).catch(() => null);
+      if (activeKey) {
+        tenant = { id: activeKey.tenantId, name: activeKey.tenantName };
+      }
+    }
 
     if (!tenant) {
       logger.warn('Invalid API key - tenant not found', {

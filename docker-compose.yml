@@ -15,10 +15,25 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - redisdata:/data
+
   app:
     build: ./backend
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       DATABASE_HOST: postgres
@@ -27,6 +42,9 @@ services:
       DATABASE_PASSWORD: webhooks
       DATABASE_NAME: webhooks
       DATABASE_URL: "postgresql://webhooks:webhooks@postgres:5432/webhooks"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_ENABLED: "true"
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 8080
       HOST: 0.0.0.0
@@ -34,7 +52,8 @@ services:
       WEBHOOK_SECRET_ENCRYPTION_KEY: ${WEBHOOK_SECRET_ENCRYPTION_KEY:-xtjJgOfow8xiWAGfiGe6t0aS9tD2ml8WQyA+524ki7A=}
     command: sh -c "node scripts/migrate.js && if [ \"$$NODE_ENV\" != \"production\" ]; then node scripts/seed.js; fi && node src/server.js"
     ports:
-      - "${BACKEND_PORT:-${PORT:-8081}}:8080"
+      - "${BACKEND_PORT:-${PORT:-8080}}:8080"
+      - "8081:8080"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/health').then(r => r.ok ? process.exit(0) : process.exit(1)).catch(() => process.exit(1))\""]
       interval: 5s
@@ -44,3 +63,4 @@ services:
 
 volumes:
   pgdata:
+  redisdata:

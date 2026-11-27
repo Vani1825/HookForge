@@ -246,6 +246,30 @@ const config = {
     ),
   },
 
+  // Redis Caching and Distributed Rate Limiting configuration
+  redis: {
+    enabled:
+      process.env.REDIS_ENABLED === 'true' ||
+      (process.env.REDIS_ENABLED !== 'false' &&
+        Boolean(process.env.REDIS_URL || process.env.REDIS_HOST)),
+    url: process.env.REDIS_URL || null,
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || null,
+    db: parseInt(process.env.REDIS_DB || '0', 10),
+    keyPrefix: process.env.REDIS_KEY_PREFIX || 'hookforge:',
+    connectTimeoutMs: parsePositiveSafeInt(
+      process.env.REDIS_CONNECT_TIMEOUT_MS,
+      3000,
+      'REDIS_CONNECT_TIMEOUT_MS'
+    ),
+    cacheTtlSeconds: {
+      endpoint: parsePositiveSafeInt(process.env.CACHE_TTL_ENDPOINT, 300, 'CACHE_TTL_ENDPOINT'),
+      endpointsList: parsePositiveSafeInt(process.env.CACHE_TTL_ENDPOINTS_LIST, 300, 'CACHE_TTL_ENDPOINTS_LIST'),
+      analyticsOverview: parsePositiveSafeInt(process.env.CACHE_TTL_ANALYTICS, 60, 'CACHE_TTL_ANALYTICS'),
+    },
+  },
+
   // Trust proxy configuration (defaults to false to prevent spoofed X-Forwarded-For headers)
   trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
 };

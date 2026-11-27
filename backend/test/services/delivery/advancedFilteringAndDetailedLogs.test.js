@@ -261,7 +261,7 @@ describe("Phase 2 – Vani's Task 2: Advanced Filtering & Detailed Logs (Backend
       expect(countSql).toContain('d.created_at >= $6');
       expect(countSql).toContain('d.created_at <= $7');
       expect(countSql).toContain('SELECT 1 FROM delivery_attempts da');
-      expect(countSql).toContain('da.delivery_id = d.id AND da.status_code = $8');
+      expect(countSql).toContain('WHERE da.delivery_id = d.id AND da.status_code = $8');
       expect(countSql).toContain('d.attempt_count >= $9');
       expect(countSql).toContain('d.attempt_count <= $10');
       expect(countSql).toContain('ILIKE $11');
